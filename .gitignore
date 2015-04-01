@@ -1,4 +1,3 @@
-.DS_Store
 *.pdf
 *.eps
 *.log
@@ -17,3 +16,4 @@
 *.o
 auto/
 a.out
+\#*
