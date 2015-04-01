@@ -1,0 +1,1 @@
+Python package for automated analysis and visualization of gridded climate data.
