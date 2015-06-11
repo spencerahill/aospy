@@ -8,7 +8,7 @@ def aero_3agcm():
         name='aero_3agcm',
         vars=master_vars_list,
         direc_out='/archive/s1h/aero_3agcm/',
-        nc_dir_structure='gfdl',
+        nc_dir_struc='gfdl',
     )
     ### Runs ###
     ## AM2 runs.
@@ -408,28 +408,87 @@ def aero_3agcm():
         nc_end_yr=2012,
         default_yr_range=(1983, 2012)
     )
-    # # AM2 WPWP+2K
-    # am2_reyoi_wpwp_p2 = Run(
-    #     proj=a3gcm,
-    #     name='reyoi_wpwp+2K',
-    #     description='',
-    #     direc_nc='/archive/s1h/am2/am2clim_reyoi_wpwp+2K/gfdl.ncrc2-default-prod/pp/',
-    #     nc_dur=1,
-    #     nc_start_yr=1982,
-    #     nc_end_yr=2012,
-    #     default_yr_range=(1983, 2012)
-    # )
-    # # AM2 WPWP-2K
-    # am2_reyoi_wpwp_m2=Run(
-    #     proj=a3gcm,
-    #     name='reyoi_wpwp-2K',
-    #     description='',
-    #     direc_nc='/archive/s1h/am2/am2clim_reyoi_wpwp-2K/gfdl.ncrc2-default-prod/pp/',
-    #     nc_dur=30,
-    #     nc_start_yr=1983,
-    #     nc_end_yr=2012,
-    #     default_yr_range=(1983, 2012)
-    # )
+    # AM2 WPWP+2K
+    am2_reyoi_wpwp_p2 = Run(
+        proj=a3gcm,
+        name='reyoi_wpwp+2K',
+        description='',
+        direc_nc='/archive/s1h/am2/am2clim_reyoi_wpwp+2K/gfdl.ncrc2-default-prod/pp/',
+        nc_dur=1,
+        nc_start_yr=1982,
+        nc_end_yr=2012,
+        default_yr_range=(1983, 2012)
+    )
+    # AM2 WPWP-2K
+    am2_reyoi_wpwp_m2=Run(
+        proj=a3gcm,
+        name='reyoi_wpwp-2K',
+        description='',
+        direc_nc='/archive/s1h/am2/am2clim_reyoi_wpwp-2K/gfdl.ncrc2-default-prod/pp/',
+        nc_dur=30,
+        nc_start_yr=1983,
+        nc_end_yr=2012,
+        default_yr_range=(1983, 2012)
+    )
+    # AM2 WPWP-2K
+    am2_reyoi_wpwp_m2=Run(
+        proj=a3gcm,
+        name='reyoi_wpwp-2K',
+        description='',
+        direc_nc='/archive/s1h/am2/am2clim_reyoi_wpwp-2K/gfdl.ncrc2-default-prod/pp/',
+        nc_dur=30,
+        nc_start_yr=1983,
+        nc_end_yr=2012,
+        default_yr_range=(1983, 2012)
+    )
+    # AM2 locked clouds control
+    am2_cld_lock_cont=Run(
+        proj=a3gcm,
+        name='cld_lock_cont',
+        description='',
+        direc_nc=('/archive/yim/quickstart/m45_am2p14_1990_nocre_1995/'
+                  'gfdl.ncrc2-default-prod/pp/'),
+        nc_dur=16,
+        nc_start_yr=1983,
+        nc_end_yr=1998,
+        default_yr_range=(1983, 1998)
+    )
+    # AM2 locked clouds +2K clouds control SST
+    am2_cld_lock_cld=Run(
+        proj=a3gcm,
+        name='cld_lock+2Kcld',
+        description='',
+        direc_nc=('/archive/yim/quickstart/m45_am2p14_1990_nocre_1995_p2K_fix2/'
+                  'gfdl.ncrc2-default-prod/pp/'),
+        nc_dur=16,
+        nc_start_yr=1983,
+        nc_end_yr=1998,
+        default_yr_range=(1983, 1998)
+    )
+    # AM2 locked clouds +2K SST control clouds
+    am2_cld_lock_sst=Run(
+        proj=a3gcm,
+        name='cld_lock+2Ksst',
+        description='',
+        direc_nc=('/archive/yim/quickstart/m45_am2p14_1990_nocre_1995_p2K_fix1/'
+                  'gfdl.ncrc2-default-prod/pp/'),
+        nc_dur=16,
+        nc_start_yr=1983,
+        nc_end_yr=1998,
+        default_yr_range=(1983, 1998)
+    )
+    # AM2 locked clouds +2K both
+    am2_cld_lock_p2=Run(
+        proj=a3gcm,
+        name='cld_lock+2K',
+        description='',
+        direc_nc=('/archive/yim/quickstart/m45_am2p14_1990_nocre_1995_p2K/'
+                  'gfdl.ncrc2-default-prod/pp/'),
+        nc_dur=16,
+        nc_start_yr=1983,
+        nc_end_yr=1998,
+        default_yr_range=(1983, 1998)
+    )
     # # AM2 Hurrell SSTs control
     # am2_hurrell_cont = Run(
     #     proj=a3gcm,
@@ -640,6 +699,18 @@ def aero_3agcm():
         nc_end_yr=2010,
         default_yr_range=(1981, 2010)
     )
+    # AM3 Hurrell +1K
+    am3_hp1k = Run(
+        proj=a3gcm,
+        name='hurrell+1K',
+        description='',
+        direc_nc=('/archive/s1h/am3/am3clim_hurrell+1K/'
+                  'gfdl.ncrc2-intel-prod-openmp/pp'),
+        nc_dur=31,
+        nc_start_yr=1980,
+        nc_end_yr=2010,
+        default_yr_range=(1981, 2010)
+    )
     # AM3 Hurrell +2K
     am3_hp2k = Run(
         proj=a3gcm,
@@ -784,18 +855,18 @@ def aero_3agcm():
         nc_end_yr=2010,
         default_yr_range=(1981, 2010)
     )
-    # # AM3 Hurrell WPWP +2K
-    # am3_hwpwp_p2k = Run(
-    #     proj=a3gcm,
-    #     name='hurrell_wpwp+2K',
-    #     description='',
-    #     direc_nc='/archive/s1h/am3/am3clim_hurrell_wpwp+2K/' + \
-    #              'gfdl.ncrc2-intel-prod-openmp/pp',
-    #     nc_dur=1,
-    #     nc_start_yr=1980,
-    #     nc_end_yr=2010,
-    #     default_yr_range=(1981, 2010)
-    # )
+    # AM3 Hurrell WPWP +2K
+    am3_hwpwp_p2k = Run(
+        proj=a3gcm,
+        name='hurrell_wpwp+2K',
+        description='',
+        direc_nc='/archive/s1h/am3/am3clim_hurrell_wpwp+2K/' + \
+                 'gfdl.ncrc2-intel-prod-openmp/pp',
+        nc_dur=1,
+        nc_start_yr=1980,
+        nc_end_yr=2010,
+        default_yr_range=(1981, 2010)
+    )
     ## HiRAM runs
     hiram_cont=Run(
         proj=a3gcm,
@@ -888,7 +959,7 @@ def aero_3agcm():
         nc_start_yr=1979,
         nc_end_yr=2008,
         default_yr_range=(1979, 2008),
-        nc_dir_structure='gfdl'
+        nc_dir_struc='gfdl'
     )
     # ## SM2.1 runs.
     # # SM2.1 cont
@@ -1119,21 +1190,21 @@ def aero_3agcm():
 
     # ## AM4 prototypes runs
     # # AM4a1 control
-    # am4_a1c = Run(
-    #     proj=a3gcm,
-    #     name='cont',
-    #     description='',
-    #     direc_nc='/archive/Ming.Zhao/awg/tikal_201403/c96L48_am4a1_' + \
-    #              '2000climo_highsen1/gfdl.ncrc2-intel-prod-openmp/pp'
-    # )
-    # # AM4a1 +2K
-    # am4_a1p2k = Run(
-    #     proj=a3gcm,
-    #     name='+2K',
-    #     description='',
-    #     direc_nc='/archive/Ming.Zhao/awg/tikal_201403/c96L48_am4a1_' + \
-    #              '2000climo_highsen1_p2K/gfdl.ncrc2-intel-prod-openmp/pp'
-    # )
+    am4_a1c = Run(
+        proj=a3gcm,
+        name='cont',
+        description='',
+        direc_nc='/archive/Ming.Zhao/awg/tikal_201403/c96L48_am4a1_' + \
+                 '2000climo_highsen1/gfdl.ncrc2-intel-prod-openmp/pp'
+    )
+    # AM4a1 +2K
+    am4_a1p2k = Run(
+        proj=a3gcm,
+        name='+2K',
+        description='',
+        direc_nc='/archive/Ming.Zhao/awg/tikal_201403/c96L48_am4a1_' + \
+                 '2000climo_highsen1_p2K/gfdl.ncrc2-intel-prod-openmp/pp'
+    )
     # # AM4a2 control
     # am4_a2c = Run(
     #     proj=a3gcm,
@@ -1150,33 +1221,41 @@ def aero_3agcm():
     #     direc_nc='/archive/cjg/awg/tikal_201403/c96L48_am4a2r1_' + \
     #              '2000climo_p2K/gfdl.ncrc2-intel-prod-openmp/pp'
     # )
-    # # AM4c1 control
-    # am4_c1c = Run(
-    #     proj=a3gcm,
-    #     name='cont',
-    #     description='',
-    #     direc_nc='/archive/miz/tikal_201409_awgUpdates_mom6_2014.08.29/' + \
-    #              'c96L48_am4c1r2_2000climo/gfdl.ncrc2-intel-prod-openmp/pp'
-    # )
-    # # AM4c1 +2K
-    # am4_c1p2k = Run(
-    #     proj=a3gcm,
-    #     name='+2K',
-    #     description='',
-    #     direc_nc='/archive/miz/tikal_201409_awgUpdates_mom6_2014.08.29/' + \
-    #              'c96L48_am4c1r2_2000climo_p2K/gfdl.ncrc2-intel-prod-openmp/pp'
-    # )
+    # AM4c1 control
+    am4_c1c = Run(
+        proj=a3gcm,
+        name='cont',
+        description='',
+        direc_nc='/archive/miz/tikal_201409_awgUpdates_mom6_2014.08.29/' + \
+                 'c96L48_am4c1r2_2000climo/gfdl.ncrc2-intel-prod-openmp/pp'
+    )
+    # AM4c1 +2K
+    am4_c1p2k = Run(
+        proj=a3gcm,
+        name='+2K',
+        description='',
+        direc_nc='/archive/miz/tikal_201409_awgUpdates_mom6_2014.08.29/' + \
+                 'c96L48_am4c1r2_2000climo_p2K/gfdl.ncrc2-intel-prod-openmp/pp'
+    )
 
     ### Models ###
     am2 = Model(
         name='am2',
         proj=a3gcm,
         nc_grid_paths=(
-            '/archive/s1h/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/'
-            'pp/atmos/atmos.static.nc',
-            ['/archive/s1h/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/pp/'
-             'atmos/ts/monthly/1yr/atmos.' + str(n) + '01-' + str(n) +
-             '12.ucomp.nc' for n in range(1982, 2013)]
+            ('/archive/s1h/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/'
+             'pp/atmos/atmos.static.nc'),
+            # ['/archive/s1h/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/pp/'
+             # 'atmos/ts/monthly/1yr/atmos.' + str(n) + '01-' + str(n) +
+             # '12.ucomp.nc' for n in range(1982, 2013)],
+            ('/archive/yim/siena_201203/m45_am2p14_1990/gfdl.ncrc2-intel-prod/'
+             'pp/atmos/ts/monthly/16yr/atmos.198301-199812.temp.nc'),
+            ('/archive/s1h/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/'
+             'pp/atmos_level/atmos_level.static.nc'),
+            ('/archive/s1h/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/'
+             'pp/atmos_level/ts/monthly/1yr/atmos_level.198201-198212.temp.nc'),
+            ('/archive/s1h/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/'
+             'pp/atmos_level/ts/monthly/1yr/atmos_level.198201-198212.hght.nc')
         ),
         nc_dur=1,
         nc_start_yr=1982,
@@ -1191,9 +1270,10 @@ def aero_3agcm():
             am2_reyoi_p0p25, am2_reyoi_p0p5, am2_reyoi_p1, am2_reyoi_p1p5,
             am2_reyoi_p2, am2_reyoi_p3, am2_reyoi_p4, am2_reyoi_p6,
             am2_reyoi_p8, am2_reyoi_m6, am2_reyoi_m8, am2_reyoi_m10,
-            am2_reyoi_p10
-            # am2_reyoi_wpwp_p2,
-            # am2_reyoi_wpwp_m2, am2_amip1, am2_amip1_p2, am2_reynolds,
+            am2_reyoi_p10, am2_reyoi_wpwp_p2, am2_reyoi_wpwp_m2,
+            am2_cld_lock_cont, am2_cld_lock_p2, am2_cld_lock_sst,
+            am2_cld_lock_cld
+            # am2_amip1, am2_amip1_p2, am2_reynolds,
             # am2_reynolds_p2, am2_hurrell_cont, am2_hurrell_p2,
             # am2_cld_seed_all_p2, am2_cld_seed_np_p2
             # am2_cld_seed_sp_p2, am2_cld_seed_sa_p2, 
@@ -1217,10 +1297,9 @@ def aero_3agcm():
         runs=[
             # am3_cont, am3_aero, am3_atm, am3_amtm, am3_gas, am3_gtm, am3_gmtm,
             # am3_aatl, am3_aind, am3_apac,
-            am3_hc, am3_hp2k, am3_hp4k, am3_hp6k, am3_hp8k, am3_hp10k, am3_hm1k,
-            am3_hm2k, am3_hm4k, am3_hm6k, am3_hm8k, am3_hm10k, am3_hm15k,
-            am3_amip
-            # am3_hwpwp_p2k
+            am3_hc, am3_hp1k, am3_hp2k, am3_hp4k, am3_hp6k, am3_hp8k,
+            am3_hp10k, am3_hm1k, am3_hm2k, am3_hm4k, am3_hm6k, am3_hm8k,
+            am3_hm10k, am3_hm15k, am3_amip, am3_hwpwp_p2k
         ],
         default_runs=[am3_hc, am3_hp2k]
     )
@@ -1305,17 +1384,24 @@ def aero_3agcm():
     #     default_yr_range=(1981,2000),
     #     runs=[am2p5_cont, am2p5_p2K]
     # )
-    # am4a1 = Model(
-    #     name='am4a1',
-    #     proj=a3gcm,
-    #     nc_grid_path='/archive/s1h/nc_grid/am4.ts.nc',
-    #     land_mask_path='/archive/s1h/nc_grid/am4.static.nc',
-    #     nc_dur=1,
-    #     nc_start_yr=2,
-    #     nc_end_yr=11,
-    #     default_yr_range=(2,11),
-    #     runs=[am4_a1c, am4_a1p2k]
-    # )
+    am4a1 = Model(
+        name='am4a1',
+        proj=a3gcm,
+        nc_grid_paths=(
+            '/archive/Ming.Zhao/awg/tikal_201403/c96L48_am4a1_'
+            '2000climo_highsen1/gfdl.ncrc2-intel-prod-openmp/pp/atmos/'
+            'atmos.static.nc',
+            ['/archive/Ming.Zhao/awg/tikal_201403/c96L48_am4a1_'
+            '2000climo_highsen1/gfdl.ncrc2-intel-prod-openmp/pp/atmos/'
+            'ts/monthly/1yr/atmos.00%02d01-00%02d12.temp.nc' % (n, n)
+             for n in range(2,12)]
+        ),
+        nc_dur=1,
+        nc_start_yr=2,
+        nc_end_yr=11,
+        default_yr_range=(2,11),
+        runs=[am4_a1c, am4_a1p2k]
+    )
     # am4a2 = Model(
     #     name='am4a2',
     #     proj=a3gcm,
@@ -1327,22 +1413,28 @@ def aero_3agcm():
     #     default_yr_range=(2,11),
     #     runs=[am4_a2c, am4_a2p2k]
     # )
-    # am4c1 = Model(
-    #     name='am4c1',
-    #     proj=a3gcm,
-    #     nc_grid_path='/archive/s1h/nc_grid/am4.ts.nc',
-    #     land_mask_path='/archive/s1h/nc_grid/am4.static.nc',
-    #     nc_dur=10,
-    #     nc_start_yr=1,
-    #     nc_end_yr=10,
-    #     default_yr_range=(1,10),
-    #     runs=[am4_c1c, am4_c1p2k]
-    # )
+    am4c1 = Model(
+        name='am4c1',
+        proj=a3gcm,
+        nc_grid_paths=(
+            '/archive/miz/tikal_201409_awgUpdates_mom6_2014.08.29/' 
+            'c96L48_am4c1r2_2000climo/gfdl.ncrc2-intel-prod-openmp/pp/'
+            'atmos/atmos.static.nc',
+            '/archive/miz/tikal_201409_awgUpdates_mom6_2014.08.29/' 
+            'c96L48_am4c1r2_2000climo/gfdl.ncrc2-intel-prod-openmp/pp/'
+            'atmos/ts/monthly/10yr/atmos.000101-001012.temp.nc'
+        ),
+        nc_dur=10,
+        nc_start_yr=1,
+        nc_end_yr=10,
+        default_yr_range=(1,10),
+        runs=[am4_c1c, am4_c1p2k]
+    )
     ### Set Models and Regions of the Proj.
     _set_named_attr_dict(
-        a3gcm, 'models', [am2, am3, hiram, hiram_c48])#sm2, am3c90, am2p5,
-                          # am4a1, am4a2, am4c1]
-    # )
+        a3gcm, 'models', [am2, am3, hiram, hiram_c48, am4a1, am4c1]
+                          #sm2, am3c90, am2p5, am4a2
+    )
     _set_named_attr_dict(a3gcm, 'default_models', [am2, am3, hiram, hiram_c48])
     a3gcm.regions = [
         globe, nh, sh, tropics, wpwp, epac, sahel, sahel2, sahel3, sahara, 

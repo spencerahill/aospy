@@ -17,7 +17,7 @@ def obs():
         name='v3.22',
         description='',
         direc_nc='/archive/s1h/obs/HadCRU/3.22',
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_dur=113,
         nc_start_yr=1901,
         nc_start_month=1,
@@ -42,7 +42,7 @@ def obs():
         name='0.5deg',
         description='',
         direc_nc='/archive/s1h/obs/PREC_L/20150212',
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_dur=64,
         nc_start_yr=1948,
         nc_start_month=1,
@@ -57,7 +57,7 @@ def obs():
         name='1deg',
         description='',
         direc_nc='/archive/s1h/obs/PREC_L/20150212',
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_dur=67,
         nc_start_yr=1948,
         nc_start_month=1,
@@ -72,7 +72,7 @@ def obs():
         name='2.5deg',
         description='',
         direc_nc='/archive/s1h/obs/PREC_L/20150212',
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_dur=67,
         nc_start_yr=1948,
         nc_start_month=1,
@@ -89,7 +89,7 @@ def obs():
         description='',
         direc_nc=('/archive/pcmdi/repo/obs4MIPs/NASA-LaRC/CERES-EBAF/'
                   'atmos/mon/v20140402'),
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_dur=14,
         nc_start_yr=2000,
         nc_start_month=3,
@@ -105,6 +105,31 @@ def obs():
             'olr_clr': 'rlutcs_CERES-EBAF_L3B_Ed2-8_200003-201310.nc'
         }
     )
+    # CERES EBAF-surface
+    ceres_ebaf_sfc = Run(
+        proj=obs_obj,
+        name='ebaf-sfc',
+        description='',
+        direc_nc=('/archive/pcmdi/repo/obs4MIPs/NASA-LaRC/CERES-EBAF_Surface/'
+                  'atmos/mon/v20140402'),
+        nc_dir_struc='one_dir',
+        nc_dur=14,
+        nc_start_yr=2000,
+        nc_start_month=3,
+        nc_end_yr=2013,
+        nc_end_month=3,
+        default_yr_range=(2000, 2012),
+        nc_suffix='_CERES-EBAF_L3B_Ed2-7_200003-201303.nc',
+        nc_files={
+            'swdn_sfc': 'rsds_CERES-EBAF_L3B_Ed2-7_200003-201303.nc',
+            'swdn_sfc_clr': 'rsdscs_CERES-EBAF_L3B_Ed2-7_200003-201303.nc',
+            'swup_sfc': 'rsus_CERES-EBAF_L3B_Ed2-7_200003-201303.nc',
+            'swup_sfc_clr': 'rsuscs_CERES-EBAF_L3B_Ed2-7_200003-201303.nc',
+            'lwdn_sfc': 'rlds_CERES-EBAF_L3B_Ed2-7_200003-201303.nc',
+            'lwdn_sfc_clr': 'rldscs_CERES-EBAF_L3B_Ed2-7_200003-201303.nc',
+            'lwup_sfc': 'rlus_CERES-EBAF_L3B_Ed2-7_200003-201303.nc',
+        }
+    )
     ## GPCP runs
     # GPCP v2p2
     gpcp_v2p2=Run(
@@ -117,7 +142,7 @@ def obs():
         nc_start_yr=1979,
         nc_end_yr=2013,
         default_yr_range=(1979, 2013),
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_files={'monthly':
                   ['mon/v20130401/pr_GPCP-SG_L3_v2.2_' + yrs + '.nc' for yrs in
                    ('197901-197912', '198001-198912', '199001-199912',
@@ -137,7 +162,7 @@ def obs():
         nc_end_yr=2010,
         nc_end_month=9,
         default_yr_range=(2000, 2009),
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_files={'monthly': ['mon/v20130204/pr_TRMM-L3_v7A_' + yrs + '.nc'
                               for yrs in ('200001-200912', '201001-201009')]}
 
@@ -149,7 +174,7 @@ def obs():
         description=('CMAP standard version, which does not include NCEP '
                      'reanalysis data to fill in gaps.'),
         direc_nc='/archive/s1h/obs/CMAP/standard',
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_dur=36,
         nc_start_yr=1979,
         nc_start_month=1,
@@ -169,7 +194,7 @@ def obs():
         nc_start_yr=1979,
         nc_end_yr=2014,
         default_yr_range=(1979, 2014),
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_files={'monthly': 'precip.mon.mean.nc',
                   'pentad': 'precip.pentad.mean.nc'}
     )
@@ -184,7 +209,7 @@ def obs():
         nc_start_yr=1900,
         nc_end_yr=2008,
         default_yr_range=(1900, 2008),
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_files={'precip': 'precip.mon.total.v201.nc',
                   't_surf': 'air.mon.total.v201.nc'}
         )
@@ -198,73 +223,73 @@ def obs():
         nc_start_yr=1900,
         nc_end_yr=2010,
         default_yr_range=(1900, 2010),
-        nc_dir_structure='one_dir',
+        nc_dir_struc='one_dir',
         nc_files={'precip': 'precip.mon.total.v301.nc',
                   't_surf': 'air.mon.total.v301.nc'}
         )
     ## ERA-Interim
-    era_i = Run(
-        proj=obs_obj, 
-        name='interim',
-        description='',
-        direc_nc=('/archive/pcmdi/repo/ana4MIPs/ECMWF/ERA-Interim/atmos/'
-                  'mon/v20140416'),
-        nc_dur=1,
-        nc_start_yr=1979,
-        nc_start_month=1,
-        nc_end_yr=2013,
-        nc_end_month=12,
-        default_yr_range=(1979, 2013),
-        nc_dir_structure='one_dir',
-        # 2015-02-10: HACK: have to manually change variable name in the
-        # nc_files dict, which is highly prone to errors and prevents
-        # full functionality.  Need to resolve ASAP.
-        nc_files={
-                  'cld_amt': ['cl_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'evap': ['evspsbl_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'hght': ['zg_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'omega': ['wap_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                            for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                        for yr in range(1979, 2014)]],
-                  'precip': ['pr_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'ps': ['ps_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'rh': ['hur_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'shflx': ['hfss_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'slp': ['psl_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                            for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                        for yr in range(1979, 2014)]],
-                  'sphum': ['hus_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'temp': ['ta_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'ucomp': ['ua_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'vcomp': ['va_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'wvp': ['prw_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]]
-                  }
-        )
-    ## MERRA
+    # era_i = Run(
+    #     proj=obs_obj, 
+    #     name='interim',
+    #     description='',
+    #     direc_nc=('/archive/pcmdi/repo/ana4MIPs/ECMWF/ERA-Interim/atmos/'
+    #               'mon/v20140416'),
+    #     nc_dur=1,
+    #     nc_start_yr=1979,
+    #     nc_start_month=1,
+    #     nc_end_yr=2013,
+    #     nc_end_month=12,
+    #     default_yr_range=(1979, 2013),
+    #     nc_dir_struc='one_dir',
+    #     # 2015-02-10: HACK: have to manually change variable name in the
+    #     # nc_files dict, which is highly prone to errors and prevents
+    #     # full functionality.  Need to resolve ASAP.
+    #     nc_files={
+    #               'cld_amt': ['cl_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'evap': ['evspsbl_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'hght': ['zg_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'omega': ['wap_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                         for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                     for yr in range(1979, 2014)]],
+    #               'precip': ['pr_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'ps': ['ps_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'rh': ['hur_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'shflx': ['hfss_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'slp': ['psl_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                         for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                     for yr in range(1979, 2014)]],
+    #               'sphum': ['hus_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'temp': ['ta_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'ucomp': ['ua_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'vcomp': ['va_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'wvp': ['prw_Amon_reanalysis_IFS-Cy31r2_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]]
+    #               }
+    #     )
+    # MERRA
     merra_run = Run(
         proj=obs_obj, 
         name='merra',
@@ -277,10 +302,7 @@ def obs():
         nc_end_yr=2011,
         nc_end_month=12,
         default_yr_range=(1979, 2011),
-        nc_dir_structure='one_dir',
-        # 2015-02-10: HACK: have to manually change variable name in the
-        # nc_files dict, which is highly prone to errors and prevents
-        # full functionality.  Need to resolve ASAP.
+        nc_dir_struc='one_dir',
         nc_files={'cld_amt': ['cl_Amon_reanalysis_MERRA_' + yrs + '.nc'
                            for yrs in [str(yr) + '01-' + str(yr) + '12'
                                        for yr in range(1979, 2012)]],
@@ -325,68 +347,68 @@ def obs():
                                        for yr in range(1979, 2012)]]
                   }
         )
-    ## NCEP CFSR
-    cfsr_run = Run(
-        proj=obs_obj, 
-        name='cfsr',
-        description='',
-        direc_nc=('/archive/pcmdi/repo/ana4MIPs/NOAA-NCEP/CFSR/atmos/'
-                  'mon/v20140822'),
-        nc_dur=1,
-        nc_start_yr=1979,
-        nc_start_month=1,
-        nc_end_yr=2013,
-        nc_end_month=12,
-        default_yr_range=(1979, 2013),
-        nc_dir_structure='one_dir',
-        # 2015-02-10: HACK: have to manually change variable name in the
-        # nc_files dict, which is highly prone to errors and prevents
-        # full functionality.  Need to resolve ASAP.
-        nc_files={'cld_amt': ['cl_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'evap': ['evspsbl_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'hght': ['zg_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'omega': ['wap_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                            for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                        for yr in range(1979, 2014)]],
-                  'precip': ['pr_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'ps': ['ps_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'rh': ['hur_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'shflx': ['hfss_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'slp': ['psl_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                            for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                        for yr in range(1979, 2014)]],
-                  'sphum': ['hus_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'temp': ['ta_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'ucomp': ['ua_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'vcomp': ['va_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]],
-                  'wvp': ['prw_Amon_reanalysis_CFSR_' + yrs + '.nc'
-                           for yrs in [str(yr) + '01-' + str(yr) + '12'
-                                       for yr in range(1979, 2014)]]
-                  }
+    # ## NCEP CFSR
+    # cfsr_run = Run(
+    #     proj=obs_obj, 
+    #     name='cfsr',
+    #     description='',
+    #     direc_nc=('/archive/pcmdi/repo/ana4MIPs/NOAA-NCEP/CFSR/atmos/'
+    #               'mon/v20140822'),
+    #     nc_dur=1,
+    #     nc_start_yr=1979,
+    #     nc_start_month=1,
+    #     nc_end_yr=2013,
+    #     nc_end_month=12,
+    #     default_yr_range=(1979, 2013),
+    #     nc_dir_struc='one_dir',
+    #     # 2015-02-10: HACK: have to manually change variable name in the
+    #     # nc_files dict, which is highly prone to errors and prevents
+    #     # full functionality.  Need to resolve ASAP.
+    #     nc_files={'cld_amt': ['cl_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'evap': ['evspsbl_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'hght': ['zg_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'omega': ['wap_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                         for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                     for yr in range(1979, 2014)]],
+    #               'precip': ['pr_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'ps': ['ps_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'rh': ['hur_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'shflx': ['hfss_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'slp': ['psl_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                         for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                     for yr in range(1979, 2014)]],
+    #               'sphum': ['hus_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'temp': ['ta_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'ucomp': ['ua_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'vcomp': ['va_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]],
+    #               'wvp': ['prw_Amon_reanalysis_CFSR_' + yrs + '.nc'
+    #                        for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                                    for yr in range(1979, 2014)]]
+    #               }
 
-        )
+    #     )
     # ## JMA JRA-25
     # jra25 = Run(
     #     proj=obs_obj, 
@@ -399,7 +421,7 @@ def obs():
     #     nc_end_yr=2013,
     #     nc_end_month=12,
     #     default_yr_range=(1979, 2013),
-    #     nc_dir_structure='one_dir',
+    #     nc_dir_struc='one_dir',
     #     # 2015-02-10: HACK: have to manually change variable name in the
     #     # nc_files dict, which is highly prone to errors and prevents
     #     # full functionality.  Need to resolve ASAP.
@@ -409,134 +431,134 @@ def obs():
     #     )
     ## LandFlux-EVAL 1989-2005 evapotranspiration runs
     # Using all products
-    lfe_all = Run(
-        proj=obs_obj, 
-        name='all',
-        description='',
-        direc_nc='/archive/s1h/obs/LandFlux-EVAL',
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=2005,
-        nc_end_month=12,
-        default_yr_range=(1989, 2005),
-        nc_dir_structure='one_dir',
-        nc_files={'monthly': 'LandFluxEVAL.merged.89-05.monthly.all.nc',
-                  'annual': 'LandFluxEVAL.merged.89-05.yearly.all.nc'}
-        )
-    # Using diagnostic-based products only
-    lfe_diag = Run(
-        proj=obs_obj, 
-        name='diagnostic',
-        description='',
-        direc_nc='/archive/s1h/obs/LandFlux-EVAL',
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=2005,
-        nc_end_month=12,
-        default_yr_range=(1989, 2005),
-        nc_dir_structure='one_dir',
-        nc_files={'monthly': 'LandFluxEVAL.merged.89-05.monthly.diagnostic.nc',
-                  'annual': 'LandFluxEVAL.merged.89-05.yearly.diagnostic.nc'}
-        )
-    # Using land surface model-based products only
-    lfe_lsm = Run(
-        proj=obs_obj, 
-        name='lsm',
-        description='',
-        direc_nc='/archive/s1h/obs/LandFlux-EVAL',
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=2005,
-        nc_end_month=12,
-        default_yr_range=(1989, 2005),
-        nc_dir_structure='one_dir',
-        nc_files={'monthly': 'LandFluxEVAL.merged.89-05.monthly.lsm.nc',
-                  'annual': 'LandFluxEVAL.merged.89-05.yearly.lsm.nc'}
-        )
-    # Using reanalyses-based products only
-    lfe_rean = Run(
-        proj=obs_obj, 
-        name='reanalyses',
-        description='',
-        direc_nc='/archive/s1h/obs/LandFlux-EVAL',
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=2005,
-        nc_end_month=12,
-        default_yr_range=(1989, 2005),
-        nc_dir_structure='one_dir',
-        nc_files={'monthly': 'LandFluxEVAL.merged.89-05.monthly.reanalyses.nc',
-                  'annual': 'LandFluxEVAL.merged.89-05.yearly.reanlayses.nc'}
-        )
-    ## LandFlux-EVAL 1989-1995 evapotranspiration runs
-    # Using all products
-    lfe95_all = Run(
-        proj=obs_obj, 
-        name='all',
-        description='',
-        direc_nc='/archive/s1h/obs/LandFlux-EVAL',
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=1995,
-        nc_end_month=12,
-        default_yr_range=(1989, 1995),
-        nc_dir_structure='one_dir',
-        nc_files={'monthly': 'LandFluxEVAL.merged.89-95.monthly.all.nc',
-                  'annual': 'LandFluxEVAL.merged.89-95.yearly.all.nc'}
-        )
-    # Using diagnostic-based products only
-    lfe95_diag = Run(
-        proj=obs_obj, 
-        name='diagnostic',
-        description='',
-        direc_nc='/archive/s1h/obs/LandFlux-EVAL',
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=1995,
-        nc_end_month=12,
-        default_yr_range=(1989, 1995),
-        nc_dir_structure='one_dir',
-        nc_files={'monthly': 'LandFluxEVAL.merged.89-95.monthly.diagnostic.nc',
-                  'annual': 'LandFluxEVAL.merged.89-95.yearly.diagnostic.nc'}
-        )
-    # Using land surface model-based products only
-    lfe95_lsm = Run(
-        proj=obs_obj, 
-        name='lsm',
-        description='',
-        direc_nc='/archive/s1h/obs/LandFlux-EVAL',
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=1995,
-        nc_end_month=12,
-        default_yr_range=(1989, 1995),
-        nc_dir_structure='one_dir',
-        nc_files={'monthly': 'LandFluxEVAL.merged.89-95.monthly.lsm.nc',
-                  'annual': 'LandFluxEVAL.merged.89-95.yearly.lsm.nc'}
-        )
-    # Using reanalyses-based products only
-    lfe95_rean = Run(
-        proj=obs_obj, 
-        name='reanalyses',
-        description='',
-        direc_nc='/archive/s1h/obs/LandFlux-EVAL',
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=1995,
-        nc_end_month=12,
-        default_yr_range=(1989, 1995),
-        nc_dir_structure='one_dir',
-        nc_files={'monthly': 'LandFluxEVAL.merged.89-95.monthly.reanalyses.nc',
-                  'annual': 'LandFluxEVAL.merged.89-95.yearly.reanlayses.nc'}
-        )
+    # lfe_all = Run(
+    #     proj=obs_obj, 
+    #     name='all',
+    #     description='',
+    #     direc_nc='/archive/s1h/obs/LandFlux-EVAL',
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=2005,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 2005),
+    #     nc_dir_struc='one_dir',
+    #     nc_files={'monthly': 'LandFluxEVAL.merged.89-05.monthly.all.nc',
+    #               'annual': 'LandFluxEVAL.merged.89-05.yearly.all.nc'}
+    #     )
+    # # Using diagnostic-based products only
+    # lfe_diag = Run(
+    #     proj=obs_obj, 
+    #     name='diagnostic',
+    #     description='',
+    #     direc_nc='/archive/s1h/obs/LandFlux-EVAL',
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=2005,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 2005),
+    #     nc_dir_struc='one_dir',
+    #     nc_files={'monthly': 'LandFluxEVAL.merged.89-05.monthly.diagnostic.nc',
+    #               'annual': 'LandFluxEVAL.merged.89-05.yearly.diagnostic.nc'}
+    #     )
+    # # Using land surface model-based products only
+    # lfe_lsm = Run(
+    #     proj=obs_obj, 
+    #     name='lsm',
+    #     description='',
+    #     direc_nc='/archive/s1h/obs/LandFlux-EVAL',
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=2005,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 2005),
+    #     nc_dir_struc='one_dir',
+    #     nc_files={'monthly': 'LandFluxEVAL.merged.89-05.monthly.lsm.nc',
+    #               'annual': 'LandFluxEVAL.merged.89-05.yearly.lsm.nc'}
+    #     )
+    # # Using reanalyses-based products only
+    # lfe_rean = Run(
+    #     proj=obs_obj, 
+    #     name='reanalyses',
+    #     description='',
+    #     direc_nc='/archive/s1h/obs/LandFlux-EVAL',
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=2005,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 2005),
+    #     nc_dir_struc='one_dir',
+    #     nc_files={'monthly': 'LandFluxEVAL.merged.89-05.monthly.reanalyses.nc',
+    #               'annual': 'LandFluxEVAL.merged.89-05.yearly.reanlayses.nc'}
+    #     )
+    # ## LandFlux-EVAL 1989-1995 evapotranspiration runs
+    # # Using all products
+    # lfe95_all = Run(
+    #     proj=obs_obj, 
+    #     name='all',
+    #     description='',
+    #     direc_nc='/archive/s1h/obs/LandFlux-EVAL',
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=1995,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 1995),
+    #     nc_dir_struc='one_dir',
+    #     nc_files={'monthly': 'LandFluxEVAL.merged.89-95.monthly.all.nc',
+    #               'annual': 'LandFluxEVAL.merged.89-95.yearly.all.nc'}
+    #     )
+    # # Using diagnostic-based products only
+    # lfe95_diag = Run(
+    #     proj=obs_obj, 
+    #     name='diagnostic',
+    #     description='',
+    #     direc_nc='/archive/s1h/obs/LandFlux-EVAL',
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=1995,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 1995),
+    #     nc_dir_struc='one_dir',
+    #     nc_files={'monthly': 'LandFluxEVAL.merged.89-95.monthly.diagnostic.nc',
+    #               'annual': 'LandFluxEVAL.merged.89-95.yearly.diagnostic.nc'}
+    #     )
+    # # Using land surface model-based products only
+    # lfe95_lsm = Run(
+    #     proj=obs_obj, 
+    #     name='lsm',
+    #     description='',
+    #     direc_nc='/archive/s1h/obs/LandFlux-EVAL',
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=1995,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 1995),
+    #     nc_dir_struc='one_dir',
+    #     nc_files={'monthly': 'LandFluxEVAL.merged.89-95.monthly.lsm.nc',
+    #               'annual': 'LandFluxEVAL.merged.89-95.yearly.lsm.nc'}
+    #     )
+    # # Using reanalyses-based products only
+    # lfe95_rean = Run(
+    #     proj=obs_obj, 
+    #     name='reanalyses',
+    #     description='',
+    #     direc_nc='/archive/s1h/obs/LandFlux-EVAL',
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=1995,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 1995),
+    #     nc_dir_struc='one_dir',
+    #     nc_files={'monthly': 'LandFluxEVAL.merged.89-95.monthly.reanalyses.nc',
+    #               'annual': 'LandFluxEVAL.merged.89-95.yearly.reanlayses.nc'}
+    #     )
 
     ### Models ###
     # HadCRU
@@ -598,7 +620,7 @@ def obs():
         nc_start_month=3,
         nc_end_yr=2013,
         default_yr_range=(2000,2013),
-        runs=[ceres_ebaf],
+        runs=[ceres_ebaf, ceres_ebaf_sfc],
         default_runs=[ceres_ebaf]        
     )
     # CMAP
@@ -644,30 +666,31 @@ def obs():
         default_runs=[udel_v301]        
     )
     # ERA reanalyses
-    era = Model(
-        name='era', 
-        proj=obs_obj,
-        nc_grid_paths=(
-            ['/archive/pcmdi/repo/ana4MIPs/ECMWF/ERA-Interim/atmos/'
-             'mon/v20140416/wap_Amon_reanalysis_IFS-Cy31r2_' + yrs +
-             '.nc' for yrs in [str(yr) + '01-' + str(yr) + '12'
-                               for yr in range(1979, 2014)]],
-        ),
-        nc_dur=1,
-        nc_start_yr=1979,
-        nc_start_month=1,
-        nc_end_yr=2013,
-        nc_end_month=12,
-        default_yr_range=(1979, 2013),
-        runs=[era_i],
-        default_runs=[era_i]
-    )
+    # era = Model(
+    #     name='era', 
+    #     proj=obs_obj,
+    #     nc_grid_paths=(
+    #         ['/archive/pcmdi/repo/ana4MIPs/ECMWF/ERA-Interim/atmos/'
+    #          'mon/v20140416/wap_Amon_reanalysis_IFS-Cy31r2_' + yrs +
+    #          '.nc' for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                            for yr in range(1979, 2014)]],
+    #     ),
+    #     nc_dur=1,
+    #     nc_start_yr=1979,
+    #     nc_start_month=1,
+    #     nc_end_yr=2013,
+    #     nc_end_month=12,
+    #     default_yr_range=(1979, 2013),
+    #     runs=[era_i],
+    #     default_runs=[era_i]
+    # )
     # MERRA reanalyses
     merra = Model(
         name='merra', 
         proj=obs_obj,
         nc_grid_paths=(
-            # ['/archive/pcmdi/repo/ana4MIPs/NASA-GMAO/MERRA/atmos/'
+            # [
+                # '/archive/pcmdi/repo/ana4MIPs/NASA-GMAO/MERRA/atmos/'
              # 'mon/v20140624/hfss_Amon_reanalysis_MERRA_' + yrs +
              # '.nc' for yrs in [str(yr) + '01-' + str(yr) + '12'
                                # for yr in range(1979, 2012)]],
@@ -685,72 +708,72 @@ def obs():
         runs=[merra_run],
         default_runs=[merra_run]
     )
-    # NCEP CFSR reanalyses
-    cfsr = Model(
-        name='cfsr', 
-        proj=obs_obj,
-        nc_grid_paths=(
-            ['/archive/pcmdi/repo/ana4MIPs/NOAA-NCEP/CFSR/atmos/'
-             'mon/v20140822/zg_Amon_reanalysis_CFSR_' + yrs +
-             '.nc' for yrs in [str(yr) + '01-' + str(yr) + '12'
-                               for yr in range(1979, 2014)]],
-        ),
-        nc_dur=1,
-        nc_start_yr=1979,
-        nc_start_month=1,
-        nc_end_yr=2013,
-        default_yr_range=(1979, 2013),
-        runs=[cfsr_run],
-        default_runs=[cfsr_run]
-    )
-    # # JRA-25 reanalyses
-    # jra = Model(
-    #     name='jra', 
+    # # NCEP CFSR reanalyses
+    # cfsr = Model(
+    #     name='cfsr', 
     #     proj=obs_obj,
-    #     nc_grid_paths=('/archive/pcmdi/repo/ana4MIPs/JMA/JRA-25/atmos/mon/'
-    #                    'v20140408/va_Amon_reanalysis_JRA-25_197901-201312.nc',),
+    #     nc_grid_paths=(
+    #         ['/archive/pcmdi/repo/ana4MIPs/NOAA-NCEP/CFSR/atmos/'
+    #          'mon/v20140822/zg_Amon_reanalysis_CFSR_' + yrs +
+    #          '.nc' for yrs in [str(yr) + '01-' + str(yr) + '12'
+    #                            for yr in range(1979, 2014)]],
+    #     ),
     #     nc_dur=1,
     #     nc_start_yr=1979,
     #     nc_start_month=1,
     #     nc_end_yr=2013,
     #     default_yr_range=(1979, 2013),
-    #     runs=[jra25]
+    #     runs=[cfsr_run],
+    #     default_runs=[cfsr_run]
     # )
-    # LandFlux-EVAL evapotranspiration data, 1989-2005
-    landflux = Model(
-        name='landflux-eval', 
-        proj=obs_obj,
-        nc_grid_paths=('/archive/s1h/obs/LandFlux-EVAL/'
-                       'LandFluxEVAL.merged.89-05.monthly.all.nc',),
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=2005,
-        nc_end_month=12,
-        default_yr_range=(1989, 2005),
-        runs=[lfe_all, lfe_diag, lfe_lsm, lfe_rean],
-        default_runs=[lfe_all]
-    )
-    # LandFlux-EVAL evapotranspiration data, 1989-1995
-    landflux95 = Model(
-        name='landflux-eval95', 
-        proj=obs_obj,
-        nc_grid_paths=('/archive/s1h/obs/LandFlux-EVAL/'
-                       'LandFluxEVAL.merged.89-95.monthly.all.nc',),
-        nc_dur=17,
-        nc_start_yr=1989,
-        nc_start_month=1,
-        nc_end_yr=1995,
-        nc_end_month=12,
-        default_yr_range=(1989, 1995),
-        runs=[lfe95_all, lfe95_diag, lfe95_lsm, lfe95_rean],
-        default_runs=[lfe95_all]
-    )
+    # # # JRA-25 reanalyses
+    # # jra = Model(
+    # #     name='jra', 
+    # #     proj=obs_obj,
+    # #     nc_grid_paths=('/archive/pcmdi/repo/ana4MIPs/JMA/JRA-25/atmos/mon/'
+    # #                    'v20140408/va_Amon_reanalysis_JRA-25_197901-201312.nc',),
+    # #     nc_dur=1,
+    # #     nc_start_yr=1979,
+    # #     nc_start_month=1,
+    # #     nc_end_yr=2013,
+    # #     default_yr_range=(1979, 2013),
+    # #     runs=[jra25]
+    # # )
+    # # LandFlux-EVAL evapotranspiration data, 1989-2005
+    # landflux = Model(
+    #     name='landflux-eval', 
+    #     proj=obs_obj,
+    #     nc_grid_paths=('/archive/s1h/obs/LandFlux-EVAL/'
+    #                    'LandFluxEVAL.merged.89-05.monthly.all.nc',),
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=2005,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 2005),
+    #     runs=[lfe_all, lfe_diag, lfe_lsm, lfe_rean],
+    #     default_runs=[lfe_all]
+    # )
+    # # LandFlux-EVAL evapotranspiration data, 1989-1995
+    # landflux95 = Model(
+    #     name='landflux-eval95', 
+    #     proj=obs_obj,
+    #     nc_grid_paths=('/archive/s1h/obs/LandFlux-EVAL/'
+    #                    'LandFluxEVAL.merged.89-95.monthly.all.nc',),
+    #     nc_dur=17,
+    #     nc_start_yr=1989,
+    #     nc_start_month=1,
+    #     nc_end_yr=1995,
+    #     nc_end_month=12,
+    #     default_yr_range=(1989, 1995),
+    #     runs=[lfe95_all, lfe95_diag, lfe95_lsm, lfe95_rean],
+    #     default_runs=[lfe95_all]
+    # )
 
     ### Set Models and Regions of the Proj.
     _set_named_attr_dict(obs_obj, 'models', 
-                        [cru, prec_l, gpcp, ceres, trmm, cmap, udel, era, 
-                         merra, cfsr, landflux, landflux95]
+                        [cru, prec_l, gpcp, ceres, trmm, cmap, udel, merra]#, era, 
+                         # cfsr, landflux, landflux95]
     )
     _set_named_attr_dict(obs_obj, 'default_models', 
                         [cru, prec_l, gpcp, trmm, cmap, udel]

@@ -1,267 +1,278 @@
+#! /usr/bin/env python
 import numpy as np
-from aospy.plotting import Figure
-# from aospy.plotting import (
-#     plot_lon_lat, plot_lon_vert, plot_lat_1d, plot_lat_vert, plot_lat_ssnl, 
-#     plot_time_1d, plot_time_vert, plot_1d_vert
-# )
-fig = Figure(
-    n_row=1,
-    n_col=1,
-    n_ax='all',
-    n_plot=1,
-    n_data=1,
+import aospy
 
-    row_size=1.25,
-    col_size=4.5,
+def plot_mult():
+    fig = aospy.plotting.Fig(
+        n_row=2,
+        n_col=1,
+        n_ax='all',
+        n_plot=1,
+        n_data=1,
 
-    # proj=['obs'] + ['aero_3agcm']*3,
-    proj='aero_3agcm',
-    # model=[[['cru', 'merra']], 'am2', 'am3', 'hiram'],
-    # model=[[['merra', 'cru']], 'am2', 'am3', 'hiram'],
-    model='am2',
-    intvl='jas',
-    # run=[
-        # [['v3.22', 'merra']], 
-        # [['merra', 'v3.22']], 
-        # [['amip', 'amip'], [('reyoi+2K', 'reyoi_cont'), ('reyoi+2K', 'reyoi_cont')]], 
-        # [['amip', 'amip'], [('hurrell+2K', 'hurrell_cont'), ('hurrell+2K', 'hurrell_cont')]], 
-        # [['amip', 'amip'], [('gas_tm', 'cont'), ('gas_tm', 'cont')]]
-    # ],
-    run='reyoi_cont',
-    # ens_mem=[None]*2 + [['avg', None]]*2,
-    ens_mem=None,
-    # var=[[['sphum', 't_surf']]],
-    # var=[[['precip', 'sphum']]],
-    var='toa_rad',
-    dtype='av',
-    # dtype=['reg.ts'] + [[['reg.ts', 'reg.ts'], ['reg.av','reg.av']]]*3,
-    level=None,
-    # level=[[[300, None]]],
-    # level=[[[None, 300]]],
-    region=None,
-    # region='sahel',
-    yr_range='default',
-    # yr_range=[[[(1979, 2011), 'default']]] + ['default']*3,
-    # yr_range=[[['default', (1979, 2011)]]] + ['default']*3,
-    plot_type='map',
+        row_size=2.25,
+        col_size=5,
+        subplot_lims={'left': 0.05, 'right': 0.95, 'wspace': 0.1,
+                      'bottom': 0.12, 'top': 0.88, 'hspace': 0.15},
 
-    ## Titles and labels
-    fig_title=r'AM2 control JAS TOA radiation',
-    # fig_title=r'Sahel JAS $T_s$ v. 300 hPa $q$',    
-    # ax_title=['MERRA & CRU', 'AM2.1', 'AM3', 'HiRAM'],
-    ax_title=False,
-    ax_left_labels=False,
-    ax_left_label_rot='vertical', # 'horizontal', 'vertical'
-    ax_right_labels=False,
+        min_cntr=-3.5,
+        max_cntr=3.5,
+        num_cntr=13,
+        contourf_extend='both', # 'auto' 'neither' 'min' 'max' 'both'
+        # col_map='RdBu',
+        col_map='BrBG',
+        do_colorbar='all',      # 'all' 'column' 'row' False True
+        cbar_ax_lim = (0.1, 0.08, 0.8, 0.03),
+        # cbar_ticks=range(-8,9,2),
+        cbar_ticks=False,
+        cbar_ticklabels=False,
+        cbar_label='units',
 
-    ## Axis limits
-    xlim=(-180,180),
-    # xlim=(-2.5, 2.5),
-    # xlim=False,
-    xticks=False,
-    xticklabels=False,
-    # xlabel=r'Kelvin',
-    # xlabel=r'W m$^{-2}$',
-    # xlabel=r'g kg$^{-1}$',
-    # xlabel=r'mm day$^{-1}$',
-    ylim=(-30,30),
-    # ylim=(-2.5, 2.5),
-    # ylim=(-5, 5),
-    # ylim=False,
-    yticks=False,
-    yticklabels=False,
-    # ylabel=r'Kelvin',
-    # ylabel=r'g kg$^{-1}$',
-    # ylabel='W m$^{-2}$',
-    # ylabel=r'mm day$^{-1}$',
-    # ylabel='',
+        proj='aero_3agcm',
+        model='am2',
+        run = [{('reyoi+2K','reyoi_cont'):'-'},
+               # {('reyoi_wpwp+2K','reyoi_cont'):'-'},
+               {('reyoi_wpwp+2K','reyoi_cont'):'-'}],
+        ens_mem=None,
+        var='p_minus_e',
+        intvl_in='monthly',
+        # intvl_in=['3hr', '3hr', 'monthly'],
+        intvl_out='jas',
+        dtype_in_time='ts',
+        # dtype_in_time=['inst', 'inst', 'av_from_ts'],
+        dtype_in_vert=False,
+        # dtype_in_vert=['sigma', 'pressure'],
+        dtype_out_time='av',
+        # dtype_out_time=['av', 'eddy.av', 'av'],
+        dtype_out_vert=False,
+        # dtype_out_vert=[False] + ['vert_int']*4,
+        level=None,
+        # level=[None, 850],
+        region=False,
+        yr_range='default',
 
-    min_cntr=-150,
-    max_cntr=150,
-    num_cntr=15,
-    contourf_extend=True,
-    do_colorbar='column',              # 'all' 'column' False True
-    # cbar_ticks=False,
-    # cbar_ticks=range(-7,8,2),
-    col_map='RdBu_r',
-    # 'RdBu_r' 'coolwarm' 'Greys' 'BrBG'
-    # col_map=[['RdBu_r'], ['BrBG']],
-    # cbar_extend: 'auto' 'neither' 'min' 'max' 'both'
-    # cbar_extend='both',
-    # cbar_label='units',
-    # cbar_label=r'Left panels: Kelvin. Right panels: percent'
-    # cbar_ticklabels=False,
-    # do_cont_cntrs=True,
-    # cont_run=([['reyoi_cont']] + [['hurrell_cont']] + ,
-    #             [['cont']] + [['ming0']]),
-    # cntrs_color='0.85',
-    # cont_cntr_levs=False,
-    # cont_cntr_levs=range(-60, 61, 10), # omega; cre_net/sw/lw; shflx,
-    # cont_cntr_levs=range(-30, 31, 10), # ucomp,
-    # cont_cntr_levs=range(-30, 31, 3), # vort, pv,
-    # cont_cntr_levs=range(-20, 21, 4), # p-e,
-    # cont_cntr_levs=range(-10, 51, 10), # gms_each_level,
-    # cont_cntr_levs=range(-4, 5, 1), # vcomp,
-    # cont_cntr_levs=list(np.arange(-2, 2.1,0.5)),
-    # cont_cntr_levs=list(np.arange(-2, 2.51, 0.5)), # tdt_conv/ls,
-    # cont_cntr_levs=list(np.arange(0.5, 6.6, 1)), # mc,
-    # cont_cntr_levs=range(1, 20, 3), # sphum,
-    # cont_cntr_levs=range(1, 12, 2), # evap,
-    # cont_cntr_levs=range(2,26,3), # precip,
-    # cont_cntr_levs=range(5, 36, 5), # cld_amt,
-    # cont_cntr_levs=range(10, 101, 20), # rh,
-    # cont_cntr_levs=range(210,311,20), # temp,
-    # cont_cntr_levs=range(200,331,5), # t_surf,
-    # cont_cntr_levs=range(200, 361, 10), # equiv_pot_temp; virt_pot_temp; MSE,
-    # cont_cntr_levs=range(990,1041,3), # slp,
-    # cont_cntr_levs=range(200, 301, 20), # temp,
-    # cont_cntr_levs=[[range(200,331,5)],[range(10,101,10)]],
-    # cont_cntr_labels: 'True', '%d' for integer, '%0.1f' for decimal,
-    # cont_cntr_labels='%d',
+        plot_type='contourf',
+        xdim='lon',
+        ydim='lat',
+        ## Titles and labels
+        # fig_title=False,
+        fig_title=r"AM2 JAS $\delta\{\mathbf{v}\cdot\nabla q\}$",
+        # fig_title=r"AM2 JAS $\delta\{\omega\partial q/\partial p\}$",
+        # ax_title=False,
+        ax_title=["-10K", "+10K"],
+        ax_left_label=False,
+        ax_right_label=False,
 
-    ## Latitude plot parameters.
-    # x_data=[['lat']],
-    # lat_bounds=[-90,90],
-    # lat_ticks=range(-90,91,30),
-    # lat_ticks=list(np.sin(np.deg2rd(np.arange(-90., 91., 10.)))),
-    # lat_labels=[r'90$^\circ$S', '', '', '', '', '', '30$^\circ$S', '', '', 'EQ', ,
-               # '', '', '30$^\circ$N', '', '', '', '', '', '90$^\circ$N']
-    # lat_labels=[r'90$^\circ$S', '60$^\circ$S', '30$^\circ$S', 'EQ',,
-    #               '30$^\circ$N', '60$^\circ$N', '90$^\circ$N'],
+        ## Axis limits
+        xlim=False,
+        xticks=False,
+        xticklabels=False,
+        xlabel=False,
 
-    ## Longitude plot parameters.
-    # x_data=[['lon']],
-    # lon_bounds=(-90,60),
-    # lat_avg_range=(10, 20),
-    # lon_ticks=range(Fig.lon_bounds[0], Fig.lon_bounds[1]+1, 30),
-    # lon_ticks=False,
+        ylim=False,
+        yticks=False,
+        yticklabels=False,
+        ylabel=False,
 
-    # def make_lon_ticklabels(lon_ticks, circ=True):,
-    #     lon_labels=[],
-    #     c=r'$^\circ$' if circ else '',
-    #     for tick in lon_ticks:,
-    #         if tick < 0:,
-    #             lon_labels.append(r'%d%sW' % (abs(tick), c)),
-    #         elif tick > 0:,
-    #             lon_labels.append(r'%d%sE' % (abs(tick), c)),
-    #         else:,
-    #             lon_labels.append(r"0%s" % c),
-    #     return lon_labels,
+        lat_lim=(-45, 45),
+        # lat_lim=(-5, 35),
+        lat_ticks=False,
+        lat_ticklabels=False,
+        lat_label=False,
 
-    # lon_labels=make_lon_ticklabels(lon_ticks),
-    # lon_labels=[str(x) for x in lon_ticks],
-    # lon_labels=False,
+        lon_lim=(-180, 180),
+        # lon_lim=(-40, 70),
+        lon_ticks=False,
+        lon_ticklabels=False,
+        lon_label=False,
 
-    ## Zonal-seasonal and zonal-1d plot parameters
-    # do_itcz=False,
-    # had_bnds_type='500hPa',
-    # plot_had_bnds=[False, False, False],
-    # mask_hadley=True,
-    # lat_type='reg',
+        p_lim=(1000, 100),
+        p_ticks=False,
+        p_ticklabels=False,
+        p_label=False,
 
-    ## Vert plot parameters.
-    # z_data=[['level']],
-    # lev_type='linear',             # 'linear' 'exp',
-    # lev_bounds=[1000, 100],
-    # lev_ticks=range(1000, 99, -100),
-    # lev_ticklabel=['1000', '', '800', '', '600', '', '400', '', '200', ''],
-    # lev_label='hPa',
+        sigma_lim=(1, 0.1),
+        sigma_ticks=False,
+        sigma_ticklabels=False,
+        sigma_label=False,
 
-    # do_vert_centroid=(100, 1000),
-    # centroid_xpos=0,
-    # centroid_xpos=[[xlim[0]]*4 + [xlim[0] + 5]*2],
-    # do_plot_avg=False,
-    # do_plot_shading=True,
+        time_lim='ann_cycle',
+        time_ticks=False,
+        time_ticklabels=False,
+        time_label=False,
 
-    ## Time-1D plot paramters
-    # time_lim='ann_cycle',          # 'ann_cycle',
-    # time_ticks=False,
-    # time_ticklabels=False,
+        # do_cont_cntrs=True,
+        # cont_run=([['reyoi_cont']] + [['hurrell_cont']] + ,
+        #             [['cont']] + [['ming0']]),
+        # cntrs_color='0.85',
+        # cont_cntr_levs=False,
+        # cont_cntr_levs=range(-60, 61, 10), # omega; cre_net/sw/lw; shflx,
+        # cont_cntr_levs=range(-30, 31, 10), # ucomp,
+        # cont_cntr_levs=range(-30, 31, 3), # vort, pv,
+        # cont_cntr_levs=range(-20, 21, 4), # p-e,
+        # cont_cntr_levs=range(-10, 51, 10), # gms_each_level,
+        # cont_cntr_levs=range(-4, 5, 1), # vcomp,
+        # cont_cntr_levs=list(np.arange(-2, 2.1,0.5)),
+        # cont_cntr_levs=list(np.arange(-2, 2.51, 0.5)), # tdt_conv/ls,
+        # cont_cntr_levs=list(np.arange(0.5, 6.6, 1)), # mc,
+        # cont_cntr_levs=range(1, 20, 3), # sphum,
+        # cont_cntr_levs=range(1, 12, 2), # evap,
+        # cont_cntr_levs=range(2,26,3), # precip,
+        # cont_cntr_levs=range(5, 36, 5), # cld_amt,
+        # cont_cntr_levs=range(10, 101, 20), # rh,
+        # cont_cntr_levs=range(210,311,20), # temp,
+        # cont_cntr_levs=range(200,331,5), # t_surf,
+        # cont_cntr_levs=range(200, 361, 10), # equiv_pot_temp; virt_pot_temp; MSE,
+        # cont_cntr_levs=range(990,1041,3), # slp,
+        # cont_cntr_levs=range(200, 301, 20), # temp,
+        # cont_cntr_levs=[[range(200,331,5)],[range(10,101,10)]],
+        # cont_cntr_labels: 'True', '%d' for integer, '%0.1f' for decimal,
+        # cont_cntr_labels='%d',
 
-    ## Map plot parameters.
-    map_proj='cyl',                # 'moll',
-    # map_corners=False,
-    # map_corners={'llcrnrlon': -60, 'llcrnrlat': -10,,
-                   # 'urcrnrlon': 80, 'urcrnrlat': 40}
-    map_res='c',
-    # left_lon=0,
-    shiftgrid_start=False,
-    shiftgrid_cyclic=360.0,
-    # draw_latlon_rect=[-18, 40, 10, 20],
+        ## Latitude plot parameters.
+        # x_data=[['lat']],
+        # lat_bounds=[-90,90],
+        # lat_ticks=range(-90,91,30),
+        # lat_ticks=list(np.sin(np.deg2rd(np.arange(-90., 91., 10.)))),
+        # lat_labels=[r'90$^\circ$S', '', '', '', '', '', '30$^\circ$S', '', '', 'EQ', ,
+                   # '', '', '30$^\circ$N', '', '', '', '', '', '90$^\circ$N']
+        # lat_labels=[r'90$^\circ$S', '60$^\circ$S', '30$^\circ$S', 'EQ',,
+        #               '30$^\circ$N', '60$^\circ$N', '90$^\circ$N'],
 
-    ## Quiver (i.e. arrow) plot overlayed on maps.
-    do_quiver=False,
-    # level_quiv=level,
-    # xvar_quiv='ucomp',
-    # yvar_quiv='vcomp',
-    # xrun_quiv=cont_run,
-    # xrun_quiv=([[['reyoi+2K', 'reyoi_cont']]] +,
-            # [[['hurrell+2K', 'hurrell_cont']]] +
-            # [[['gas_tm', 'cont']]] +
-            # [[['ming0_p2K', 'ming0']]])
-    # yrun_quiv=xrun_quiv,
-    # scalar_quiv=None,
-    # quiv_skip=[[1],[1],[10],[1]],
-    # quiv_skip=False,
-    # quiv_kwargs={},
-    # quiv_kwargs={'color': 'red', 'edgecolors': 'red'},
-    # do_quiv_key=True,
-    # scale_quiv_key=10,
-    # label_quiv_key=str(scale_quiv_key) + r' g kg$^{-1}$ m s$^{-1}$',
-    # label_quiv_key=str(scale_quiv_key) + r' m s$^{-1}$',
+        ## Longitude plot parameters.
+        # x_data=[['lon']],
+        # lon_bounds=(-90,60),
+        # lat_avg_range=(10, 20),
+        # lon_ticks=range(Fig.lon_bounds[0], Fig.lon_bounds[1]+1, 30),
+        # lon_ticks=False,
 
-    ## Scatter plot parameters
-    # marker_size=10,
-    # marker_color='k',
-    # marker_shape='.',
-    # marker_size=[10] + [[10, 30]]*3,
-    # marker_color=['k'] + [['k', 'r']]*3,
-    # marker_shape=['.'] + [['.', 's']]*3,
-    # do_best_fit_line=[True] + [[True, False]]*3,
-    # print_best_fit_slope=[True] + [[True, False]]*3,
-    # print_corr_coeff=[True] + [[True, False]]*3,
-    
-    ## Statistical masking parameters.
-    # do_stat_mask='ttest'             # False 'ttest',
-    # do_stat_mask=[[False], ['ttest']],
-    # stat_mask_cntrs=[0, 0.05] # Mark where significant.,
-    # stat_mask_cntrs=[0.05, 1] # Mark where insignificant.,
-    # stat_mask_hatch=['///'] # ['...'] ['XXX'],
-    # stat_mask_hatch='mask',
-    # stat_mask_color='b', # 2015-02-27: not yet working,
+        # def make_lon_ticklabels(lon_ticks, circ=True):,
+        #     lon_labels=[],
+        #     c=r'$^\circ$' if circ else '',
+        #     for tick in lon_ticks:,
+        #         if tick < 0:,
+        #             lon_labels.append(r'%d%sW' % (abs(tick), c)),
+        #         elif tick > 0:,
+        #             lon_labels.append(r'%d%sE' % (abs(tick), c)),
+        #         else:,
+        #             lon_labels.append(r"0%s" % c),
+        #     return lon_labels,
 
-    ## Transformations to apply to data.
-    # do_subtract_mean=[True, [True, False], [True, False], [True, False]],
-    do_subtract_mean=False,
-    # do_zasym=False,
-    # do_norm_cont=False,
-    # do_normalize=False,
-    # norm_region='sahel',
-    # norm_var='precip,' # False
-    # norm_run=cont_run, # runs
-    # norm_run=([[['reyoi+2K', 'reyoi_cont']]] +
-            # [[['hurrell+2K', 'hurrell_cont']]] +
-            # [[['gas_tm', 'cont']]] +
-            # [[['ming0_p2K', 'ming0']]])
+        # lon_labels=make_lon_ticklabels(lon_ticks),
+        # lon_labels=[str(x) for x in lon_ticks],
+        # lon_labels=False,
 
-    ## 1d plot parameters
-    # colors=['brown', 'orange', 'cyan', 'blue', 'gray'],
-    # linestyles='-', # [':', '-', '--'] 
-    # linewidths=[1.5],
-    # do_legend=True,             # 'first', True
-    # legend_labels='models',
-    # legend_labels=['AM2.1', 'AM3', 'HiRAM', 'c48-HiRAM', 'ERA-I'],
-    # legend_labels=['ERA-I', 'MERRA', 'NCEP-CFSR'],
-    # Dummy kwarg so that comma on last un-commented kwarg above doesn't
-    # cause syntax error.
-    dummy=None
-)
+        ## Zonal-seasonal and zonal-1d plot parameters
+        # do_itcz=False,
+        # had_bnds_type='500hPa',
+        # plot_had_bnds=[False, False, False],
+        # mask_hadley=True,
+        # lat_type='reg',
 
-## Make the plot.
-if __name__ == '__main__':
+        ## Vert plot parameters.
+        # z_data=[['level']],
+        # lev_type='linear',             # 'linear' 'exp',
+        # lev_bounds=[1000, 100],
+        # lev_ticks=range(1000, 99, -100),
+        # lev_ticklabel=['1000', '', '800', '', '600', '', '400', '', '200', ''],
+        # lev_label='hPa',
+
+        # do_vert_centroid=(100, 1000),
+        # centroid_xpos=0,
+        # centroid_xpos=[[xlim[0]]*4 + [xlim[0] + 5]*2],
+        # do_plot_avg=False,
+        # do_plot_shading=True,
+
+        ## Time-1D plot paramters
+        # time_lim='ann_cycle',          # 'ann_cycle',
+        # time_ticks=False,
+        # time_ticklabels=False,
+
+        ## Map plot parameters.
+        map_proj='cyl',                # 'moll',
+        map_res='c',
+        # left_lon=0,
+        shiftgrid_start=False,
+        shiftgrid_cyclic=360.0,
+        # latlon_rect=False,
+        latlon_rect=(-18, 40, 10, 20),
+
+        ## Quiver (i.e. arrow) plot overlayed on maps.
+        do_quiver=False,
+        # level_quiv=level,
+        # xvar_quiv='ucomp',
+        # yvar_quiv='vcomp',
+        # xrun_quiv=cont_run,
+        # xrun_quiv=([[['reyoi+2K', 'reyoi_cont']]] +,
+                # [[['hurrell+2K', 'hurrell_cont']]] +
+                # [[['gas_tm', 'cont']]] +
+                # [[['ming0_p2K', 'ming0']]])
+        # yrun_quiv=xrun_quiv,
+        # scalar_quiv=None,
+        # quiv_skip=[[1],[1],[10],[1]],
+        # quiv_skip=False,
+        # quiv_kwargs={},
+        # quiv_kwargs={'color': 'red', 'edgecolors': 'red'},
+        # do_quiv_key=True,
+        # scale_quiv_key=10,
+        # label_quiv_key=str(scale_quiv_key) + r' g kg$^{-1}$ m s$^{-1}$',
+        # label_quiv_key=str(scale_quiv_key) + r' m s$^{-1}$',
+
+        ## Line plot parameters.
+        line_color='k',
+        linestyle='-',
+
+        ## Scatter plot parameters
+        marker_size=10,
+        marker_color='k',
+        marker_shape='.',
+        # marker_size=[10] + [[10, 30]]*3,
+        # marker_color=['k'] + [['k', 'r']]*3,
+        # marker_shape=['.'] + [['.', 's']]*3,
+        # do_best_fit_line=[True] + [[True, False]]*3,
+        # print_best_fit_slope=[True] + [[True, False]]*3,
+        # print_corr_coeff=[True] + [[True, False]]*3,
+
+        ## Statistical masking parameters.
+        # do_stat_mask='ttest'             # False 'ttest',
+        # do_stat_mask=[[False], ['ttest']],
+        # stat_mask_cntrs=[0, 0.05] # Mark where significant.,
+        # stat_mask_cntrs=[0.05, 1] # Mark where insignificant.,
+        # stat_mask_hatch=['///'] # ['...'] ['XXX'],
+        # stat_mask_hatch='mask',
+        # stat_mask_color='b', # 2015-02-27: not yet working,
+
+        ## Transformations to apply to data.
+        # do_subtract_mean=[True, [True, False], [True, False], [True, False]],
+        do_subtract_mean=False,
+        # do_zasym=False,
+        # do_norm_cont=False,
+        # do_normalize=False,
+        # norm_region='sahel',
+        # norm_var='precip,' # False
+        # norm_run=cont_run, # runs
+        # norm_run=([[['reyoi+2K', 'reyoi_cont']]] +
+                # [[['hurrell+2K', 'hurrell_cont']]] +
+                # [[['gas_tm', 'cont']]] +
+                # [[['ming0_p2K', 'ming0']]])
+
+        ## 1d plot parameters
+        # colors=['brown', 'orange', 'cyan', 'blue', 'gray'],
+        # linestyles='-', # [':', '-', '--'] 
+        # linewidths=[1.5],
+        # do_legend=True,             # 'first', True
+        # legend_labels='models',
+        # legend_labels=['AM2.1', 'AM3', 'HiRAM', 'c48-HiRAM', 'ERA-I'],
+        # legend_labels=['ERA-I', 'MERRA', 'NCEP-CFSR'],
+    )
+
     fig.create_fig()
     fig.make_plots()
     plt.show()
+    return fig
+    
+if __name__ == '__main__':
+    fig = plot_mult()
 
 ####################################
 
@@ -683,15 +694,6 @@ if __name__ == '__main__':
         #         rotation=self.ax_left_label_rot, fontsize='small', 
         #         transform=self.ax[n].transAxes
         #     )
-        # if self.ax_right_labels:
-        #     horiz_frac = 1.03
-        #     self.ax[n].text(
-        #         horiz_frac, 0.5, self.ax_right_labels[n], verticalalignment='center',
-        #         rotation='vertical', fontsize='small', transform=self.ax[n].transAxes
-        #     )
-        # Update colorbar axes limits.
-        # if panel_kwargs.get('do_colorbar') == 'all':
-            # panel_kwargs.update({'ax_cbar': self.ax_cbar})
 
     ## Contour plot settings
     # minc=0; maxc=1; nctr=10; cbar_ticks=False,
