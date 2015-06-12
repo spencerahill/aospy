@@ -58,30 +58,24 @@ if __name__ == '__main__':
     from netCDF4 import Dataset, MFDataset
     import aospy
     
-    proj = 'aero_3agcm'
-    model = ['am2']
-    # run = (['hurrell%sK' % s for s in (-15,-10,-8,-6,-4,-2,-1)] +
-           # ['hurrell_cont'] + 
-           # ['hurrell+%sK' %s for s in (1, 2,6,8,10)]) + ['hurrell_wpwp+2K']
-    run = ['reyoi_cont']
+    proj = 'proj_name'
+    model = ['model_name']
+    run = ['run_name']
     ens_mem = [None]
-    var = ['precip', 'p_minus_e']
+    var = ['var_name']
     yr_range = ['default']
     region = ['all']
     intvl_in = ['monthly']
-    intvl_out = ['djf']
+    intvl_out = ['ann']
     dtype_in_time = ['ts']
-    # dtype_in_time = ['av_from_ts']
     dtype_in_vert = [False]
-    # dtype_in_vert = ['sigma']
-    # dtype_out_time = ('eddy.reg.av', 'eddy.std', 'eddy.reg.av', 'eddy.reg.ts', 'eddy.reg.std')
     dtype_out_time = ('av', 'std', 'reg.av', 'reg.ts', 'reg.std')
     dtype_out_vert = [False]
-    # dtype_out_vert = ['vert_int']
     level = [None]
     yr_chunk_len = False
-    compute = True; verbose=True; print_table = False; 
-    # compute = False; verbose=False; print_table = ['sahel']
+    compute = True
+    verbose=True
+    print_table = False
 
     print '\nProject:', proj
     print 'Models:', model
@@ -125,9 +119,5 @@ if __name__ == '__main__':
                 yr_chunk_len=yr_chunk_len, verbose=verbose, compute=compute,
                 print_table=True
             )
-            
-    # except KeyboardInterrupt:
-        # print 'Keyboard Interrupt'
-        # sys.exit(0)
     except:
         raise
