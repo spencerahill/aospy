@@ -1204,7 +1204,7 @@ class Region(object):
         out = np.squeeze(self.ts(data, model).std(axis=0))
         return out
 
-import av_stat, calcs, constants, io, plotting, regions, variables, projects
+import calcs, constants, io, plotting, regions, variables, projects
 from print_table import print_table
 from main import main
 
