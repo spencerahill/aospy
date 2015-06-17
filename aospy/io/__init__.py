@@ -25,17 +25,23 @@ def _region_inst(region):
 
 def _proj_inst(proj):
     """Convert string of an aospy.Proj name to an aospy.Proj instance."""
-    from aospy import projects, Proj
+    import imp
+    from aospy import Proj, proj_path
     if type(proj) is Proj:
         return proj
     elif type(proj) is str:
         try:
-            return getattr(projects, proj)()
+            proj_module = imp.load_source(proj, (proj_path + '/' +
+                                          proj + '.py').replace('//','/'))
+            proj_func = getattr(proj_module, proj)
+            return proj_func()
         except AttributeError:
             raise AttributeError('Not a recognized aospy.Proj name: %s'
                                  % proj)
     elif type(proj) is tuple:
         return tuple([_proj_inst(proj[0])])
+    else:
+        raise TypeError
 
 def _model_inst(model, parent_proj=False):
     """Convert string of an aospy.model name to an aospy.model instance."""

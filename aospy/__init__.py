@@ -2,6 +2,8 @@
 Package for atmospheric & oceanic science data analysis, management, and
 visualization.
 """
+import os
+
 def _set_attr_from_init_kwargs(obj, kwargs):
     """
     Given a dict of keyword arguments and their values as input for an
@@ -1204,8 +1206,9 @@ class Region(object):
         out = np.squeeze(self.ts(data, model).std(axis=0))
         return out
 
-import calcs, constants, io, plotting, regions, variables, projects
-from print_table import print_table
+proj_path = '/'.join([os.getenv('HOME'), 'py']).replace('//','/')
+
+import calcs, constants, io, plotting, regions, variables
 from main import main
 
         # Average over ensemble members if desired.
