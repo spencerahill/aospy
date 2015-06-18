@@ -26,12 +26,12 @@ def _region_inst(region):
 def _proj_inst(proj):
     """Convert string of an aospy.Proj name to an aospy.Proj instance."""
     import imp
-    from aospy import Proj, proj_path
+    from aospy import Proj, aospy_path
     if type(proj) is Proj:
         return proj
     elif type(proj) is str:
         try:
-            proj_module = imp.load_source(proj, (proj_path + '/' +
+            proj_module = imp.load_source(proj, (aospy_path + '/' +
                                           proj + '.py').replace('//','/'))
             proj_func = getattr(proj_module, proj)
             return proj_func()

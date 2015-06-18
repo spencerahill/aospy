@@ -2,8 +2,6 @@
 Package for atmospheric & oceanic science data analysis, management, and
 visualization.
 """
-import os
-
 def _set_attr_from_init_kwargs(obj, kwargs):
     """
     Given a dict of keyword arguments and their values as input for an
@@ -1206,9 +1204,28 @@ class Region(object):
         out = np.squeeze(self.ts(data, model).std(axis=0))
         return out
 
-proj_path = '/'.join([os.getenv('HOME'), 'py']).replace('//','/')
+import constants, io, plotting
+import os
+aospy_path = '/'.join([os.getenv('HOME'), 'aospy']).replace('//','/')
 
-import calcs, constants, io, plotting, regions, variables
+def _load_user_data(name):
+    """Load user data from aospy_path for given module name.
+
+    File must be located in the `aospy_path` directory and be the same name
+    as the desired aospy module subpackage, namely one of `regions`, `calcs`,
+    `variables`, and `projects`.
+    """
+    import imp
+    return imp.load_source(
+        name, (aospy_path + '/' + name + '.py').replace('//','/')
+    )
+
+calcs = _load_user_data('calcs')
+regions = _load_user_data('regions')
+print dir()
+variables = _load_user_data('variables')
+# projects =  _load_user_data('projects')
+
 from main import main
 
         # Average over ensemble members if desired.
