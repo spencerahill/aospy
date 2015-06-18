@@ -1,6 +1,6 @@
 def _var_inst(var):
     """Convert string of an aospy.var name to an aospy.var instance."""
-    from aospy import Var, variables
+    from .. import Var, variables
     if type(var) is Var:
         var_inst = var
     elif type(var) is str:
@@ -17,16 +17,16 @@ def _var_inst(var):
 
 def _region_inst(region):
     """Convert string of an aospy.Region name to an aospy.Region instance."""
-    import aospy.regions
+    from .. import regions
     if type(region) is str:
-        return getattr(aospy.regions, region)
+        return getattr(regions, region)
     else:
         return region
 
 def _proj_inst(proj):
     """Convert string of an aospy.Proj name to an aospy.Proj instance."""
     import imp
-    from aospy import Proj, aospy_path
+    from .. import Proj, aospy_path
     if type(proj) is Proj:
         return proj
     elif type(proj) is str:
@@ -45,7 +45,7 @@ def _proj_inst(proj):
 
 def _model_inst(model, parent_proj=False):
     """Convert string of an aospy.model name to an aospy.model instance."""
-    from aospy import Proj, Model
+    from .. import Proj, Model
     if parent_proj and type(parent_proj) is not Proj:
         parent_proj = _proj_inst(parent_proj)
     if type(model) is Model:
@@ -67,7 +67,7 @@ def _model_inst(model, parent_proj=False):
 
 def _run_inst(run, parent_model=False, parent_proj=False):
     """Convert string matching an aospy.run name to an aospy.run instance."""
-    from aospy import Proj, Model, Run
+    from .. import Proj, Model, Run
     if parent_proj and type(parent_proj) is not Proj:
         parent_proj = _proj_inst(parent_proj)
     if parent_model and type(parent_model) is not Model:
@@ -88,7 +88,7 @@ def _run_inst(run, parent_model=False, parent_proj=False):
 
 def _aospy_inst(proj=False, model=False, run=False, var=False):
     """Convert string matching aospy object names to class instances."""
-    from aospy.io import (_run_inst, _region_inst, _proj_inst, _model_inst,
+    from . import (_run_inst, _region_inst, _proj_inst, _model_inst,
                           _var_inst)
     def _to_list(obj):
         if type(obj) is str:
@@ -290,7 +290,7 @@ def prune_lat_lon(array, model, lats, lons):
 def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
                  intvl, nc_start_yr, nc_dur):
     """Determines the gfdl_file name of GFDL model data output."""
-    from aospy.io import _time_label
+    from . import _time_label
     # Determine starting year of netCDF file to be accessed.
     extra_yrs = (data_yr - nc_start_yr) % nc_dur
     nc_yr = data_yr - extra_yrs

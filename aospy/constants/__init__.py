@@ -1,9 +1,5 @@
-"""
-constants submodule of ap. Stores physical constants.
-"""
 import numpy as np
 
-### Constants.
 r_e = 6370997. # Earth's mean radius, in meters (m).
 c_p = 1003.5 # Specific heat capacity of dry air at constant pressure, in J/K/kg.
 c_v = 717. # Specific heat capacity of dry air at constant volume, in J/K/kg.
