@@ -1222,32 +1222,6 @@ def _load_user_data(name):
 
 calcs = _load_user_data('calcs')
 regions = _load_user_data('regions')
-print dir()
 variables = _load_user_data('variables')
-# projects =  _load_user_data('projects')
 
 from main import main
-
-        # Average over ensemble members if desired.
-        # if self.ens_mem == 'avg' and self.ens_mem_prefix:
-        #     ens_avg_dat = []
-        #     for i in range(len(self.ens_mem_ext)):
-        #         nc = self._get_nc()
-        #         nc_vals = nc.variables[self.name][indices]
-        #         # Remove unphysical values that can occur in 'av' data.
-        #         if self.dtype_in_time == 'av':
-        #             nc_vals = self.var.mask_unphysical(nc_vals)
-        #         # Get desired vertical level.
-        #         if self.level and self.level != 'sigma' and self.def_vert:
-        #             ens_avg_dat.append(nc_vals[:,self.lev_ind])
-        #         else:
-        #             self.ens_avg_dat.append(nc_vals)
-        #     vals = np.ma.mean(ens_avg_dat, axis=0)
-        # Otherwise just get the values from the desired ensemble member.
-        # else:
-        # If ensemble averaging was input but the run doesn't have
-        # ensemble members, then let the _get_nc() function know this.
-        # if self.ens_mem == 'avg':
-        #     ens_mem_nc = None
-        # else:
-        #     ens_mem_nc = ens_mem
