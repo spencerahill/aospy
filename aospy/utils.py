@@ -44,65 +44,6 @@ def _set_named_attr_dict(obj, attr, attr_list):
 def _set_parent_object_of_child(parent_obj, parent_attr, child):
     setattr(child, parent_attr, parent_obj)
 
-def _get_nc_grid_objs(obj):
-    """Get the nc_grid_objs of an aospy object."""
-    from netCDF4 import Dataset, MFDataset
-    nc_grid_paths = _get_parent_attr(obj, 'nc_grid_paths')
-    nc_objs = []
-    for path in nc_grid_paths:
-        try:
-            nc_obj = Dataset(path)
-        except TypeError:
-            nc_obj = MFDataset(path)
-        finally:
-            nc_objs.append(nc_obj)
-    return tuple(nc_objs)
-
-def _set_attr_from_nc_grid(nc_grid_obj, obj, attr, attr_name):
-    """Set attribute that comes from an nc_grid file."""
-    for nc in nc_grid_obj:
-        try:
-            val = nc.variables[attr_name][:]
-        except KeyError:
-            pass
-        else:
-            setattr(obj, attr, val)
-            break
-    # If not in any nc_grid file, set to None
-    if not hasattr(obj, attr):
-        setattr(obj, attr, None)
-
-def _set_mult_nc_grid_attr(obj):
-    """
-    Set multiple attrs from grid file given their names in the grid file.
-    """
-    nc_grid_obj = _get_nc_grid_objs(obj)
-    grid_attrs = {
-        'lat':         ('lat', 'latitude', 'LATITUDE', 'y'),
-        'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
-        'lon':         ('lon', 'longitude', 'LONGITUDE', 'x'),
-        'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
-        'level':       ('level', 'lev', 'plev'),
-        'time':        ('time', 'TIME'),
-        'time_st':     ('average_T1',),
-        'time_end':    ('average_T2',),
-        'time_dur':    ('average_DT',),
-        'time_bounds': ('time_bounds', 'time_bnds'),
-        'sfc_area':    ('area', 'sfc_area'),
-        'zsurf':       ('zsurf',),
-        'land_mask':   ('land_mask',),
-        'pk':          ('pk',),
-        'bk':          ('bk',),
-        'phalf':       ('phalf',),
-        'pfull':       ('pfull',)
-    }
-    for attr, attr_names in grid_attrs.iteritems():
-        for name in attr_names:
-            _set_attr_from_nc_grid(nc_grid_obj, obj, attr, name)
-    # Close file objects.
-    for nc in nc_grid_obj:
-        nc.close()
-
 def calc_grid_sfc_area(lonb, latb, gridcenter=False):
     """Calculate surface area of each grid cell in a lon-lat grid."""
     import numpy as np

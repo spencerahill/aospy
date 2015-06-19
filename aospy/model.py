@@ -1,8 +1,10 @@
+from netCDF4 import Dataset, MFDataset
+from .utils import _set_named_attr_dict
 class Model(object):
     """Model and parameters of local data stored and desired."""
-    def __init__(self, name='', proj=False, nc_grid_paths=(), nc_dur=False,
-                 nc_start_yr=False, nc_end_yr=False, default_yr_range=False,
-                 runs=(), default_runs=()):
+    def __init__(self, name='', description='', proj=False, nc_grid_paths=(),
+                 nc_dur=False, nc_start_yr=False, nc_end_yr=False,
+                 default_yr_range=False, runs=(), default_runs=()):
         self.name = name
         self.description = description
         self.proj = proj
@@ -10,29 +12,78 @@ class Model(object):
         self.nc_grid_paths = nc_grid_paths
         self.nc_start_yr = nc_start_yr
         self.nc_end_yr = nc_end_yr
-        self.nc_dir_struc = nc_dir_struc
         self.default_yr_range = default_yr_range
         self.runs = runs
         self.default_runs = default_runs
 
-        self.ens_mem_prefix = ens_mem_prefix
-        self.ens_mem_ext = ens_mem_ext
-        self.ens_mem_suffix = ens_mem_suffix
-        
         # Use the inputted names and netCDF filepath to create grid data.
-        _set_mult_nc_grid_attr(self)
+        self._set_mult_nc_grid_attr()
         self._set_sfc_area()
         # Populate the runs dictionary with the specified list of runs.
-        if 'runs' in kwargs.keys():
-            _set_named_attr_dict(self, 'runs', kwargs['runs'])
-            # Create dict of default runs to use.
-            _set_named_attr_dict(
-                self, 'default_runs',
-                kwargs.get('default_runs', kwargs['runs'])
-                )
+        _set_named_attr_dict(self, 'runs', runs)
+        _set_named_attr_dict(self, 'default_runs', default_runs)
 
     def __str__(self):
         return 'Model instance "' + self.name + '"'
+
+    def _get_nc_grid(self):
+        """Get the nc_grid of an aospy object."""
+        nc_objs = []
+        for path in self.nc_grid_paths:
+            try:
+                nc_obj = Dataset(path)
+            except TypeError:
+                nc_obj = MFDataset(path)
+            except RuntimeError:
+                raise RuntimeError('No netCDF file found at the specified '
+                                   'directory: %s' % path)
+            nc_objs.append(nc_obj)
+        return tuple(nc_objs)
+
+    def _set_attr_from_nc_grid(self, nc_grid, attr, attr_name):
+        """Set attribute that comes from an nc_grid file."""
+        for nc in nc_grid:
+            try:
+                val = nc.variables[attr_name][:]
+            except KeyError:
+                pass
+            else:
+                setattr(obj, attr, val)
+                break
+        # If not in any nc_grid file, set to None
+        if not hasattr(obj, attr):
+            setattr(obj, attr, None)
+
+    def _set_mult_nc_grid_attr(self):
+        """
+        Set multiple attrs from grid file given their names in the grid file.
+        """
+        nc_grid = self._get_nc_grid()
+        grid_attrs = {
+            'lat':         ('lat', 'latitude', 'LATITUDE', 'y'),
+            'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
+            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x'),
+            'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
+            'level':       ('level', 'lev', 'plev'),
+            'time':        ('time', 'TIME'),
+            'time_st':     ('average_T1',),
+            'time_end':    ('average_T2',),
+            'time_dur':    ('average_DT',),
+            'time_bounds': ('time_bounds', 'time_bnds'),
+            'sfc_area':    ('area', 'sfc_area'),
+            'zsurf':       ('zsurf',),
+            'land_mask':   ('land_mask',),
+            'pk':          ('pk',),
+            'bk':          ('bk',),
+            'phalf':       ('phalf',),
+            'pfull':       ('pfull',)
+        }
+        for attr, attr_names in grid_attrs.iteritems():
+            for name in attr_names:
+                self._set_attr_from_nc_grid(nc_grid, obj, attr, name)
+        # Close file objects.
+        for nc in nc_grid_obj:
+            nc.close()
 
     def _set_levs_thick(self):
         """
