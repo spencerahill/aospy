@@ -1,3 +1,24 @@
+import cPickle
+import os
+import subprocess
+import tarfile
+import time
+
+import netCDF4
+import numpy as np
+
+from .proj import Proj, proj_inst
+from .model import Model, model_inst
+from .run import Run, run_inst
+from .var import Var, var_inst
+from .region import Region, region_inst
+from .io import _ens_label
+from .io import _get_time as io_get_time
+from .io import _month_indices
+from .io import dmget_nc
+from .io import hsmget_nc
+from .io import nc_name_gfdl
+
 class Calc(object):
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  yr_range=None, region=None, intvl_in=None, intvl_out=None,
@@ -5,8 +26,6 @@ class Calc(object):
                  dtype_out_vert=None, level=None, skip_time_inds=False, 
                  yr_chunk_len=False, verbose=True):
         """Class for executing, saving, and loading a single computation."""
-        from aospy.io import (_proj_inst, _model_inst, _run_inst, _var_inst,
-                              _month_indices)
         # Turn strings into tuples.
         if type(proj) in (str, Proj):
             proj = tuple([proj])
@@ -23,10 +42,10 @@ class Calc(object):
         assert len(proj) == len(model)
 
         # Convert string names to aospy objects.
-        self.proj  = tuple([_proj_inst(pr) for pr in proj])
-        self.model = tuple([_model_inst(mod, pr) for
+        self.proj  = tuple([proj_inst(pr) for pr in proj])
+        self.model = tuple([model_inst(mod, pr) for
                            (mod, pr) in zip(model, self.proj)])
-        self.run   = tuple([_run_inst(rn, mod, pr) for (rn, mod, pr)
+        self.run   = tuple([run_inst(rn, mod, pr) for (rn, mod, pr)
                             in zip(run, self.model, self.proj)])
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
@@ -35,7 +54,7 @@ class Calc(object):
         self.run_str = '_'.join(set(run_names))
         self.run_str_full = '_'.join(run_names)
 
-        self.var = _var_inst(var)
+        self.var = var_inst(var)
         self.name = self.var.name
         self.domain = self.var.domain
 
@@ -116,7 +135,6 @@ class Calc(object):
 
     def __add__(self, other):
         """Add aospy.Calc.data_out, numpy.array, int, or float to the array."""
-        import numpy as np
         try:
             data_self = getattr(self, 'data_out')
         except AttributeError:
@@ -134,7 +152,6 @@ class Calc(object):
     
     def _print_verbose(self, *args):
         """Print diagnostic message."""
-        import time
         if not self.verbose:
             pass
         else:
@@ -173,7 +190,6 @@ class Calc(object):
 
     def _set_time_dt(self):
         """Get time and dt arrays at needed time indices."""
-        from aospy.io import _get_time as io_get_time
         # Use the first var in the list that is an aospy.Var object.
         nc_var = self.vars[0]
         for var in self.vars:
@@ -194,7 +210,6 @@ class Calc(object):
 
     def _get_dt(self, nc, indices):
         """Get durations of the desired timesteps."""
-        import numpy as np
         if self.dtype_in_time == 'inst':
             return np.ones(np.shape(indices))
         else:
@@ -217,13 +232,12 @@ class Calc(object):
         3 hourly data for DJF spanning a leap year and non leap-year.  The
         leap year February will have 4 more timesteps than the non-leap year.
         """
-        import numpy as np
+        
         reshaped = np.reshape(array, (end_yr - start_yr + 1, -1))
         return reshaped[:,:,np.newaxis,np.newaxis,np.newaxis]
 
     def _make_time_chunks(self):
         """Create tuple of (start, end) pairs based on specified year chunks."""
-        import numpy as np
         if self.yr_chunk_len:
             dur = self.yr_chunk_len - 1
             st_yrs = range(self.start_yr, self.end_yr + 1, self.yr_chunk_len)
@@ -238,8 +252,6 @@ class Calc(object):
 
     def _dir_scratch(self):
         """Create the string of the data directory on the scratch filesystem."""
-        import os
-        from aospy.io import _ens_label
         ens_label = _ens_label(self.ens_mem)
         dir_scratch = '/'.join(
             ['/work', os.getenv('USER'), self.proj_str, self.model_str,
@@ -249,8 +261,6 @@ class Calc(object):
 
     def _dir_archive(self):
         """Create the string of the data directory on the archive filesystem."""
-        import os
-        from aospy.io import _ens_label
         ens_label = _ens_label(self.ens_mem)
         dir_archive = '/'.join(
             ['/archive', os.getenv('USER'), self.proj_str, 'data',
@@ -260,7 +270,6 @@ class Calc(object):
 
     def _file_name(self, dtype_out_time):
         """Create the name of the aospy file."""
-        import aospy.io as io
         out_lbl = io._data_out_label(self.intvl_out, dtype_out_time, 
                                      dtype_vert=self.dtype_out_vert)
         in_lbl = io._data_in_label(self.intvl_in, self.dtype_in_time,
@@ -297,7 +306,6 @@ class Calc(object):
         Get the names of netCDF files stored in GFDL standard directory
         structure and names.
         """
-        from aospy.io import nc_name_gfdl
         domain = self.domain
         dtype_lbl = self.dtype_in_time
         if self.dtype_in_vert == 'sigma' and name != 'ps':
@@ -331,8 +339,6 @@ class Calc(object):
         Files chosen depend on the specified variables and time intvl and the
         attributes of the netCDF files.
         """
-        from netCDF4 import MFDataset
-        from aospy.io import hsmget_nc, dmget_nc
         # Cycle through possible names.
         names = [var.name]
         if hasattr(var, 'alt_names'):
@@ -351,7 +357,7 @@ class Calc(object):
                 dmget_nc(files)
                 # hsmget_retcode = hsmget_nc(files)
                 # Return netCDF4.MFDataset object containing the data.
-                return MFDataset(files)
+                return netCDF4.MFDataset(files)
             except (RuntimeError, KeyError):
                 pass
         else:
@@ -359,8 +365,6 @@ class Calc(object):
 
     def _get_pressure_vals(self, var, start_yr, end_yr, n=0):
         """Get pressure array, whether sigma or standard levels."""
-        from aospy.io import _var_inst
-        from aospy.calcs import pfull_from_sigma, dp_from_sigma
         self._print_verbose("Getting pressure data: %s", var)
         if self.dtype_in_vert == 'pressure':
             if var == 'p':
@@ -370,18 +374,17 @@ class Calc(object):
         if self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk
-            ps_obj = _var_inst('ps')
+            ps_obj = var_inst('ps')
             ps = self._get_var_data(ps_obj, start_yr, end_yr, eddy=False)
             if var == 'p':
-                data = pfull_from_sigma(bk, pk, ps)
+                data = calcs.pfull_from_sigma(bk, pk, ps)
             elif var == 'dp':
-                data = dp_from_sigma(bk, pk, ps)
+                data = calcs.dp_from_sigma(bk, pk, ps)
         return data
 
     def _get_data_subset(self, data, region=False, eddy=False, time=False,
                          vert=False, lat=False, lon=False, n=0):
         """Subset the data array to the specified time/level/lat/lon, etc."""
-        import numpy as np
         if region:
             if type(region) is str:
                 data = data[region]
@@ -414,8 +417,6 @@ class Calc(object):
     def _get_var_data(self, var, start_yr, end_yr, n=0, region=False,
                       eddy=False, vert=False, lat=False, lon=False):
         """Get the needed data from one aospy.Var."""
-        import numpy as np
-        from aospy.io import _get_time
         self._print_verbose("\tGetting data from netCDF files: %s", var)
         with self._get_nc(var, start_yr, end_yr, n=n) as nc:
             # Variable names can differ.
@@ -451,7 +452,6 @@ class Calc(object):
 
     def _get_all_vars_data(self, start_yr, end_yr, eddy=False):
         """Get the needed data from all of the vars in the calculation."""
-        import numpy as np
         all_vals = []
         for n, var in enumerate(self.vars):
             # If only 1 run, use it to load all data.
@@ -476,8 +476,6 @@ class Calc(object):
 
     def _local_ts(self, dp, dt, num_yr, *data_in):
         """Compute the function on the given gridded input data."""
-        import numpy as np
-        from aospy.calcs import int_dp_g
         result = self.function(*data_in)
         # Apply spatial reductions methods.
         if self.dtype_out_vert == 'vert_int':
@@ -534,12 +532,11 @@ class Calc(object):
     
     def region_calcs(self, loc_ts, eddy=False, n=0):
         """Region-averaged computations.  Execute and save to external file."""
-        from aospy.io import _region_inst
         calcs_reg = ('ts', 'av', 'std')
             #, 'spvar.ts', 'spvar.av', 'znl.spvar.ts',
             # 'znl.spvar.av', 'zasym.ts', 'zasym.av', 'zasym.std',
             # 'zasym.spvar.ts', 'zasym.spvar.av'
-        regions = [_region_inst(reg) for reg in self.region]
+        regions = [region_inst(reg) for reg in self.region]
         # Perform each calculation for each region.
         for calc in calcs_reg:
             calc_name = ('reg.' + calc)
@@ -560,8 +557,6 @@ class Calc(object):
 
     def _compute_chunk(self, start_yr, end_yr, eddy=False):
         """Perform the calculation on the given chunk of times."""
-        import time
-        from aospy.io import _get_time
         self._print_verbose("Computing desired timeseries from netCDF data for "
                             "years %d-%d.", (start_yr, end_yr))
         inds = _get_time(
@@ -579,8 +574,6 @@ class Calc(object):
 
     def compute(self, eddy=False):
         """Perform all desired calculations on the data and save externally."""
-        import time
-        import numpy as np
         # Compute the local time series for each chunk and then combine chunks.
         if all(['eddy' in do for do in self.dtype_out_time]) and eddy is False:
             self._print_verbose("Computing and saving eddy outputs.")
@@ -610,8 +603,6 @@ class Calc(object):
     
     def _save_to_scratch(self, data, dtype_out_time, dtype_out_vert=False):
         """Save the data to the scratch filesystem."""
-        import os
-        import cPickle
         path = self.path_scratch[dtype_out_time]
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
@@ -633,8 +624,6 @@ class Calc(object):
 
     def _save_to_archive(self, dtype_out_time, dtype_out_vert=False):
         """Add the data to the tar file in /archive."""
-        import os
-        import tarfile
         if not os.path.isdir(self.dir_archive):
             os.makedirs(self.dir_archive)
         path = self.path_archive[dtype_out_time]
@@ -662,15 +651,12 @@ class Calc(object):
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
-        import cPickle
         with open(self.path_scratch[dtype_out_time], 'r') as data:
             data_vals = cPickle.load(data)
         return data_vals
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
         """Load data save in tarball on archive file system."""
-        import subprocess
-        import tarfile
         path = '/'.join([self.dir_archive, 'data.tar']).replace('//','/')
         subprocess.call(['dmget'] + [path])
         with tarfile.open(path, 'r') as data_tar:

@@ -1,3 +1,6 @@
+from .proj import Proj, proj_inst
+from .model import Model, model_inst
+
 class Run(object):
     """Model run parameters."""
     def __init__(self, name='', description='', proj=False, direc_nc=False,
@@ -33,22 +36,27 @@ class Run(object):
 
 def run_inst(run, parent_model=False, parent_proj=False):
     """Convert string matching an aospy.run name to an aospy.run instance."""
+    orig_type = type(run)
     if parent_proj and type(parent_proj) is not Proj:
-        parent_proj = _proj_inst(parent_proj)
+        parent_proj = proj_inst(parent_proj)
     if parent_model and type(parent_model) is not Model:
-        parent_model = _model_inst(parent_model, parent_proj)
-    if type(run) is str:
-        run_inst = parent_model.runs[run]
+        parent_model = model_inst(parent_model, parent_proj)
+    if type(run) is Run:
+        pass
+    elif type(run) is str:
+        run = parent_model.runs[run]
     elif type(run) in (list, tuple):
-        run_inst = [_run_inst(rn, mod, parent_proj) for (rn, mod)
-                    in zip(run, parent_model)]
+        run = [run_inst(rn, mod, parent_proj) for (rn, mod)
+               in zip(run, parent_model)]
+        if orig_type is tuple:
+            run = tuple(run)
     else:
-        run_inst = run
+        raise TypeError
     if parent_model:
         try:
-            run_inst.model = parent_model
+            run.model = parent_model
         except AttributeError:
             pass
-    return run_inst
+    return run
 
     

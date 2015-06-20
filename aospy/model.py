@@ -2,6 +2,7 @@ import numpy as np
 import netCDF4
 
 from .constants import r_e
+from .proj import Proj, proj_inst
 from .utils import _set_named_attr_dict
 
 class Model(object):
@@ -160,22 +161,24 @@ class Model(object):
             self.levs_thick = None
 
 def model_inst(model, parent_proj=False):
-    """Convert string of an aospy.model name to an aospy.model instance."""
-    if parent_proj and type(parent_proj) is not Proj:
-        parent_proj = _proj_inst(parent_proj)
+    """Convert string of a Model name to a Model instance."""
+    orig_type = type(model)
+    if type(parent_proj) is str:
+        parent_proj_out = proj_inst(parent_proj)
     if type(model) is Model:
-        model_inst =  model
+        pass
     elif type(model) is str:
-        model_inst = parent_proj.models[model]
+        model_out = parent_proj.models[model]
     elif type(model) in (list, tuple):
-        model_inst = [_model_inst(mod, proj) for (mod, proj)
-                      in zip(model, parent_proj)]
-        if type(model) is tuple:
-            model_inst = tuple(model_inst)
+        model_out = [model_inst(mod, proj) for (mod, proj)
+                     in zip(model, parent_proj_out)]
+        # Retain original container type, i.e. list or tuple.
+        if orig_type is tuple:
+            model_out = tuple(model_out)
     if parent_proj:
-        parent_proj = _proj_inst(parent_proj)
+        parent_proj_out = proj_inst(parent_proj)
         try:
-            model_inst.proj = parent_proj
+            model_out.proj = parent_proj
         except AttributeError:
             pass
-    return model_inst
+    return model_out
