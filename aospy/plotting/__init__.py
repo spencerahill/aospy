@@ -1,6 +1,4 @@
-"""Plotting submodule of aospy module."""
-
-def _conv_to_dup_list(x, n):
+def _conv_to_dup_list(x, n, single_to_list=True):
     """
     Convert singleton or iterable into length-n list.  If the input is
     a list, with length-1, its lone value gets duplicated n times.  If
@@ -16,7 +14,13 @@ def _conv_to_dup_list(x, n):
             raise ValueError("Input %s must have length 1 or %d : len(%s) = %d"
                              % (x, n, x, len(x)))
     else:
-        return [x]*n
+        if n == 1:
+            if single_to_list:
+                return [x]
+            else:
+                return x
+        else:
+            return [x]*n
 
 class Fig(object):
     # Various categories of inputted specifications
@@ -27,14 +31,15 @@ class Fig(object):
     )
     ax_specs = (
         'n_plot','ax_title', 'do_ax_label', 'ax_left_label', 'ax_right_label',
-        'xlim', 'xticks', 'ylim', 'yticks', 'map_proj', 'map_corners',
-        'map_res', 'shiftgrid_start', 'shiftgrid_cyclic', 'xdim', 'xlim',
-        'xticks', 'xticklabels', 'xlabel', 'ydim', 'ylim', 'yticks',
-        'yticklabels', 'ylabel', 'lat_lim', 'lat_ticks', 'lat_ticklabels',
-        'lat_label', 'lon_lim', 'lon_ticks', 'lon_ticklabels', 'lon_label',
-        'p_lim', 'p_ticks', 'p_ticklabels', 'p_label', 'sigma_lim',
-        'sigma_ticks', 'sigma_ticklabels', 'sigma_label', 'time_lim',
-        'time_ticks', 'time_ticklabels', 'time_label', 
+        'map_proj', 'map_corners', 'map_res', 'shiftgrid_start',
+        'shiftgrid_cyclic',
+        'x_dim', 'x_lim', 'x_ticks', 'x_ticklabels', 'x_label',
+        'y_dim', 'y_lim', 'y_ticks', 'y_ticklabels', 'y_label',
+        'lat_lim', 'lat_ticks', 'lat_ticklabels', 'lat_label',
+        'lon_lim', 'lon_ticks', 'lon_ticklabels', 'lon_label',
+        'p_lim', 'p_ticks', 'p_ticklabels', 'p_label',
+        'sigma_lim', 'sigma_ticks', 'sigma_ticklabels', 'sigma_label',
+        'time_lim', 'time_ticks', 'time_ticklabels', 'time_label',
     )
     plot_specs = (
         'plot_type', 'marker_size', 'marker_shape', 'marker_color',
@@ -56,7 +61,7 @@ class Fig(object):
                  dtype_out_time=None, dtype_out_vert=None, level=None, 
                  **kwargs):
         """Class for producing figures with one or more panels."""
-        from aospy.io import _proj_inst, _model_inst, _run_inst, _var_inst
+        from ..io import _proj_inst, _model_inst, _run_inst, _var_inst
         self.n_ax = n_ax
         self.n_plot = n_plot
         self.n_data = n_data
@@ -97,11 +102,13 @@ class Fig(object):
         self.do_ax_label = True if self.n_ax > 1 else False
 
         self._expand_attrs_over_tree()
+        print self.var
         self._make_ax_objs()
         # self._set_ax_geom()
 
     def _set_n_ax_plot_data(self):
-        """Number of axes must be <= rows*columns."""
+        """Set the number of axes, plots, and data."""
+        # Set the number of Axes.
         if self.n_ax == 'all':
             self.n_ax = self.n_row*self.n_col
         else:
@@ -128,7 +135,7 @@ class Fig(object):
                     if level == 'data':
                         for j, vij in enumerate(value[i]):
                             value[i][j] = _conv_to_dup_list(
-                                vij, self.n_data[i][j]
+                                vij, self.n_data[i][j], single_to_list=False
                             )
         return value
 
@@ -171,7 +178,7 @@ class Fig(object):
         """Create colorbar for multi panel plots."""
         from matplotlib import pyplot as plt
         import numpy as np
-        from aospy.io import _var_inst
+        from ..io import _var_inst
         # Goes at bottom center if for all panels.
         self.cbar_ax = self.fig.add_axes(self.cbar_ax_lim)
         self.cbar = self.fig.colorbar(self.Ax[0].Plot[0].handle,
@@ -225,14 +232,14 @@ class Fig(object):
 class Ax(object):
     # Which labels to include based on position in the figure.
     labels = {
-        'left': {'xticklabels': ' ', 'yticklabels': True,
-                 'xlabel': False, 'ylabel': True, 'do_colorbar': False},
-        'interior': {'xticklabels': ' ', 'yticklabels': ' ',
-                     'xlabel': False, 'ylabel': False, 'do_colorbar': False},
-        'bottomleft': {'xticklabels': True, 'yticklabels': True,
-                       'xlabel': True, 'ylabel': True, 'do_colorbar': True},
-        'bottom': {'xticklabels': True, 'yticklabels': ' ',
-                   'xlabel': True, 'ylabel': False, 'do_colorbar': True}
+        'left': {'x_ticklabels': ' ', 'y_ticklabels': True,
+                 'x_label': False, 'y_label': True, 'do_colorbar': False},
+        'interior': {'x_ticklabels': ' ', 'y_ticklabels': ' ',
+                     'x_label': False, 'y_label': False, 'do_colorbar': False},
+        'bottomleft': {'x_ticklabels': True, 'y_ticklabels': True,
+                       'x_label': True, 'y_label': True, 'do_colorbar': True},
+        'bottom': {'x_ticklabels': True, 'y_ticklabels': ' ',
+                   'x_label': True, 'y_label': False, 'do_colorbar': True}
     }
 
     def __init__(self, Fig, ax_num, ax_loc):
@@ -289,15 +296,17 @@ class Ax(object):
                 new_val = False
             setattr(self, key, new_val)
 
-
     def _set_xy_attrs_to_coords(self):
         """
         Set the x and y axis dimensions and related attributes to the values
-        specified by the 'xdim' and 'ydim' attributes.  E.g. if self.xdim =
-        'lat', then set 'xlim', etc. equal to 'lat_lim', etc.
+        specified by the 'x_dim' and 'y_dim' attributes.  E.g. if self.x_dim =
+        'lat', then set 'x_lim', etc. equal to 'lat_lim', etc.
         """
-        for l, dim in zip(('x', 'y'), ('xdim', 'ydim')):
+        for l, dim in zip(('x', 'y'), ('x_dim', 'y_dim')):
             prefix = getattr(self, dim)
+            # prefix being False implies to use the actual x_lim, x_ticks, etc.
+            if prefix is False:
+                prefix = l
             for attr in ('lim', 'ticks', 'ticklabels', 'label'):
                 setattr(self, ''.join([l, attr]),
                         getattr(self, '_'.join([prefix, attr])))
@@ -305,28 +314,28 @@ class Ax(object):
     def _set_axes_props(self):
         """Set the properties of the matplotlib Axes instance."""
         from matplotlib import pyplot as plt
-        if self.ylim:
-            self.ax.set_ylim(self.ylim)
-        if self.yticks:
-            self.ax.set_yticks(self.yticks)
-        if self.yticklabels:
-            self.ax.set_yticklabels(self.yticklabels, fontsize='small')
-        if self.ylabel:
-            # if self.ylabel == 'units': ylabel = var.plot_units
-            self.ax.set_ylabel(self.ylabel, fontsize='small', labelpad=-2)
-        if self.xlim:
-            if self.xlim == 'ann_cycle':
-                self.xlim = (1,12)
-                self.xticks = range(1,13)
-                self.xticklabels = tuple('JFMAMJJASOND')
-            self.ax.set_xlim(self.xlim)
-        if self.xticks:
-            self.ax.set_xticks(self.xticks)
-        if self.xticklabels:
-            self.ax.set_xticklabels(self.xticklabels, fontsize='x-small')
-        if self.xlabel:
-            # if self.xlabel == 'units': self.xlabel = var.plot_units
-            self.ax.set_xlabel(self.xlabel, fontsize='small', labelpad=1)
+        if self.y_lim:
+            self.ax.set_ylim(self.y_lim)
+        if self.y_ticks:
+            self.ax.set_yticks(self.y_ticks)
+        if self.y_ticklabels:
+            self.ax.set_yticklabels(self.y_ticklabels, fontsize='small')
+        if self.y_label:
+            # if self.y_label == 'units': y_label = var.plot_units
+            self.ax.set_ylabel(self.y_label, fontsize='small', labelpad=-2)
+        if self.x_lim:
+            if self.x_lim == 'ann_cycle':
+                self.x_lim = (1,12)
+                self.x_ticks = range(1,13)
+                self.x_ticklabels = tuple('JFMAMJJASOND')
+            self.ax.set_xlim(self.x_lim)
+        if self.x_ticks:
+            self.ax.set_xticks(self.x_ticks)
+        if self.x_ticklabels:
+            self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
+        if self.x_label:
+            # if self.x_label == 'units': self.x_label = var.plot_units
+            self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
 
         plt.tick_params(labelsize='x-small')
         self.ax.spines['right'].set_visible(False)
@@ -395,6 +404,9 @@ class Plot(object):
         self.plot_num = plot_num
         self.n_data = Ax.n_data[plot_num]
         self._copy_attrs_from_ax()
+        if type(self.var[0]) is tuple:
+            self.var = self.var[0]
+            self.n_data = len(self.var)
         self.Calc = self._make_calc_obj()
         self._set_coord_arrays()
         self._set_cntr_lvls()
@@ -419,9 +431,10 @@ class Plot(object):
             setattr(self, attr, self._traverse_child_tree(value, 'data'))
 
     def _make_calc_obj(self):
-        from aospy import Calc
+        from .. import Calc
         calc_obj = []
-        for i in range(self.n_data):
+        print self.n_data, self.var
+        for i in range(max(self.n_data, len(self.var[0]))):
             if type(self.run[i]) is dict:
                 calc_pair = [Calc(
                     proj=self.proj[i], model=self.model[i],
@@ -468,8 +481,8 @@ class Plot(object):
             mod_inds = (0, 0)
         else:
             mod_inds = (0, 1)
-        for dim, data, lim, i in zip(('xdim', 'ydim'), ('xdata', 'ydata'),
-                                     ('xlim', 'ylim'), mod_inds):
+        for dim, data, lim, i in zip(('x_dim', 'y_dim'), ('x_data', 'y_data'),
+                                     ('x_lim', 'y_lim'), mod_inds):
             array_key = getattr(self.Ax, dim)
             try:
                 array = getattr(self.Calc[i].model[0], array_names[array_key])
@@ -524,7 +537,7 @@ class Plot(object):
     # def _load_2d_data(self):
     #     """Load 2D-data and set the corresponding attrs."""
     #     import numpy as np
-    #     from aospy.io import load_plot_data
+    #     from ..io import load_plot_data
     #     self.data = np.squeeze(load_plot_data(
     #         self.proj, self.model, self.run, self.ens_mem[0],
     #         self.var, self.level[0], self.intvl[0], self.dtype[0],
@@ -533,8 +546,8 @@ class Plot(object):
 
     # def _load_xy_data(self):
     #     """Load x- and y-data and set the corresponding attrs."""
-    #     from aospy.io import load_plot_data
-    #     for i, data in enumerate(('xdata', 'ydata')):
+    #     from ..io import load_plot_data
+    #     for i, data in enumerate(('x_data', 'y_data')):
     #         setattr(self, data, load_plot_data(
     #             self.proj[i], self.model[i], self.run[i], self.ens_mem[i],
     #             self.var[i], self.level[i], self.intvl[i], self.dtype[i],
@@ -555,7 +568,7 @@ class Plot(object):
         transforms = {'do_subtract_mean': self._subtract_mean}
                       #'mult_by_factor': self._mult_by_factor}
         for attr, method in transforms.iteritems():
-            for data, do_method in zip(['xdata', 'ydata'], getattr(self, attr)):
+            for data, do_method in zip(['x_data', 'y_data'], getattr(self, attr)):
                 if do_method:
                     setattr(self, data, method(getattr(self, data)))
         return data
@@ -567,7 +580,7 @@ class Line(Plot):
 
     def plot(self):
         handle = self.Ax.ax.plot(
-            self.xdata, self.ydata, color=self.line_color,
+            self.x_data, self.y_data, color=self.line_color,
             linestyle=self.linestyle, marker=self.marker_shape,
             markerfacecolor=self.marker_color, markersize=self.marker_size
         )
@@ -580,7 +593,7 @@ class Scatter(Plot):
 
     def plot(self):
         self.Ax.ax.scatter(
-            self.xdata, self.ydata, s=self.marker_size, c=self.marker_color,
+            self.x_data, self.y_data, s=self.marker_size, c=self.marker_color,
             marker=self.marker_shape
         )
         if self.do_best_fit_line:
@@ -592,14 +605,14 @@ class Scatter(Plot):
     def corr_coeff(self):
         """Compute the Pearson correlation coefficient and plot it."""
         import scipy.stats
-        pearsonr, p_val = scipy.stats.pearsonr(self.xdata, self.ydata)
+        pearsonr, p_val = scipy.stats.pearsonr(self.x_data, self.y_data)
         self.Ax.ax.text(0.3, 0.89, r'$r=$ %.2f' % pearsonr,
                         transform=self.Ax.ax.transAxes, fontsize='x-small')
 
     def best_fit_line(self, print_slope=True):
         """Plot the best fit line to the scatterplot data."""
         import numpy as np
-        best_fit = np.polyfit(self.xdata, self.ydata, 1)
+        best_fit = np.polyfit(self.x_data, self.y_data, 1)
         x_lin_fit = [-1e3,1e3]
         def lin_fit(m, x, b):
             return [m*xx + b for xx in x]
@@ -622,12 +635,12 @@ class Map(Plot):
     def _make_basemap(self):
         import numpy as np
         from mpl_toolkits.basemap import Basemap
-        if self.Ax.xlim:
-            llcrnrlon, urcrnrlon = self.Ax.xlim
+        if self.Ax.x_lim:
+            llcrnrlon, urcrnrlon = self.Ax.x_lim
         else:
             llcrnrlon, urcrnrlon = -180, 180
-        if self.Ax.ylim:
-            llcrnrlat, urcrnrlat = self.Ax.ylim
+        if self.Ax.y_lim:
+            llcrnrlat, urcrnrlat = self.Ax.y_lim
         else:
             llcrnrlat, urcrnrlat = -90, 90
 
@@ -680,7 +693,7 @@ class Contour(Plot):
     def plot(self):
         # self._set_plot_func()
         self.handle = self.contourf(
-            self.xdata, self.ydata, self.data.T, self.cntr_lvls,
+            self.x_data, self.y_data, self.data.T, self.cntr_lvls,
             extend=self.contourf_extend
         )
         self.handle.set_cmap(self.col_map)

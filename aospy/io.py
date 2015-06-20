@@ -1,136 +1,11 @@
-def _var_inst(var):
-    """Convert string of an aospy.var name to an aospy.var instance."""
-    from .. import Var, variables
-    if type(var) is Var:
-        var_inst = var
-    elif type(var) is str:
-        try:
-            var_inst = getattr(variables, var)
-        except AttributeError:
-            raise AttributeError('Not a recognized aospy.Var name: %s'
-                                 % var)
-    elif type(var) in (list, tuple):
-        var_inst = [_var_inst(vr) for vr in var]
-        if type(var) is tuple:
-            var_inst = tuple(var_inst)
-    return var_inst
+import imp
+import os
+import string
+import subprocess
+import numpy as np
+import netCDF4 
 
-def _region_inst(region):
-    """Convert string of an aospy.Region name to an aospy.Region instance."""
-    from .. import regions
-    if type(region) is str:
-        return getattr(regions, region)
-    else:
-        return region
-
-def _proj_inst(proj):
-    """Convert string of an aospy.Proj name to an aospy.Proj instance."""
-    import imp
-    from .. import Proj, aospy_path
-    if type(proj) is Proj:
-        return proj
-    elif type(proj) is str:
-        try:
-            proj_module = imp.load_source(proj, (aospy_path + '/' +
-                                          proj + '.py').replace('//','/'))
-            proj_func = getattr(proj_module, proj)
-            return proj_func()
-        except AttributeError:
-            raise AttributeError('Not a recognized aospy.Proj name: %s'
-                                 % proj)
-    elif type(proj) is tuple:
-        return tuple([_proj_inst(proj[0])])
-    else:
-        raise TypeError
-
-def _model_inst(model, parent_proj=False):
-    """Convert string of an aospy.model name to an aospy.model instance."""
-    from .. import Proj, Model
-    if parent_proj and type(parent_proj) is not Proj:
-        parent_proj = _proj_inst(parent_proj)
-    if type(model) is Model:
-        model_inst =  model
-    elif type(model) is str:
-        model_inst = parent_proj.models[model]
-    elif type(model) in (list, tuple):
-        model_inst = [_model_inst(mod, proj) for (mod, proj)
-                      in zip(model, parent_proj)]
-        if type(model) is tuple:
-            model_inst = tuple(model_inst)
-    if parent_proj:
-        parent_proj = _proj_inst(parent_proj)
-        try:
-            model_inst.proj = parent_proj
-        except AttributeError:
-            pass
-    return model_inst
-
-def _run_inst(run, parent_model=False, parent_proj=False):
-    """Convert string matching an aospy.run name to an aospy.run instance."""
-    from .. import Proj, Model, Run
-    if parent_proj and type(parent_proj) is not Proj:
-        parent_proj = _proj_inst(parent_proj)
-    if parent_model and type(parent_model) is not Model:
-        parent_model = _model_inst(parent_model, parent_proj)
-    if type(run) is str:
-        run_inst = parent_model.runs[run]
-    elif type(run) in (list, tuple):
-        run_inst = [_run_inst(rn, mod, parent_proj) for (rn, mod)
-                    in zip(run, parent_model)]
-    else:
-        run_inst = run
-    if parent_model:
-        try:
-            run_inst.model = parent_model
-        except AttributeError:
-            pass
-    return run_inst
-
-def _aospy_inst(proj=False, model=False, run=False, var=False):
-    """Convert string matching aospy object names to class instances."""
-    from . import (_run_inst, _region_inst, _proj_inst, _model_inst,
-                          _var_inst)
-    def _to_list(obj):
-        if type(obj) is str:
-            list_obj = [obj]
-        else:
-            list_obj = obj
-        return list_obj
-
-    pr, md, rn, vr = [], [], [], []
-    for p, m, r, v in zip(_to_list(proj), _to_list(model), _to_list(run),
-                          _to_list(var)):
-        if p:
-            p = _proj_inst(p)
-            pr.append(p)
-        if m:
-            m = _model_inst(m, p)
-            md.append(m)
-        if r:
-            r = _run_inst(r, m, p)
-            rn.append(r)
-        if v:
-            vr.append(_var_inst(v))
-
-    def _strip_singleton_list(l):
-        """Strip extra list layers."""
-        while True:
-            try:
-                l = l[0]
-            except TypeError:
-                break
-        return l
-
-    if type(proj) is str or len(proj) == 1:
-        pr = _strip_singleton_list(pr)
-    if type(model) is str or len(model) == 1:
-        md = _strip_singleton_list(md)
-    if type(run) is str or len(run) == 1:
-        rn = _strip_singleton_list(rn)
-    if type(var) is str or len(var) == 1:
-        vr = _strip_singleton_list(vr)
-
-    return pr, md, rn, vr
+#from . import Proj, Model, Run, Var, Region
 
 def _var_label(var, level):
     """
@@ -196,7 +71,6 @@ def _znl_label(var):
 
 def _time_label(intvl, return_val=True):
     """Create time interval label for aospy data I/O."""
-    import numpy as np
     # Monthly labels are 2 digit integers: '01' for jan, '02' for feb, etc.
     if type(intvl) in [list, tuple, np.ndarray] and len(intvl) == 1:
         label = '{:02}'.format(intvl[0])
@@ -258,9 +132,7 @@ def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
                     the time array itself at those time indices.
     :type indices: bool
     """
-    import numpy as np
-    from netCDF4 import num2date
-    dates = num2date(time[:], units, calendar.lower())
+    dates = netCDF4.num2date(time[:], units, calendar.lower())
     inds = [i for i, date in enumerate(dates) if (date.month in months) and
                    (date.year in range(start_yr, end_yr+1))]
     if indices == 'only':
@@ -275,7 +147,6 @@ def prune_lat_lon(array, model, lats, lons):
     # SAH 2015-03-10: have to pivot lons that span edge of array. See
     # "pivot" portion of aospy.plotting.plot_lon_vert.  Need to implement that
     # before this function will work.
-    import numpy as np
     # Assume array dimensions are (time, lat, lon).
     if lats:
         latmin, latmax = np.min(lats), np.max(lats)
@@ -290,7 +161,6 @@ def prune_lat_lon(array, model, lats, lons):
 def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
                  intvl, nc_start_yr, nc_dur):
     """Determines the gfdl_file name of GFDL model data output."""
-    from . import _time_label
     # Determine starting year of netCDF file to be accessed.
     extra_yrs = (data_yr - nc_start_yr) % nc_dur
     nc_yr = data_yr - extra_yrs
@@ -341,14 +211,10 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
 
 def dmget_nc(files_list):
     """Call GFDL command 'dmget' to access archived files."""
-    from subprocess import call
-    call(['dmget'] + files_list)
+    subprocess.call(['dmget'] + files_list)
 
 def hsmget_nc(files_list):
     """Call GFDL command 'hsmget' to access archived files."""
-    import os
-    import subprocess
-    import string
     # tmpdir = os.environ['TMPDIR']
     workdir = '/work/' + os.environ['USER']
     ptmpdir = '/ptmp/' + os.environ['USER']
