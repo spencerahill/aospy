@@ -7,17 +7,21 @@ import time
 import netCDF4
 import numpy as np
 
+from .utils import _get_parent_attr
+from .io import _data_in_label
+from .io import _data_out_label
+from .io import _ens_label
+from .io import _get_time
+from .io import _month_indices
+from .io import _yr_label
+from .io import dmget_nc
+from .io import hsmget_nc
+from .io import nc_name_gfdl
 from .proj import Proj, proj_inst
 from .model import Model, model_inst
 from .run import Run, run_inst
 from .var import Var, var_inst
 from .region import Region, region_inst
-from .io import _ens_label
-from .io import _get_time as io_get_time
-from .io import _month_indices
-from .io import dmget_nc
-from .io import hsmget_nc
-from .io import nc_name_gfdl
 
 class Calc(object):
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
@@ -106,9 +110,9 @@ class Calc(object):
         self.path_scratch = {d: '/'.join([self.dir_scratch,
                                           self.file_name[d]]).replace('//', '/')
                              for d in self.dtype_out_time}
-        self.path_archive = {d: '/'.join([self.dir_archive,
-                                          self.file_name[d]]).replace('//', '/')
-                             for d in self.dtype_out_time}
+        self.path_archive = (
+            '/'.join([self.dir_archive, 'data.tar']).replace('//','/')
+        )
 
         if not skip_time_inds:
             self._set_time_dt()
@@ -198,7 +202,7 @@ class Calc(object):
                 break
         with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
             time_obj = nc.variables['time']
-            inds, time = io_get_time(
+            inds, time = _get_time(
                 time_obj[:], time_obj.units, time_obj.calendar,
                 self.start_yr, self.end_yr, self.months, indices=True
             )
@@ -270,12 +274,12 @@ class Calc(object):
 
     def _file_name(self, dtype_out_time):
         """Create the name of the aospy file."""
-        out_lbl = io._data_out_label(self.intvl_out, dtype_out_time, 
-                                     dtype_vert=self.dtype_out_vert)
-        in_lbl = io._data_in_label(self.intvl_in, self.dtype_in_time,
-                                   self.dtype_in_vert)
-        ens_lbl = io._ens_label(self.ens_mem)
-        yr_lbl = io._yr_label((self.start_yr, self.end_yr))
+        out_lbl = _data_out_label(self.intvl_out, dtype_out_time, 
+                                  dtype_vert=self.dtype_out_vert)
+        in_lbl = _data_in_label(self.intvl_in, self.dtype_in_time,
+                                self.dtype_in_vert)
+        ens_lbl = _ens_label(self.ens_mem)
+        yr_lbl = _yr_label((self.start_yr, self.end_yr))
         file_name = '.'.join(
             [self.name, out_lbl, in_lbl, self.model_str, self.run_str_full,
              ens_lbl, yr_lbl, 'p']
@@ -433,7 +437,7 @@ class Calc(object):
             time = nc.variables['time']
             t_array, t_units, t_cal = time[:], time.units, time.calendar
             t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
-                             self.months, indices='only')
+                                 self.months, indices='only')
             if eddy:
                 eddy = self._get_dt(nc, t_inds)
         data = self._get_data_subset(
@@ -626,9 +630,9 @@ class Calc(object):
         """Add the data to the tar file in /archive."""
         if not os.path.isdir(self.dir_archive):
             os.makedirs(self.dir_archive)
-        path = self.path_archive[dtype_out_time]
-        with tarfile.open(path + 'data.tar', 'a') as tar:
-            tar.add(self.path_scratch[dtype_out_time], arcname=path)
+        with tarfile.open(self.path_archive, "a") as tar:
+            tar.add(self.path_scratch[dtype_out_time],
+                    arcname=self.file_name[dtype_out_time])
 
     def _update_data_out(self, data, dtype):
         """Append the data of the given dtype_out to the data_out attr."""
