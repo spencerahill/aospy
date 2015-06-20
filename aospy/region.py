@@ -1,4 +1,8 @@
+import imp
 import numpy as np
+
+from . import user_path
+from .utils import _get_parent_attr
 
 class Region(object):
     """Geographical region."""
@@ -87,6 +91,10 @@ class Region(object):
         """Standard deviation of time-series data."""
         out = np.squeeze(self.ts(data, model).std(axis=0))
         return out
+
+regions = imp.load_source(
+    'regions', (user_path + '/regions/__init__.py').replace('//','/')
+)
 
 def region_inst(region):
     """Convert string of an aospy.Region name to an aospy.Region instance."""

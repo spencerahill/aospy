@@ -1,4 +1,5 @@
 import cPickle
+import imp
 import os
 import subprocess
 import tarfile
@@ -7,6 +8,7 @@ import time
 import netCDF4
 import numpy as np
 
+from . import user_path
 from .utils import _get_parent_attr
 from .io import _data_in_label
 from .io import _data_out_label
@@ -696,3 +698,7 @@ class Calc(object):
         # Copy the array to self.data_out for ease of future access.
         self._update_data_out(data_out, dtype_out_time)
         return data_out
+
+calcs = imp.load_source(
+    'calcs', (user_path + '/calcs/__init__.py').replace('//','/')
+)
