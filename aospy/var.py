@@ -1,4 +1,7 @@
+import imp
 from numpy import ma
+
+from . import user_path
 from .units import Units
 
 class Var(object):
@@ -64,18 +67,22 @@ class Var(object):
         except AttributeError:
             return data
 
+variables = imp.load_source(
+    'variables', (user_path + '/variables/__init__.py').replace('//','/')
+)
+
 def var_inst(var):
     """Convert string of an aospy.var name to an aospy.var instance."""
     if type(var) is Var:
-        var_inst = var
+        var_out = var
     elif type(var) is str:
         try:
-            var_inst = getattr(variables, var)
+            var_out = getattr(variables, var)
         except AttributeError:
             raise AttributeError('Not a recognized aospy.Var name: %s'
                                  % var)
     elif type(var) in (list, tuple):
-        var_inst = [_var_inst(vr) for vr in var]
+        var_out = [var_inst(v) for v in var]
         if type(var) is tuple:
-            var_inst = tuple(var_inst)
-    return var_inst
+            var_out = tuple(var_out)
+    return var_out
