@@ -1,9 +1,9 @@
 #! /usr/bin/env python
 import numpy as np
-import aospy.plot
+import aospy.plotting
 
 def plot():
-    fig = aospy.plot.Fig(
+    fig = aospy.plotting.Fig(
         n_row=1,
         n_col=1,
         n_ax='all',
