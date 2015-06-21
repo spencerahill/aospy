@@ -1,3 +1,12 @@
+import scipy.stats
+import numpy as np
+from matplotlib import pyplot as plt
+from mpl_toolkits.basemap import Basemap
+from mpl_toolkits.basemap import shiftgrid
+
+from .var import var_inst
+from .calc import Calc
+
 def _conv_to_dup_list(x, n, single_to_list=True):
     """
     Convert singleton or iterable into length-n list.  If the input is
@@ -61,7 +70,6 @@ class Fig(object):
                  dtype_out_time=None, dtype_out_vert=None, level=None, 
                  **kwargs):
         """Class for producing figures with one or more panels."""
-        from ..io import _proj_inst, _model_inst, _run_inst, _var_inst
         self.n_ax = n_ax
         self.n_plot = n_plot
         self.n_data = n_data
@@ -102,7 +110,6 @@ class Fig(object):
         self.do_ax_label = True if self.n_ax > 1 else False
 
         self._expand_attrs_over_tree()
-        print self.var
         self._make_ax_objs()
         # self._set_ax_geom()
 
@@ -176,9 +183,6 @@ class Fig(object):
 
     def _make_colorbar(self):
         """Create colorbar for multi panel plots."""
-        from matplotlib import pyplot as plt
-        import numpy as np
-        from ..io import _var_inst
         # Goes at bottom center if for all panels.
         self.cbar_ax = self.fig.add_axes(self.cbar_ax_lim)
         self.cbar = self.fig.colorbar(self.Ax[0].Plot[0].handle,
@@ -192,7 +196,7 @@ class Fig(object):
             self.cbar.set_ticklabels(self.cbar_ticklabels)
         self.cbar.ax.tick_params(labelsize='x-small')
         if self.cbar_label:
-            var = _var_inst(self.var[0][0][0])
+            var = var_inst(self.var[0][0][0])
             if self.cbar_label == 'units':
                 if self.dtype_out_vert[0][0][0] == 'vert_int':
                     label = var.vert_int_plot_units
@@ -205,8 +209,6 @@ class Fig(object):
 
     def create_fig(self):
         """Create the figure and set up the subplots."""
-        from matplotlib import pyplot as plt
-
         self.fig = plt.figure(figsize=(self.n_col*self.col_size,
                                        self.n_row*self.row_size))
         self.fig.subplots_adjust(**self.subplot_lims)
@@ -313,7 +315,6 @@ class Ax(object):
 
     def _set_axes_props(self):
         """Set the properties of the matplotlib Axes instance."""
-        from matplotlib import pyplot as plt
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
         if self.y_ticks:
@@ -431,10 +432,9 @@ class Plot(object):
             setattr(self, attr, self._traverse_child_tree(value, 'data'))
 
     def _make_calc_obj(self):
-        from .. import Calc
         calc_obj = []
-        print self.n_data, self.var
-        for i in range(max(self.n_data, len(self.var[0]))):
+        # for i in range(max(self.n_data, len(self.var[0]))):
+        for i in range(self.n_data):
             if type(self.run[i]) is dict:
                 calc_pair = [Calc(
                     proj=self.proj[i], model=self.model[i],
@@ -474,7 +474,6 @@ class Plot(object):
 
     def _set_coord_arrays(self):
         """Set the arrays holding the x- and y-coordinates."""
-        import numpy as np
         array_names = {'lat': 'lat', 'lon': 'lon', 'p': 'level',
                        'sigma': 'pfull', 'time': 'time'}
         if self.n_data == 1:
@@ -504,7 +503,6 @@ class Plot(object):
             setattr(self, data, array)
 
     def _set_cntr_lvls(self):
-        import numpy as np
         self.cntr_lvls = np.linspace(
             self.min_cntr, self.max_cntr, self.num_cntr + 1
         )
@@ -536,8 +534,6 @@ class Plot(object):
 
     # def _load_2d_data(self):
     #     """Load 2D-data and set the corresponding attrs."""
-    #     import numpy as np
-    #     from ..io import load_plot_data
     #     self.data = np.squeeze(load_plot_data(
     #         self.proj, self.model, self.run, self.ens_mem[0],
     #         self.var, self.level[0], self.intvl[0], self.dtype[0],
@@ -546,7 +542,6 @@ class Plot(object):
 
     # def _load_xy_data(self):
     #     """Load x- and y-data and set the corresponding attrs."""
-    #     from ..io import load_plot_data
     #     for i, data in enumerate(('x_data', 'y_data')):
     #         setattr(self, data, load_plot_data(
     #             self.proj[i], self.model[i], self.run[i], self.ens_mem[i],
@@ -555,16 +550,13 @@ class Plot(object):
     #         ))
 
     def _subtract_mean(self, data):
-        import numpy as np
         return np.subtract(data, np.mean(data))
 
     # def _mult_by_factor(self, data):
-        # import numpy as np
         # return np.multiply(data, self.mult_factor)
 
     def _apply_data_transforms(self):
         """Apply any specified transformations to the data once loaded."""
-        import numpy as np
         transforms = {'do_subtract_mean': self._subtract_mean}
                       #'mult_by_factor': self._mult_by_factor}
         for attr, method in transforms.iteritems():
@@ -604,14 +596,12 @@ class Scatter(Plot):
 
     def corr_coeff(self):
         """Compute the Pearson correlation coefficient and plot it."""
-        import scipy.stats
         pearsonr, p_val = scipy.stats.pearsonr(self.x_data, self.y_data)
         self.Ax.ax.text(0.3, 0.89, r'$r=$ %.2f' % pearsonr,
                         transform=self.Ax.ax.transAxes, fontsize='x-small')
 
     def best_fit_line(self, print_slope=True):
         """Plot the best fit line to the scatterplot data."""
-        import numpy as np
         best_fit = np.polyfit(self.x_data, self.y_data, 1)
         x_lin_fit = [-1e3,1e3]
         def lin_fit(m, x, b):
@@ -633,8 +623,6 @@ class Map(Plot):
         self.lat = self.model.lat
 
     def _make_basemap(self):
-        import numpy as np
-        from mpl_toolkits.basemap import Basemap
         if self.Ax.x_lim:
             llcrnrlon, urcrnrlon = self.Ax.x_lim
         else:
@@ -651,7 +639,6 @@ class Map(Plot):
         )
 
     def _shiftgrid(self, lon0, datain, lonsin, start=True, cyclic=360.0):
-        from mpl_toolkits.basemap import shiftgrid
         return shiftgrid(lon0, datain, lonsin, start=start, cyclic=cyclic)
 
     def plot_latlon_rect(self, lonmin, lonmax, latmin, latmax):
@@ -663,7 +650,6 @@ class Map(Plot):
         return self.basemap.plot(xs, ys, latlon=True)
 
     def plot(self):
-        import numpy as np
         # self._set_plot_func()
         self._make_basemap()
         if self.Ax.shiftgrid_start:
