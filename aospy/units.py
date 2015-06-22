@@ -1,3 +1,6 @@
+import imp
+from .__config__ import user_path
+
 class Units(object):
     vint_str = r'kg m$^{-2}$'
     def __init__(self, units='', plot=False, plot_conv=1., vert_int=False,
@@ -20,3 +23,7 @@ class Units(object):
             self.vert_int_plot_conv = vert_int_plot_conv
         else:
             self.vert_int_plot_conv = plot_conv
+
+units = imp.load_source(
+    'units', (user_path + '/units/__init__.py').replace('//','/')
+)
