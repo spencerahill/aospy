@@ -96,7 +96,7 @@ def _time_label(intvl, return_val=True):
     else:
         return label
 
-def _month_indices(months):
+def _month_indices(months, iterable=True):
     """Convert string labels for months to integer indices.
 
     :param months: String matching either 'ann' or some subset of 
@@ -106,7 +106,10 @@ def _month_indices(months):
     """
     assert type(months) in (int, str)
     if type(months) is int:
-        return months
+        if iterable:
+            return [months]
+        else:
+            return months
     elif months.lower() == 'ann':
         return range(1,13)
     else:

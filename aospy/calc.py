@@ -104,7 +104,7 @@ class Calc(object):
         self.yr_range = yr_range
         self.start_yr, self.end_yr = self._get_yr_range()
         self.num_yr = self._get_num_yr()
-        self.months = _month_indices(intvl_out)
+        self.months = _month_indices(intvl_out, iterable=True)
         self.yr_chunk_len = yr_chunk_len
         self.chunk_ranges = self._make_time_chunks()
 
