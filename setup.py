@@ -1,10 +1,9 @@
-from setuptools import setup, find_packages
-setup(
+import setuptools
+
+setuptools.setup(
     name = "aospy",
     version = "0.0",
-    packages = find_packages(),
-    scripts = ['main.py', 'print_table.py'],
-
+    packages = setuptools.find_packages(),
     author = "Spencer A. Hill",
     author_email = "spencerahill@gmail.com",
     description = "Automated gridded climate data analysis and visualization",
