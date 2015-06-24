@@ -1,3 +1,4 @@
+"""aospy: management, analysis, and plotting of gridded climate data."""
 from .__config__ import user_path
 from . import constants
 from . import utils
