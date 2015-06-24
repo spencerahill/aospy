@@ -17,8 +17,10 @@ class Var(object):
         # Identity transform if no function specified.
         if not func:
             self.func = lambda x: x
+            self.vars = False
         else:
             self.func = func
+            self.vars = vars
         # `units` kwarg can be `Units` object or string
         
         if type(units) is Units:

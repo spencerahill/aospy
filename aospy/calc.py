@@ -1,6 +1,7 @@
 import cPickle
 import imp
 import os
+import shutil
 import subprocess
 import tarfile
 import time
@@ -63,6 +64,7 @@ class Calc(object):
         self.var = var_inst(var)
         self.name = self.var.name
         self.domain = self.var.domain
+        self.def_time = self.var.def_time
 
         self.verbose = verbose
         self._print_verbose("\nInitializing Calc instance: %s", self.__str__())
@@ -487,7 +489,7 @@ class Calc(object):
         if self.dtype_out_vert == 'vert_int':
             result = int_dp_g(result, dp)[:,np.newaxis,:,:]
         # If already averaged, pass data on.  Otherwise do time averaging.
-        if 'av' in self.dtype_in_time:
+        if 'av' in self.dtype_in_time or not self.def_time:
             return result
         try:
             result = result.reshape((num_yr, -1, result.shape[-3],
@@ -507,6 +509,9 @@ class Calc(object):
         files = {}
         if 'ts' in self.dtype_out_time:
             files.update({'ts': loc_ts})
+        if 'None' in self.dtype_out_time:
+            # Some calcs (e.g. correlations) already do time reduction.
+            files.update({'av': loc_ts})
         if 'av' in self.dtype_out_time:
             files.update({'av': loc_ts.mean(axis=0)})
         if 'eddy.av' in self.dtype_out_time:
@@ -593,7 +598,10 @@ class Calc(object):
             full_ts = np.ma.concatenate(full_ts, axis=0)
         # Apply time reduction methods on gridded data and save.
         self._print_verbose("Applying desired time-reduction methods.")
-        reduced = self._time_reduce(full_ts)
+        if self.def_time:
+            reduced = self._time_reduce(full_ts)
+        else:
+            reduced = {'': full_ts}
         self._print_verbose("Writing desired gridded outputs to disk.")
         for dtype_out_time, data in reduced.iteritems():
             self.save(np.squeeze(data), dtype_out_time, 
@@ -632,7 +640,27 @@ class Calc(object):
         """Add the data to the tar file in /archive."""
         if not os.path.isdir(self.dir_archive):
             os.makedirs(self.dir_archive)
-        with tarfile.open(self.path_archive, "a") as tar:
+        # tarfile 'append' mode won't overwrite the old file, which we want.
+        # So open in 'read' mode, extract the file, and then delete it.
+        with tarfile.open(self.path_archive, 'r') as tar:
+            try:
+                old_data_path = '/'.join(
+                    [self.dir_archive, self.file_name[dtype_out_time]]
+                ).replace('//','/') 
+
+                tar.extract(self.file_name[dtype_out_time],
+                            path=old_data_path)
+            except KeyError:
+                pass
+            else:
+                # The os module treats files on archive as non-empty
+                # directories, so can't use os.remove or os.rmdir.
+                shutil.rmtree(old_data_path)
+                subprocess.call([
+                    "tar", "--delete", "--file=%s" % self.path_archive,
+                    self.file_name[dtype_out_time]
+                ])
+        with tarfile.open(self.path_archive, 'a') as tar:
             tar.add(self.path_scratch[dtype_out_time],
                     arcname=self.file_name[dtype_out_time])
 
