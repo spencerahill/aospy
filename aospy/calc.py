@@ -643,6 +643,9 @@ class Calc(object):
             os.makedirs(self.dir_archive)
         # tarfile 'append' mode won't overwrite the old file, which we want.
         # So open in 'read' mode, extract the file, and then delete it.
+        # But 'read' mode throws OSError if file doesn't exist: make it first.
+        with tarfile.open(self.path_archive, 'a') as tar:
+            pass
         with tarfile.open(self.path_archive, 'r') as tar:
             try:
                 old_data_path = '/'.join(
