@@ -1,3 +1,4 @@
+"""calc.py"""
 import cPickle
 import imp
 import os
@@ -18,7 +19,6 @@ from .io import _get_time
 from .io import _month_indices
 from .io import _yr_label
 from .io import dmget_nc
-from .io import hsmget_nc
 from .io import nc_name_gfdl
 from .proj import Proj, proj_inst
 from .model import Model, model_inst
@@ -26,13 +26,14 @@ from .run import Run, run_inst
 from .var import Var, var_inst
 from .region import Region, region_inst
 
+
 class Calc(object):
+    """Class for executing, saving, and loading a single computation."""
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  yr_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
-                 dtype_out_vert=None, level=None, skip_time_inds=False, 
+                 dtype_out_vert=None, level=None, skip_time_inds=False,
                  yr_chunk_len=False, verbose=True):
-        """Class for executing, saving, and loading a single computation."""
         # Turn strings into tuples.
         if type(proj) in (str, Proj):
             proj = tuple([proj])
@@ -49,11 +50,11 @@ class Calc(object):
         assert len(proj) == len(model)
 
         # Convert string names to aospy objects.
-        self.proj  = tuple([proj_inst(pr) for pr in proj])
+        self.proj = tuple([proj_inst(pr) for pr in proj])
         self.model = tuple([model_inst(mod, pr) for
                            (mod, pr) in zip(model, self.proj)])
-        self.run   = tuple([run_inst(rn, mod, pr) for (rn, mod, pr)
-                            in zip(run, self.model, self.proj)])
+        self.run = tuple([run_inst(rn, mod, pr) for (rn, mod, pr)
+                          in zip(run, self.model, self.proj)])
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
         self.model_str = '_'.join(set([m.name for m in self.model]))
@@ -93,7 +94,7 @@ class Calc(object):
         self.intvl_in = intvl_in
         self.intvl_out = intvl_out
         self.dtype_in_time = dtype_in_time
-        self.dtype_in_vert = dtype_in_vert        
+        self.dtype_in_vert = dtype_in_vert
         if type(dtype_out_time) in (list, tuple):
             self.dtype_out_time = tuple(dtype_out_time)
         else:
@@ -157,7 +158,7 @@ class Calc(object):
             else:
                 break
         return np.add(data_self, data_other)
-    
+
     def _print_verbose(self, *args):
         """Print diagnostic message."""
         if not self.verbose:
@@ -167,7 +168,7 @@ class Calc(object):
                 print args[0] % args[1], '(%s)' % time.ctime()
             except IndexError:
                 print args[0], '(%s)' % time.ctime()
-        
+
     def _get_yr_range(self):
         """Set the object's span of years."""
         if self.yr_range == 'default':
@@ -189,7 +190,7 @@ class Calc(object):
 
     def _set_nc_attrs(self):
         for attr in ('nc_start_yr', 'nc_end_yr', 'nc_dur', 'direc_nc',
-                     # 'nc_start_month', 'nc_end_month', 
+                     # 'nc_start_month', 'nc_end_month',
                      # 'ens_mem_prefix', 'ens_mem_ext'
                      'nc_files', 'nc_dir_struc', 'default_yr_range'):
             attr_val = tuple([_get_parent_attr(rn, attr) for rn
@@ -240,7 +241,7 @@ class Calc(object):
         3 hourly data for DJF spanning a leap year and non leap-year.  The
         leap year February will have 4 more timesteps than the non-leap year.
         """
-        
+
         reshaped = np.reshape(array, (end_yr - start_yr + 1, -1))
         return reshaped[:,:,np.newaxis,np.newaxis,np.newaxis]
 
@@ -278,7 +279,7 @@ class Calc(object):
 
     def _file_name(self, dtype_out_time):
         """Create the name of the aospy file."""
-        out_lbl = _data_out_label(self.intvl_out, dtype_out_time, 
+        out_lbl = _data_out_label(self.intvl_out, dtype_out_time,
                                   dtype_vert=self.dtype_out_vert)
         in_lbl = _data_in_label(self.intvl_in, self.dtype_in_time,
                                 self.dtype_in_vert)
@@ -323,7 +324,7 @@ class Calc(object):
             dtype_lbl = 'ts'
         # 2015-05-12 using 'ts' or 'inst' data only for now
         # separator = '_' if self.dtype_in_time == 'av' else '/'
-        separator = '/' 
+        separator = '/'
         if 'av_from_' in self.dtype_in_time:
             dtype = self.dtype_in_time.replace('av_from_', '')
             dtype_lbl = dtype
@@ -495,7 +496,7 @@ class Calc(object):
             result = result.reshape((num_yr, -1, result.shape[-3],
                                      result.shape[-2], result.shape[-1]))
         except ValueError:
-            result = result.reshape((num_yr, -1, result.shape[-2], 
+            result = result.reshape((num_yr, -1, result.shape[-2],
                                      result.shape[-1]))
         # Average within each year, yielding a yearly time-series.
         try:
@@ -540,7 +541,7 @@ class Calc(object):
             if 'znl.std' in self.dtype_out_time:
                 files.update({'znl.std': znl_ts.std(axis=0)})
         return files
-    
+
     def region_calcs(self, loc_ts, eddy=False, n=0):
         """Region-averaged computations.  Execute and save to external file."""
         calcs_reg = ('ts', 'av', 'std')
@@ -604,7 +605,7 @@ class Calc(object):
             reduced = {'': full_ts}
         self._print_verbose("Writing desired gridded outputs to disk.")
         for dtype_out_time, data in reduced.iteritems():
-            self.save(np.squeeze(data), dtype_out_time, 
+            self.save(np.squeeze(data), dtype_out_time,
                       dtype_out_vert=self.dtype_out_vert)
         # Apply time reduction methods to regional averages and save.
         if any(['reg' in do for do in self.dtype_out_time]) and self.region:
@@ -614,7 +615,7 @@ class Calc(object):
         if any(['eddy' in do for do in self.dtype_out_time]) and eddy is False:
             self._print_verbose("Computing and saving eddy outputs.")
             self.compute(eddy=True)
-    
+
     def _save_to_scratch(self, data, dtype_out_time, dtype_out_vert=False):
         """Save the data to the scratch filesystem."""
         path = self.path_scratch[dtype_out_time]
@@ -646,7 +647,7 @@ class Calc(object):
             try:
                 old_data_path = '/'.join(
                     [self.dir_archive, self.file_name[dtype_out_time]]
-                ).replace('//','/') 
+                ).replace('//','/')
 
                 tar.extract(self.file_name[dtype_out_time],
                             path=old_data_path)
@@ -671,15 +672,15 @@ class Calc(object):
         except AttributeError:
             self.data_out = {dtype: data}
 
-    def save(self, data, dtype_out_time, dtype_out_vert=False, 
+    def save(self, data, dtype_out_time, dtype_out_vert=False,
              scratch=True, archive=True):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
         if scratch:
-            self._save_to_scratch(data, dtype_out_time, 
+            self._save_to_scratch(data, dtype_out_time,
                                   dtype_out_vert=dtype_out_vert)
         if archive:
-            self._save_to_archive(dtype_out_time, 
+            self._save_to_archive(dtype_out_time,
                                   dtype_out_vert=dtype_out_vert)
         print '\t%s' % self.path_scratch[dtype_out_time]
 
@@ -691,15 +692,15 @@ class Calc(object):
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
         """Load data save in tarball on archive file system."""
-        path = '/'.join([self.dir_archive, 'data.tar']).replace('//','/')
+        path = '/'.join([self.dir_archive, 'data.tar']).replace('//', '/')
         subprocess.call(['dmget'] + [path])
         with tarfile.open(path, 'r') as data_tar:
-            data_vals = load(
+            data_vals = cPickle.load(
                 data_tar.extractfile(self.file_name[dtype_out_time])
             )
         return data_vals
-    
-    def load(self, dtype_out_time, dtype_out_vert=False, region=False, 
+
+    def load(self, dtype_out_time, dtype_out_vert=False, region=False,
              time=False, vert=False, lat=False, lon=False, plot_units=False):
         """Load the data from the object if possible or from disk."""
         # Grab from the object if its there.
