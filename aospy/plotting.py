@@ -1,6 +1,7 @@
 import scipy.stats
 import numpy as np
 from matplotlib import pyplot as plt
+import mpl_toolkits.basemap
 from mpl_toolkits.basemap import Basemap
 from mpl_toolkits.basemap import shiftgrid
 
@@ -213,7 +214,7 @@ class Fig(object):
                                        self.n_row*self.row_size))
         self.fig.subplots_adjust(**self.subplot_lims)
         if self.fig_title:
-            self.fig.suptitle(self.fig_title, fontsize=11)
+            self.fig.suptitle(self.fig_title, fontsize=12)
 
         for n in range(self.n_ax):
             self.Ax[n].ax = self.fig.add_subplot(self.n_row, self.n_col, n+1)
@@ -310,7 +311,7 @@ class Ax(object):
             if prefix is False:
                 prefix = l
             for attr in ('lim', 'ticks', 'ticklabels', 'label'):
-                setattr(self, ''.join([l, attr]),
+                setattr(self, '_'.join([l, attr]),
                         getattr(self, '_'.join([prefix, attr])))
 
     def _set_axes_props(self):
@@ -322,7 +323,6 @@ class Ax(object):
         if self.y_ticklabels:
             self.ax.set_yticklabels(self.y_ticklabels, fontsize='small')
         if self.y_label:
-            # if self.y_label == 'units': y_label = var.plot_units
             self.ax.set_ylabel(self.y_label, fontsize='small', labelpad=-2)
         if self.x_lim:
             if self.x_lim == 'ann_cycle':
@@ -335,7 +335,6 @@ class Ax(object):
         if self.x_ticklabels:
             self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
         if self.x_label:
-            # if self.x_label == 'units': self.x_label = var.plot_units
             self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
 
         plt.tick_params(labelsize='x-small')
@@ -369,7 +368,7 @@ class Ax(object):
                 transform=self.ax.transAxes
             )
         if self.ax_right_label:
-            horiz_frac = 1.03; vert_frac = 0.5
+            horiz_frac = 1.02; vert_frac = 0.5
             self.ax.text(
                 horiz_frac, vert_frac, self.ax_right_label,
                 verticalalignment='center', rotation='vertical',
@@ -650,7 +649,6 @@ class Map(Plot):
         return self.basemap.plot(xs, ys, latlon=True)
 
     def plot(self):
-        # self._set_plot_func()
         self._make_basemap()
         if self.Ax.shiftgrid_start:
             lon0 = 180
@@ -661,6 +659,9 @@ class Map(Plot):
             start=self.Ax.shiftgrid_start, cyclic=self.Ax.shiftgrid_cyclic
         )
         x, y = self.basemap(*np.meshgrid(lons, self.lat))
+        plot_data = mpl_toolkits.basemap.maskoceans(
+            x, y, plot_data, inlands=False, resolution='c'
+        )
         self.handle = self.basemap.contourf(
             x, y, plot_data, self.cntr_lvls, extend=self.contourf_extend
         )
