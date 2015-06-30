@@ -3,7 +3,8 @@ import numpy as np
 
 from . import user_path
 
-def _load_user_data(name):
+
+def load_user_data(name):
     """Load user data from aospy_path for given module name.
 
     File must be located in the `aospy_path` directory and be the same name
@@ -12,21 +13,11 @@ def _load_user_data(name):
     """
     import imp
     return imp.load_source(
-        name, '/'.join([user_path, name, '__init__.py']).replace('//','/')
+        name, '/'.join([user_path, name, '__init__.py']).replace('//', '/')
     )
 
 
-def _set_attr_from_init_kwargs(obj, kwargs):
-    """
-    Given a dict of keyword arguments and their values as input for an
-    __init__() call, set each attribute of the object with the name and value
-    of the inputted arguments.
-    """
-    for kwarg_key, kwarg_value in kwargs.iteritems():
-        setattr(obj, kwarg_key, kwarg_value)
-
-
-def _get_parent_attr(obj, attr):
+def get_parent_attr(obj, attr):
     """
     Check if the object has the given attribute and it is non-empty.  If not,
     check each parent object for the attribute and use the first one found.
@@ -43,13 +34,31 @@ def _get_parent_attr(obj, attr):
                 pass
 
 
-def _set_named_attr_dict(obj, attr, attr_list):
-    """Set attribute lists that are dicts of {name: value} type."""
-    setattr(obj, attr, {item.name: item for item in attr_list})
+def name_keys_dict(objs):
+    """Create dict whose keys are the 'name' attr of the objects."""
+    assert type(objs) in (tuple, list, dict)
+    if type(objs) in (tuple, list):
+        return {obj.name: obj for obj in objs}
+    else:
+        return dict
 
 
-def _set_parent_object_of_child(parent_obj, parent_attr, child):
-    setattr(child, parent_attr, parent_obj)
+def to_radians(field):
+    if np.max(np.abs(field)) > 2*np.pi:
+        return np.deg2rad(field)
+    else:
+        return field
+
+
+def to_pascal(field):
+    # For dp fields, this won't work if the input data is already Pascals and
+    # the largest level thickness is < 1200 Pa, i.e. 12 hPa.  This will almost
+    # never come up in practice for data interpolated to pressure levels, but
+    # could come up in sigma data if model has sufficiently high vertical
+    # resolution.
+    if np.max(np.abs(field)) < 1200.:
+        field *= 100.
+    return field
 
 
 def level_thickness(levs):

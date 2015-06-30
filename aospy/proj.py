@@ -1,13 +1,13 @@
-import imp
+"""proj.py: aospy.Proj class for organizing work in single project."""
 import time
 
-class Proj(object):
-    """
-    Project parameters: models, regions, directories, etc.
+from .utils import dict_name_keys
 
-    """
-    def __init__(self, name, vars={}, direc_out='',
-                 nc_dir_struc='gfdl', verbose=True):
+
+class Proj(object):
+    """Project parameters: models, regions, directories, etc."""
+    def __init__(self, name, vars={}, models={}, regions={},
+                 direc_out='', verbose=True):
         self.verbose = verbose
         if self.verbose:
             print ("Initializing Project instance: %s (%s)"
@@ -15,15 +15,13 @@ class Proj(object):
         self.name = name
         self.direc_out = direc_out
 
-        # vars becomes dict of form {var.name: var}
-        assert type(vars) in (dict, list, tuple)
-        if type(vars) in (list, tuple):
-            self.vars = {v.name: v for v in vars}
-        else:
-            self.vars = vars
-        # Set each Var's parent attribute to this project.
-        for var in self.vars.values():
-            setattr(var, 'proj', self)
+        self.vars = dict_name_keys(vars)
+        self.models = dict_name_keys(models)
+        self.regions = dict_name_keys(regions)
+
+        for obj_dict in (self.vars, self.models, self.regions):
+            for obj in obj_dict.values():
+                setattr(obj, 'proj', self)
 
     def __str__(self):
         return 'Project instance "' + self.name + '"'
