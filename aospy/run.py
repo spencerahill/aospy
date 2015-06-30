@@ -4,7 +4,8 @@ class Run(object):
     """Model run parameters."""
     def __init__(self, name='', description='', proj=False, direc_nc=False,
                  nc_dur=False, nc_start_yr=False, nc_end_yr=False,
-                 nc_dir_struc='gfdl', default_yr_range=False,
+                 nc_start_month=False, nc_end_month=False, nc_dir_struc='gfdl',
+                 nc_suffix=False, nc_files={}, default_yr_range=False,
                  ens_mem_prefix=False, ens_mem_ext=False, ens_mem_suffix=False,
                  tags=()):
         self.name = name
@@ -13,7 +14,11 @@ class Run(object):
         self.nc_dur = nc_dur
         self.nc_start_yr = nc_start_yr
         self.nc_end_yr = nc_end_yr
+        self.nc_start_month = nc_start_month
+        self.nc_end_month = nc_end_month
         self.nc_dir_struc = nc_dir_struc
+        self.nc_suffix = nc_suffix
+        self.nc_files = nc_files
         self.default_yr_range = default_yr_range
         self.tags = tags
 

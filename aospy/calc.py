@@ -11,7 +11,7 @@ import netCDF4
 import numpy as np
 
 from . import user_path, Proj, Model, Run, Var, Region
-from .utils import _get_parent_attr
+from .utils import get_parent_attr
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
                  _month_indices, _yr_label, dmget_nc, nc_name_gfdl)
 from .user import proj_inst, model_inst, run_inst, var_inst, region_inst
@@ -161,10 +161,10 @@ class Calc(object):
     def _get_yr_range(self):
         """Set the object's span of years."""
         if self.yr_range == 'default':
-            start_yr, end_yr = _get_parent_attr(self.run[0], 'default_yr_range')
+            start_yr, end_yr = get_parent_attr(self.run[0], 'default_yr_range')
         elif self.yr_range == 'all':
-            start_yr = _get_parent_attr(self.run[0], 'nc_start_yr')
-            end_yr = _get_parent_attr(self.run[0], 'nc_end_yr')
+            start_yr = get_parent_attr(self.run[0], 'nc_start_yr')
+            end_yr = get_parent_attr(self.run[0], 'nc_end_yr')
         else:
             start_yr, end_yr = self.yr_range
         return start_yr, end_yr
@@ -182,7 +182,7 @@ class Calc(object):
                      # 'nc_start_month', 'nc_end_month',
                      # 'ens_mem_prefix', 'ens_mem_ext'
                      'nc_files', 'nc_dir_struc', 'default_yr_range'):
-            attr_val = tuple([_get_parent_attr(rn, attr) for rn
+            attr_val = tuple([get_parent_attr(rn, attr) for rn
                               in self.run])
             setattr(self, attr, attr_val)
 

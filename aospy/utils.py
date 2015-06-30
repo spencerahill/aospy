@@ -34,11 +34,14 @@ def get_parent_attr(obj, attr):
                 pass
 
 
-def name_keys_dict(objs):
+def dict_name_keys(objs):
     """Create dict whose keys are the 'name' attr of the objects."""
     assert type(objs) in (tuple, list, dict)
     if type(objs) in (tuple, list):
-        return {obj.name: obj for obj in objs}
+        try:
+            return {obj.name: obj for obj in objs}
+        except AttributeError:
+            raise AttributeError
     else:
         return dict
 

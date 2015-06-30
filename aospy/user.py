@@ -1,7 +1,8 @@
 """user.py: Load user's own library of aospy objects into aospy."""
 import imp
 
-from . import user_path, Proj, Model, Run, Var, Region
+from . import Proj, Model, Run, Var, Region
+from .utils import load_user_data
 
 def proj_inst(proj):
     """Convert string of an aospy.Proj name to an aospy.Proj instance."""
@@ -99,18 +100,9 @@ def region_inst(region):
     else:
         return region
 
-regions = imp.load_source(
-    'regions', (user_path + '/regions/__init__.py').replace('//','/')
-)
-units = imp.load_source(
-    'units', (user_path + '/units/__init__.py').replace('//','/')
-)
-variables = imp.load_source(
-    'variables', (user_path + '/variables/__init__.py').replace('//','/')
-)
-runs = imp.load_source(
-    'runs', (user_path + '/runs/__init__.py').replace('//','/')
-)
-models = imp.load_source(
-    'models', (user_path + '/models/__init__.py').replace('//','/')
-)
+# regions = load_user_data('regions')
+# units = load_user_data('units')
+# variables = load_user_data('variables')
+# runs = load_user_data('runs')
+# models = load_user_data('models')
+# projs = load_user_data('projs')

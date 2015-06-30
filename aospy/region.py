@@ -2,7 +2,7 @@
 import imp
 import numpy as np
 
-from .utils import _get_parent_attr
+from .utils import get_parent_attr
 
 class Region(object):
     """Geographical region."""
@@ -22,8 +22,8 @@ class Region(object):
     def make_mask(self, model):
         """Create region mask for the given model."""
         # Start with empty mask.
-        lat = _get_parent_attr(model, 'lat')
-        lon = _get_parent_attr(model, 'lon')
+        lat = get_parent_attr(model, 'lat')
+        lon = get_parent_attr(model, 'lon')
         mask = np.zeros((lat.size, lon.size))
         # Use region bounds stored in self.mask_bounds if available.
         try:

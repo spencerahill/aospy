@@ -5,13 +5,13 @@ import numpy as np
 import netCDF4
 
 from .constants import r_e
-from .utils import _set_named_attr_dict, level_thickness
+from .utils import dict_name_keys, level_thickness
 
 class Model(object):
     """Parameters of local data associated with a single climate model."""
     def __init__(self, name='', description='', proj=False, nc_grid_paths=(),
                  nc_dur=False, nc_start_yr=False, nc_end_yr=False,
-                 default_yr_range=False, runs=(), default_runs=()):
+                 default_yr_range=False, runs={}, default_runs={}):
         self.name = name
         self.description = description
         self.proj = proj
@@ -20,15 +20,13 @@ class Model(object):
         self.nc_start_yr = nc_start_yr
         self.nc_end_yr = nc_end_yr
         self.default_yr_range = default_yr_range
-        self.runs = runs
-        self.default_runs = default_runs
+        self.runs = dict_name_keys(runs)
+        self.default_runs = dict_name_keys(default_runs)
 
         # Use the inputted names and netCDF filepath to create grid data.
         self._set_mult_nc_grid_attr()
         self._set_sfc_area()
-        # Populate the runs dictionary with the specified list of runs.
-        _set_named_attr_dict(self, 'runs', runs)
-        _set_named_attr_dict(self, 'default_runs', default_runs)
+
 
     def __str__(self):
         return 'Model instance "' + self.name + '"'
