@@ -10,22 +10,11 @@ import time
 import netCDF4
 import numpy as np
 
-from . import user_path
+from . import user_path, Proj, Model, Run, Var, Region
 from .utils import _get_parent_attr
-from .io import _data_in_label
-from .io import _data_out_label
-from .io import _ens_label
-from .io import _get_time
-from .io import _month_indices
-from .io import _yr_label
-from .io import dmget_nc
-from .io import nc_name_gfdl
-from .proj import Proj, proj_inst
-from .model import Model, model_inst
-from .run import Run, run_inst
-from .var import Var, var_inst
-from .region import Region, region_inst
-
+from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
+                 _month_indices, _yr_label, dmget_nc, nc_name_gfdl)
+from .user import proj_inst, model_inst, run_inst, var_inst, region_inst
 
 class Calc(object):
     """Class for executing, saving, and loading a single computation."""

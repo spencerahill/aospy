@@ -1,7 +1,7 @@
+"""region.py: Region class and region_inst()."""
 import imp
 import numpy as np
 
-from . import user_path
 from .utils import _get_parent_attr
 
 class Region(object):
@@ -71,7 +71,7 @@ class Region(object):
         reg_mask = self.make_mask(model)
         # At gridpoints where the region is not totally masked, weight by that
         # point's surface area and the mask value.
-        weights = np.ma.masked_where(reg_mask == 0, 
+        weights = np.ma.masked_where(reg_mask == 0,
                                      model.sfc_area*reg_mask).ravel()
         # Tile the weights to be the same shape as the data. Required by the
         # numpy.ma.average function.
@@ -91,14 +91,3 @@ class Region(object):
         """Standard deviation of time-series data."""
         out = np.squeeze(self.ts(data, model).std(axis=0))
         return out
-
-regions = imp.load_source(
-    'regions', (user_path + '/regions/__init__.py').replace('//','/')
-)
-
-def region_inst(region):
-    """Convert string of an aospy.Region name to an aospy.Region instance."""
-    if type(region) is str:
-        return getattr(regions, region)
-    else:
-        return region

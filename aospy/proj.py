@@ -1,7 +1,6 @@
 import imp
 import time
-from . import user_path
-                    
+
 class Proj(object):
     """
     Project parameters: models, regions, directories, etc.
@@ -28,27 +27,3 @@ class Proj(object):
 
     def __str__(self):
         return 'Project instance "' + self.name + '"'
-
-def proj_inst(proj):
-    """Convert string of an aospy.Proj name to an aospy.Proj instance."""
-    orig_type = type(proj)
-    if type(proj) is Proj:
-        return proj
-    elif type(proj) is str:
-        try:
-            proj_module = imp.load_source(proj, (user_path + '/' +
-                                          proj + '.py').replace('//','/'))
-            proj_func = getattr(proj_module, proj)
-            return proj_func()
-        except AttributeError:
-            raise AttributeError('Not a recognized aospy.Proj name: %s'
-                                 % proj)
-    elif type(proj) in (list, tuple):
-        proj = [proj_inst(pr) for pr in proj]
-        if orig_type is list:
-            return proj
-        else:
-            return tuple(proj)
-    else:
-        raise TypeError
-

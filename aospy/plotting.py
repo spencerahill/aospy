@@ -2,10 +2,9 @@ import scipy.stats
 import numpy as np
 from matplotlib import pyplot as plt
 import mpl_toolkits.basemap
-from mpl_toolkits.basemap import Basemap
-from mpl_toolkits.basemap import shiftgrid
+from mpl_toolkits.basemap import Basemap, shiftgrid
 
-from .var import var_inst
+from .user import var_inst
 from .calc import Calc
 
 def _conv_to_dup_list(x, n, single_to_list=True):
@@ -59,7 +58,7 @@ class Fig(object):
     )
     data_specs = (
         'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'yr_range',
-        'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert', 
+        'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert',
         'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean'
     )
     specs = fig_specs + ax_specs + plot_specs + data_specs
@@ -68,7 +67,7 @@ class Fig(object):
                  proj=None, model=None, run=None, ens_mem=None, var=None,
                  yr_range=None, region=None, intvl_in=None,
                  intvl_out=None, dtype_in_time=None, dtype_in_vert=None,
-                 dtype_out_time=None, dtype_out_vert=None, level=None, 
+                 dtype_out_time=None, dtype_out_vert=None, level=None,
                  **kwargs):
         """Class for producing figures with one or more panels."""
         self.n_ax = n_ax
@@ -83,7 +82,7 @@ class Fig(object):
         self.run = run
         self.ens_mem = ens_mem
         self.var = var
-        
+
         self.yr_range = yr_range
         self.region = region
         self.intvl_in = intvl_in
@@ -219,7 +218,7 @@ class Fig(object):
         for n in range(self.n_ax):
             self.Ax[n].ax = self.fig.add_subplot(self.n_row, self.n_col, n+1)
             self.Ax[n]._set_axes_props()
-            self.Ax[n]._set_axes_labels()            
+            self.Ax[n]._set_axes_labels()
 
     def make_plots(self):
         """Render the plots in every Ax."""
@@ -364,7 +363,7 @@ class Ax(object):
             self.ax.text(
                 horiz_frac, vert_frac, self.ax_left_label,
                 verticalalignment='center', horizontalalignment='left',
-                rotation='vertical', fontsize='small', 
+                rotation='vertical', fontsize='small',
                 transform=self.ax.transAxes
             )
         if self.ax_right_label:
@@ -485,7 +484,7 @@ class Plot(object):
             try:
                 array = getattr(self.Calc[i].model[0], array_names[array_key])
             except AttributeError:
-                array = getattr(self.Calc[i][0].model[0], array_names[array_key])                
+                array = getattr(self.Calc[i][0].model[0], array_names[array_key])
             # Restrict the array to the specified limits.
             lim = getattr(self.Ax, lim)
             # Annual cycle has 12 evenly spaced points, one per month.
@@ -685,7 +684,7 @@ class Contour(Plot):
         )
         self.handle.set_cmap(self.col_map)
 
-        
+
     # def _set_ax_geom(self):
     #     """Set row and column sizes and subplot spacing."""
     #     if self.n_col == 1:

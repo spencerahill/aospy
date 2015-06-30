@@ -1,5 +1,4 @@
-from .proj import Proj, proj_inst
-from .model import Model, model_inst
+"""run.py: Run class of aospy for storing attributes of a GCM run."""
 
 class Run(object):
     """Model run parameters."""
@@ -33,30 +32,3 @@ class Run(object):
                              for ext in ens_mem_ext]
         else:
             self.direc_nc = direc_nc
-
-def run_inst(run, parent_model=False, parent_proj=False):
-    """Convert string matching an aospy.run name to an aospy.run instance."""
-    orig_type = type(run)
-    if parent_proj and type(parent_proj) is not Proj:
-        parent_proj = proj_inst(parent_proj)
-    if parent_model and type(parent_model) is not Model:
-        parent_model = model_inst(parent_model, parent_proj)
-    if type(run) is Run:
-        pass
-    elif type(run) is str:
-        run = parent_model.runs[run]
-    elif type(run) in (list, tuple):
-        run = [run_inst(rn, mod, parent_proj) for (rn, mod)
-               in zip(run, parent_model)]
-        if orig_type is tuple:
-            run = tuple(run)
-    else:
-        raise TypeError
-    if parent_model:
-        try:
-            run.model = parent_model
-        except AttributeError:
-            pass
-    return run
-
-    

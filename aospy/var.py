@@ -1,7 +1,6 @@
 import imp
 from numpy import ma
 
-from . import user_path
 from .units import Units
 
 class Var(object):
@@ -22,7 +21,7 @@ class Var(object):
             self.func = func
             self.vars = vars
         # `units` kwarg can be `Units` object or string
-        
+
         if type(units) is Units:
             self._Units = units
             for var_attr, units_attr in zip(
@@ -68,23 +67,3 @@ class Var(object):
                                      self.valid_range[1])
         except AttributeError:
             return data
-
-variables = imp.load_source(
-    'variables', (user_path + '/variables/__init__.py').replace('//','/')
-)
-
-def var_inst(var):
-    """Convert string of an aospy.var name to an aospy.var instance."""
-    if type(var) is Var:
-        var_out = var
-    elif type(var) is str:
-        try:
-            var_out = getattr(variables, var)
-        except AttributeError:
-            raise AttributeError('Not a recognized aospy.Var name: %s'
-                                 % var)
-    elif type(var) in (list, tuple):
-        var_out = [var_inst(v) for v in var]
-        if type(var) is tuple:
-            var_out = tuple(var_out)
-    return var_out

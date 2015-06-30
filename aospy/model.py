@@ -1,9 +1,11 @@
+"""model.py: Model class of aospy for storing attributes of a GCM."""
+import imp
+
 import numpy as np
 import netCDF4
 
 from .constants import r_e
-from .proj import Proj, proj_inst
-from .utils import _set_named_attr_dict
+from .utils import _set_named_attr_dict, level_thickness
 
 class Model(object):
     """Parameters of local data associated with a single climate model."""
@@ -59,9 +61,9 @@ class Model(object):
         Set multiple attrs from grid file given their names in the grid file.
         """
         grid_attrs = {
-            'lat':         ('lat', 'latitude', 'LATITUDE', 'y'),
+            'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
             'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
-            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x'),
+            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
             'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
             'level':       ('level', 'lev', 'plev'),
             'time':        ('time', 'TIME'),
@@ -69,13 +71,19 @@ class Model(object):
             'time_end':    ('average_T2',),
             'time_dur':    ('average_DT',),
             'time_bounds': ('time_bounds', 'time_bnds'),
+            'year':        ('yr', 'year'),
+            'month':       ('mo', 'month'),
+            'day':         ('dy', 'day'),
             'sfc_area':    ('area', 'sfc_area'),
             'zsurf':       ('zsurf',),
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
             'phalf':       ('phalf',),
-            'pfull':       ('pfull',)
+            'pfull':       ('pfull',),
+            'nrecords':    ('nrecords',),
+            'idim':        ('idim',),
+            'fill_value':  ('fill_value')
         }
         nc_grid = self._get_nc_grid()
         try:
@@ -130,55 +138,11 @@ class Model(object):
                 )
             self.sfc_area = sfc_area
 
-    def calc_levs_thick(self, levs):
-        """
-        Calculates the thickness, in Pa, of each pressure level.
-
-        Assumes that the pressure values given are at the center of that model
-        level, except for the lowest value (typically 1000 hPa), which is the
-        bottom boundary. The uppermost level extends to 0 hPa.
-
-        """
-        # Bottom level extends from levs[0] to halfway betwen levs[0]
-        # and levs[1].
-        levs = to_pascal(levs)
-        lev_thick = [0.5*(levs[0] - levs[1])]
-        # Middle levels extend from halfway between [k-1], [k] and [k], [k+1].
-        for k in range(1, levs.size-1):
-            lev_thick.append(0.5*(levs[k-1] - levs[k+1]))
-        # Top level extends from halfway between top two levels to 0 hPa.
-        lev_thick.append(0.5*(levs[-2] + levs[-1]))
-        # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
-        return np.array(lev_thick)
-
     def _set_levs_thick(self):
         """
         Set the 1D array holding the pressure thickness of the model levels.
         """
         if self.level:
-            self.levs_thick = calc_levs_thick(self.level)
+            self.levs_thick = level_thickness(self.level)
         else:
             self.levs_thick = None
-
-def model_inst(model, parent_proj=False):
-    """Convert string of a Model name to a Model instance."""
-    orig_type = type(model)
-    if type(parent_proj) is str:
-        parent_proj_out = proj_inst(parent_proj)
-    if type(model) is Model:
-        pass
-    elif type(model) is str:
-        model_out = parent_proj.models[model]
-    elif type(model) in (list, tuple):
-        model_out = [model_inst(mod, proj) for (mod, proj)
-                     in zip(model, parent_proj_out)]
-        # Retain original container type, i.e. list or tuple.
-        if orig_type is tuple:
-            model_out = tuple(model_out)
-    if parent_proj:
-        parent_proj_out = proj_inst(parent_proj)
-        try:
-            model_out.proj = parent_proj
-        except AttributeError:
-            pass
-    return model_out
