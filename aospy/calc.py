@@ -1,6 +1,5 @@
 """calc.py"""
 import cPickle
-import imp
 import os
 import shutil
 import subprocess
@@ -10,11 +9,11 @@ import time
 import netCDF4
 import numpy as np
 
-from . import user_path, Proj, Model, Run, Var, Region
+from . import Proj, Model, Run, Var, Region
 from .utils import get_parent_attr
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
                  _month_indices, _yr_label, dmget_nc, nc_name_gfdl)
-from .user import proj_inst, model_inst, run_inst, var_inst, region_inst
+
 
 class Calc(object):
     """Class for executing, saving, and loading a single computation."""
@@ -39,11 +38,11 @@ class Calc(object):
         assert len(proj) == len(model)
 
         # Convert string names to aospy objects.
-        self.proj = tuple([proj_inst(pr) for pr in proj])
-        self.model = tuple([model_inst(mod, pr) for
-                           (mod, pr) in zip(model, self.proj)])
-        self.run = tuple([run_inst(rn, mod, pr) for (rn, mod, pr)
-                          in zip(run, self.model, self.proj)])
+        # self.proj = tuple([proj_inst(pr) for pr in proj])
+        # self.model = tuple([model_inst(mod, pr) for
+        #                    (mod, pr) in zip(model, self.proj)])
+        # self.run = tuple([run_inst(rn, mod, pr) for (rn, mod, pr)
+        #                   in zip(run, self.model, self.proj)])
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
         self.model_str = '_'.join(set([m.name for m in self.model]))
@@ -51,7 +50,7 @@ class Calc(object):
         self.run_str = '_'.join(set(run_names))
         self.run_str_full = '_'.join(run_names)
 
-        self.var = var_inst(var)
+        # self.var = var_inst(var)
         self.name = self.var.name
         self.domain = self.var.domain
         self.def_time = self.var.def_time
@@ -431,7 +430,7 @@ class Calc(object):
             time = nc.variables['time']
             t_array, t_units, t_cal = time[:], time.units, time.calendar
             t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
-                                 self.months, indices='only')
+                               self.months, indices='only')
             if eddy:
                 eddy = self._get_dt(nc, t_inds)
         data = self._get_data_subset(
@@ -719,7 +718,3 @@ class Calc(object):
         # Copy the array to self.data_out for ease of future access.
         self._update_data_out(data_out, dtype_out_time)
         return data_out
-
-calcs = imp.load_source(
-    'calcs', (user_path + '/calcs/__init__.py').replace('//','/')
-)

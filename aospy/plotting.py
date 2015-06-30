@@ -4,8 +4,8 @@ from matplotlib import pyplot as plt
 import mpl_toolkits.basemap
 from mpl_toolkits.basemap import Basemap, shiftgrid
 
-from .user import var_inst
 from .calc import Calc
+
 
 def _conv_to_dup_list(x, n, single_to_list=True):
     """
@@ -31,6 +31,7 @@ def _conv_to_dup_list(x, n, single_to_list=True):
         else:
             return [x]*n
 
+
 class Fig(object):
     # Various categories of inputted specifications
     fig_specs = (
@@ -39,7 +40,7 @@ class Fig(object):
         'cbar_ticklabels', 'cbar_label', 'verbose'
     )
     ax_specs = (
-        'n_plot','ax_title', 'do_ax_label', 'ax_left_label', 'ax_right_label',
+        'n_plot', 'ax_title', 'do_ax_label', 'ax_left_label', 'ax_right_label',
         'map_proj', 'map_corners', 'map_res', 'shiftgrid_start',
         'shiftgrid_cyclic',
         'x_dim', 'x_lim', 'x_ticks', 'x_ticklabels', 'x_label',
@@ -196,7 +197,8 @@ class Fig(object):
             self.cbar.set_ticklabels(self.cbar_ticklabels)
         self.cbar.ax.tick_params(labelsize='x-small')
         if self.cbar_label:
-            var = var_inst(self.var[0][0][0])
+            # var = var_inst(self.var[0][0][0])
+            var = self.var
             if self.cbar_label == 'units':
                 if self.dtype_out_vert[0][0][0] == 'vert_int':
                     label = var.vert_int_plot_units

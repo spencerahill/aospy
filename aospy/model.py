@@ -1,11 +1,10 @@
 """model.py: Model class of aospy for storing attributes of a GCM."""
-import imp
-
 import numpy as np
 import netCDF4
 
 from .constants import r_e
 from .utils import dict_name_keys, level_thickness
+
 
 class Model(object):
     """Parameters of local data associated with a single climate model."""
@@ -26,7 +25,6 @@ class Model(object):
         # Use the inputted names and netCDF filepath to create grid data.
         self._set_mult_nc_grid_attr()
         self._set_sfc_area()
-
 
     def __str__(self):
         return 'Model instance "' + self.name + '"'

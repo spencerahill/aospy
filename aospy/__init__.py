@@ -15,12 +15,10 @@ from . import model
 from .model import Model
 from . import proj
 from .proj import Proj
-from . import user
 from . import calc
 from .calc import Calc
 from . import plotting
 from .plotting import Fig, Ax, Plot
 
-__all__ = ['Proj', 'Model', 'Run', 'Var', 'Region', 'Fig', 'Ax',
-           'Plot','core', 'units', 'calc', 'constants', 'utils',
-           'io', 'plotting']
+__all__ = ['Proj', 'Model', 'Run', 'Var', 'Units', 'Region', 'Fig', 'Ax',
+           'Plot', 'units', 'calc', 'constants', 'utils', 'io', 'plotting']
