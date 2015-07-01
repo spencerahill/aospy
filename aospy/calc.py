@@ -38,7 +38,7 @@ class Calc(object):
         assert len(proj) == len(model)
         self.proj = proj
         self.model = model
-        self.model.set_grid_data()
+        [model.set_grid_data() for model in self.model]
         self.run = run
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
@@ -47,7 +47,7 @@ class Calc(object):
         self.run_str = '_'.join(set(run_names))
         self.run_str_full = '_'.join(run_names)
 
-        # self.var = var_inst(var)
+        self.var = var
         self.name = self.var.name
         self.domain = self.var.domain
         self.def_time = self.var.def_time

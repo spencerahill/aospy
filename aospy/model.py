@@ -139,20 +139,14 @@ class Model(object):
                 )
             self.sfc_area = sfc_area
 
-    def _set_levs_thick(self):
-        """
-        Set the 1D array holding the pressure thickness of the model levels.
-        """
-        if self.level:
-            self.levs_thick = level_thickness(self.level)
-        else:
-            self.levs_thick = None
-
     def set_grid_data(self):
         """Populate the attrs that hold grid data."""
         if self.grid_data_is_set:
             return
         self._set_mult_nc_grid_attr()
         self._set_sfc_area()
-        self._set_levs_thick()
+        try:
+            self.levs_thick = level_thickness(self.level)
+        except AttributeError:
+            self.levs_thick = None
         self.grid_data_is_set = True
