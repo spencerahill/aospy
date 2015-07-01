@@ -36,13 +36,10 @@ class Calc(object):
             model = tuple(list(model)*len(run))
         assert len(model) == len(run)
         assert len(proj) == len(model)
-
-        # Convert string names to aospy objects.
-        # self.proj = tuple([proj_inst(pr) for pr in proj])
-        # self.model = tuple([model_inst(mod, pr) for
-        #                    (mod, pr) in zip(model, self.proj)])
-        # self.run = tuple([run_inst(rn, mod, pr) for (rn, mod, pr)
-        #                   in zip(run, self.model, self.proj)])
+        self.proj = proj
+        self.model = model
+        self.model.set_grid_data()
+        self.run = run
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
         self.model_str = '_'.join(set([m.name for m in self.model]))
@@ -60,10 +57,6 @@ class Calc(object):
 
         self._set_nc_attrs()
 
-        # if not self.nc_start_month:
-            # self.nc_start_month = 1
-        # if not self.nc_end_month:
-            # self.nc_end_month = 12
         if type(ens_mem) is int:
             self.direc_nc = self.direc_nc[ens_mem]
 

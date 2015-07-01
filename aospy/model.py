@@ -11,7 +11,8 @@ class Model(object):
     def __init__(self, name='', description='', proj=False, nc_grid_paths=(),
                  nc_dur=False, nc_start_yr=False, nc_end_yr=False,
                  nc_start_month=False, nc_end_month=False,
-                 default_yr_range=False, runs={}, default_runs={}):
+                 default_yr_range=False, runs={}, default_runs={},
+                 load_grid_data=False):
         self.name = name
         self.description = description
         self.proj = proj
@@ -25,9 +26,10 @@ class Model(object):
         self.runs = dict_name_keys(runs)
         self.default_runs = dict_name_keys(default_runs)
 
-        # Use the inputted names and netCDF filepath to create grid data.
-        self._set_mult_nc_grid_attr()
-        self._set_sfc_area()
+        self.grid_data_is_set = False
+        if load_grid_data:
+            self.set_grid_data()
+            self.grid_data_is_set = True
 
     def __str__(self):
         return 'Model instance "' + self.name + '"'
@@ -145,3 +147,12 @@ class Model(object):
             self.levs_thick = level_thickness(self.level)
         else:
             self.levs_thick = None
+
+    def set_grid_data(self):
+        """Populate the attrs that hold grid data."""
+        if self.grid_data_is_set:
+            return
+        self._set_mult_nc_grid_attr()
+        self._set_sfc_area()
+        self._set_levs_thick()
+        self.grid_data_is_set = True
