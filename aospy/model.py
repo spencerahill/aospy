@@ -10,6 +10,7 @@ class Model(object):
     """Parameters of local data associated with a single climate model."""
     def __init__(self, name='', description='', proj=False, nc_grid_paths=(),
                  nc_dur=False, nc_start_yr=False, nc_end_yr=False,
+                 nc_start_month=False, nc_end_month=False,
                  default_yr_range=False, runs={}, default_runs={}):
         self.name = name
         self.description = description
@@ -18,6 +19,8 @@ class Model(object):
         self.nc_grid_paths = nc_grid_paths
         self.nc_start_yr = nc_start_yr
         self.nc_end_yr = nc_end_yr
+        self.nc_start_month = nc_start_month
+        self.nc_end_month = nc_end_month
         self.default_yr_range = default_yr_range
         self.runs = dict_name_keys(runs)
         self.default_runs = dict_name_keys(default_runs)
