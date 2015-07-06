@@ -38,7 +38,7 @@ class Calc(object):
         assert len(proj) == len(model)
         self.proj = proj
         self.model = model
-        [model.set_grid_data() for model in self.model]
+        [mod.set_grid_data() for mod in self.model]
         self.run = run
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
@@ -57,7 +57,7 @@ class Calc(object):
 
         self._set_nc_attrs()
 
-        if type(ens_mem) is int:
+        if isinstance(ens_mem, int):
             self.direc_nc = self.direc_nc[ens_mem]
 
         # Some vars are computed as functions of other vars.
@@ -76,7 +76,7 @@ class Calc(object):
         self.intvl_out = intvl_out
         self.dtype_in_time = dtype_in_time
         self.dtype_in_vert = dtype_in_vert
-        if type(dtype_out_time) in (list, tuple):
+        if isinstance(dtype_out_time, (list, tuple)):
             self.dtype_out_time = tuple(dtype_out_time)
         else:
             self.dtype_out_time = tuple([dtype_out_time])
@@ -93,11 +93,13 @@ class Calc(object):
         self.dir_scratch = self._dir_scratch()
         self.dir_archive = self._dir_archive()
         self.file_name = {d: self._file_name(d) for d in self.dtype_out_time}
-        self.path_scratch = {d: '/'.join([self.dir_scratch,
-                                          self.file_name[d]]).replace('//', '/')
-                             for d in self.dtype_out_time}
+        self.path_scratch = {
+            d: '/'.join([self.dir_scratch,
+                         self.file_name[d]]).replace('//', '/')
+            for d in self.dtype_out_time
+        }
         self.path_archive = (
-            '/'.join([self.dir_archive, 'data.tar']).replace('//','/')
+            '/'.join([self.dir_archive, 'data.tar']).replace('//', '/')
         )
 
         if not skip_time_inds:
@@ -227,7 +229,7 @@ class Calc(object):
         return reshaped[:,:,np.newaxis,np.newaxis,np.newaxis]
 
     def _make_time_chunks(self):
-        """Create tuple of (start, end) pairs based on specified year chunks."""
+        """Create tuple of (start, end) pairs based on given year chunks."""
         if self.yr_chunk_len:
             dur = self.yr_chunk_len - 1
             st_yrs = range(self.start_yr, self.end_yr + 1, self.yr_chunk_len)
@@ -235,13 +237,12 @@ class Calc(object):
                             self.yr_chunk_len)
             if len(end_yrs) == len(st_yrs) - 1:
                 end_yrs.append(self.end_yr)
-            dt_yrs = np.subtract(end_yrs, st_yrs)
         else:
             st_yrs, end_yrs = [self.start_yr], [self.end_yr]
         return zip(st_yrs, end_yrs)
 
     def _dir_scratch(self):
-        """Create the string of the data directory on the scratch filesystem."""
+        """Create string of the data directory on the scratch filesystem."""
         ens_label = _ens_label(self.ens_mem)
         dir_scratch = '/'.join(
             ['/work', os.getenv('USER'), self.proj_str, self.model_str,
@@ -250,7 +251,7 @@ class Calc(object):
         return dir_scratch
 
     def _dir_archive(self):
-        """Create the string of the data directory on the archive filesystem."""
+        """Create string of the data directory on the archive filesystem."""
         ens_label = _ens_label(self.ens_mem)
         dir_archive = '/'.join(
             ['/archive', os.getenv('USER'), self.proj_str, 'data',
@@ -269,7 +270,7 @@ class Calc(object):
         file_name = '.'.join(
             [self.name, out_lbl, in_lbl, self.model_str, self.run_str_full,
              ens_lbl, yr_lbl, 'p']
-        ).replace('..','.')
+        ).replace('..', '.')
         return file_name
 
     def _get_nc_one_dir(self, name, n=0):
