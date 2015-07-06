@@ -1,13 +1,13 @@
+"""Classes for creating multi-panel figures using data generated via aospy."""
 import scipy.stats
 import numpy as np
 from matplotlib import pyplot as plt
 import mpl_toolkits.basemap
-from mpl_toolkits.basemap import Basemap, shiftgrid
 
 from .calc import Calc
 
 
-def _conv_to_dup_list(x, n, single_to_list=True):
+def to_dup_list(x, n, single_to_list=True):
     """
     Convert singleton or iterable into length-n list.  If the input is
     a list, with length-1, its lone value gets duplicated n times.  If
@@ -58,8 +58,8 @@ class Fig(object):
         'num_cntr', 'contourf_extend', 'latlon_rect'
     )
     data_specs = (
-        'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'yr_range',
-        'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert',
+        'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region',
+        'yr_range', 'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert',
         'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean'
     )
     specs = fig_specs + ax_specs + plot_specs + data_specs
@@ -99,14 +99,6 @@ class Fig(object):
         # Accept all other keyword arguments passed in as attrs.
         for key, val in kwargs.iteritems():
             setattr(self, key, val)
-        # Hack solution to resolve mismatch between region specification and
-        # dtype, i.e. if dtype doesn't include 'reg'.
-        if 'reg' not in self.dtype_out_time and self.region:
-            new_dtype = 'reg.' + self.dtype_out_time
-            print ("Warning: region '%s' is non-null but dtype '%s' does not "
-                   "specify region.  Setting dtype to '%s'."
-                   % (self.region, self.dtype_out_time, new_dtype))
-            self.dtype_out_time = new_dtype
 
         self.do_ax_label = True if self.n_ax > 1 else False
 
@@ -122,11 +114,11 @@ class Fig(object):
         else:
             assert self.n_ax <= self.n_row*self.n_col
         # Distribute n_plot across the Axes.
-        self.n_plot = _conv_to_dup_list(self.n_plot, self.n_ax)
+        self.n_plot = to_dup_list(self.n_plot, self.n_ax)
         # Distribute n_data across the Plots.
-        self.n_data = _conv_to_dup_list(self.n_data, self.n_ax)
+        self.n_data = to_dup_list(self.n_data, self.n_ax)
         for i, ndt in enumerate(self.n_data):
-            self.n_data[i] = _conv_to_dup_list(ndt, self.n_plot[i])
+            self.n_data[i] = to_dup_list(ndt, self.n_plot[i])
 
     def _traverse_child_tree(self, value, level='data'):
         """
@@ -136,13 +128,13 @@ class Fig(object):
         """
         assert level in ('fig', 'ax', 'plot', 'data')
         if level in ('ax', 'plot', 'data'):
-            value = _conv_to_dup_list(value, self.n_ax)
+            value = to_dup_list(value, self.n_ax)
             if level in ('plot', 'data'):
                 for i, vi in enumerate(value):
-                    value[i] = _conv_to_dup_list(vi, self.n_plot[i])
+                    value[i] = to_dup_list(vi, self.n_plot[i])
                     if level == 'data':
                         for j, vij in enumerate(value[i]):
-                            value[i][j] = _conv_to_dup_list(
+                            value[i][j] = to_dup_list(
                                 vij, self.n_data[i][j], single_to_list=False
                             )
         return value
@@ -186,7 +178,8 @@ class Fig(object):
         """Create colorbar for multi panel plots."""
         # Goes at bottom center if for all panels.
         self.cbar_ax = self.fig.add_axes(self.cbar_ax_lim)
-        self.cbar = self.fig.colorbar(self.Ax[0].Plot[0].handle,
+        self.cbar = self.fig.colorbar(
+            self.Ax[0].Plot[0].handle,
             cax=self.cbar_ax, orientation='horizontal', drawedges=False,
             spacing='proportional', extend=self.contourf_extend
         )
@@ -197,8 +190,7 @@ class Fig(object):
             self.cbar.set_ticklabels(self.cbar_ticklabels)
         self.cbar.ax.tick_params(labelsize='x-small')
         if self.cbar_label:
-            # var = var_inst(self.var[0][0][0])
-            var = self.var
+            var = self.var[0][0][0]
             if self.cbar_label == 'units':
                 if self.dtype_out_vert[0][0][0] == 'vert_int':
                     label = var.vert_int_plot_units
@@ -233,6 +225,7 @@ class Fig(object):
         """Save the Fig using matplotlib's built-in 'savefig' method."""
         self.fig.savefig(*args, **kwargs)
 
+
 class Ax(object):
     # Which labels to include based on position in the figure.
     labels = {
@@ -266,10 +259,10 @@ class Ax(object):
         """Traverse the "tree" of child Plot, and Data objects."""
         assert level in ('ax', 'plot', 'data')
         if level in ('plot', 'data'):
-            value = _conv_to_dup_list(value, self.n_plot)
+            value = to_dup_list(value, self.n_plot)
             if level in ('data'):
                 for i, vi in enumerate(value):
-                    value[i] = _conv_to_dup_list(vi, self.n_data[i])
+                    value[i] = to_dup_list(vi, self.n_data[i])
         return value
 
     def _copy_attrs_from_fig(self):
@@ -327,8 +320,8 @@ class Ax(object):
             self.ax.set_ylabel(self.y_label, fontsize='small', labelpad=-2)
         if self.x_lim:
             if self.x_lim == 'ann_cycle':
-                self.x_lim = (1,12)
-                self.x_ticks = range(1,13)
+                self.x_lim = (1, 12)
+                self.x_ticks = range(1, 13)
                 self.x_ticklabels = tuple('JFMAMJJASOND')
             self.ax.set_xlim(self.x_lim)
         if self.x_ticks:
@@ -369,7 +362,8 @@ class Ax(object):
                 transform=self.ax.transAxes
             )
         if self.ax_right_label:
-            horiz_frac = 1.02; vert_frac = 0.5
+            horiz_frac = 1.02
+            vert_frac = 0.5
             self.ax.text(
                 horiz_frac, vert_frac, self.ax_right_label,
                 verticalalignment='center', rotation='vertical',
@@ -395,6 +389,7 @@ class Ax(object):
         for n in range(self.n_plot):
             self.Plot[n].plot()
 
+
 class Plot(object):
     def __init__(self, Ax, plot_num):
         """Class for plotting single data element."""
@@ -418,7 +413,7 @@ class Plot(object):
         """Traverse the "tree" of child Data objects."""
         assert level in ('plot', 'data')
         if level == 'data':
-            value = _conv_to_dup_list(value, self.n_data)
+            value = to_dup_list(value, self.n_data)
         return value
 
     def _copy_attrs_from_ax(self):
@@ -486,12 +481,13 @@ class Plot(object):
             try:
                 array = getattr(self.Calc[i].model[0], array_names[array_key])
             except AttributeError:
-                array = getattr(self.Calc[i][0].model[0], array_names[array_key])
+                array = getattr(self.Calc[i][0].model[0],
+                                array_names[array_key])
             # Restrict the array to the specified limits.
             lim = getattr(self.Ax, lim)
             # Annual cycle has 12 evenly spaced points, one per month.
             if array_key == 'time' and lim == 'ann_cycle':
-                array = np.arange(1,13)
+                array = np.arange(1, 13)
             else:
                 # For sigma coordinates, divide the pfull array by a reference
                 # surface pressure of 1000 hPa to get a fractional value.
@@ -560,10 +556,12 @@ class Plot(object):
         transforms = {'do_subtract_mean': self._subtract_mean}
                       #'mult_by_factor': self._mult_by_factor}
         for attr, method in transforms.iteritems():
-            for data, do_method in zip(['x_data', 'y_data'], getattr(self, attr)):
+            for data, do_method in zip(['x_data', 'y_data'],
+                                       getattr(self, attr)):
                 if do_method:
                     setattr(self, data, method(getattr(self, data)))
         return data
+
 
 class Line(Plot):
     def __init__(self, Ax, plot_num):
@@ -577,6 +575,7 @@ class Line(Plot):
             markerfacecolor=self.marker_color, markersize=self.marker_size
         )
         self.handle = handle
+
 
 class Scatter(Plot):
     def __init__(self, Ax, plot_num):
@@ -603,7 +602,8 @@ class Scatter(Plot):
     def best_fit_line(self, print_slope=True):
         """Plot the best fit line to the scatterplot data."""
         best_fit = np.polyfit(self.x_data, self.y_data, 1)
-        x_lin_fit = [-1e3,1e3]
+        x_lin_fit = [-1e3, 1e3]
+
         def lin_fit(m, x, b):
             return [m*xx + b for xx in x]
         self.Ax.ax.plot(x_lin_fit, lin_fit(best_fit[0], x_lin_fit,
@@ -611,6 +611,7 @@ class Scatter(Plot):
         if print_slope:
             self.Ax.ax.text(0.3, 0.07, r'slope = %0.2f' % best_fit[0],
                             transform=self.Ax.ax.transAxes, fontsize='x-small')
+
 
 class Map(Plot):
     def __init__(self, Ax, plot_num):
@@ -632,14 +633,16 @@ class Map(Plot):
         else:
             llcrnrlat, urcrnrlat = -90, 90
 
-        self.basemap = Basemap(
+        self.basemap = mpl_toolkits.basemap.Basemap(
             projection=self.Ax.map_proj, resolution=self.Ax.map_res,
             ax=self.Ax.ax, llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat,
             urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat
         )
 
     def _shiftgrid(self, lon0, datain, lonsin, start=True, cyclic=360.0):
-        return shiftgrid(lon0, datain, lonsin, start=start, cyclic=cyclic)
+        return mpl_toolkits.basemap.shiftgrid(
+            lon0, datain, lonsin, start=start, cyclic=cyclic
+        )
 
     def plot_latlon_rect(self, lonmin, lonmax, latmin, latmax):
         """Plot a lon-lat rectangle in Basemap.  Taken from:
@@ -660,9 +663,9 @@ class Map(Plot):
             start=self.Ax.shiftgrid_start, cyclic=self.Ax.shiftgrid_cyclic
         )
         x, y = self.basemap(*np.meshgrid(lons, self.lat))
-        plot_data = mpl_toolkits.basemap.maskoceans(
-            x, y, plot_data, inlands=False, resolution='c'
-        )
+        # plot_data = mpl_toolkits.basemap.maskoceans(
+        #     x, y, plot_data, inlands=False, resolution='c'
+        # )
         self.handle = self.basemap.contourf(
             x, y, plot_data, self.cntr_lvls, extend=self.contourf_extend
         )
@@ -672,6 +675,7 @@ class Map(Plot):
         self.basemap.drawmapboundary(linewidth=0.3, fill_color='0.85')
         if self.latlon_rect:
             self.plot_latlon_rect(*self.latlon_rect)
+
 
 class Contour(Plot):
     def __init__(self, Ax, plot_num):
@@ -685,117 +689,3 @@ class Contour(Plot):
             extend=self.contourf_extend
         )
         self.handle.set_cmap(self.col_map)
-
-
-    # def _set_ax_geom(self):
-    #     """Set row and column sizes and subplot spacing."""
-    #     if self.n_col == 1:
-    #         if self.n_row == 1:
-    #             self.subplot_lims = {
-    #                 'left': 0.16, 'right': 0.95, 'wspace': 0.05,
-    #                 'bottom': 0.2, 'top': 0.85, 'hspace': 0.1
-    #             }
-    #             self.cbar_ax_lim = [0.2, 0.15, 0.7, 0.04]
-    #         elif self.n_row == 2:
-    #             self.subplot_lims = {
-    #                 'left': 0.1, 'right': 0.93, 'hspace': 0.2,
-    #                 'bottom': 0.18, 'top': 0.9, 'wspace': 0.05
-    #             }
-    #             self.cbar_ax_lim = [0.2, 0.1, 0.7, 0.025]
-    #         elif self.n_row == 3:
-    #             self.subplot_lims = {
-    #                 'left': 0.16, 'right': 0.93, 'hspace': 0.15,
-    #                 'bottom': 0.16, 'top': 0.93, 'wspace': 0.05
-    #             }
-    #             self.cbar_ax_lim = [0.18, 0.09, 0.7, 0.015]
-    #         elif self.n_row ==4:
-    #             self.subplot_lims = {
-    #                 'left': 0.1, 'right': 0.93, 'hspace': 0.15,
-    #                 'bottom': 0.1, 'top': 0.93, 'wspace': 0.05
-    #             }
-    #             self.cbar_ax_lim = [0.2, 0.07, 0.7, 0.02]
-    #         else:
-    #             self.subplot_lims = {
-    #                 'left': 0.08, 'right': 0.95, 'hspace': 0.2,
-    #                 'bottom': 0.1, 'top': 0.88, 'wspace': 0.05
-    #             }
-    #             self.cbar_ax_lim = [0.2, 0.05, 0.6, 0.025]
-    #     elif self.n_col == 2:
-    #         if self.n_row == 1:
-    #             self.subplot_lims = {
-    #                 'left': 0.1, 'right': 0.95, 'hspace': 0.15,
-    #                 'bottom': 0.25, 'top': 0.8, 'wspace': 0.1
-    #             }
-    #             self.cbar_ax_lim = [0.325, 0.11, 0.4, 0.04]
-    #         elif self.n_row == 2:
-    #             self.subplot_lims = {
-    #                 'left': 0.1, 'right': 0.95, 'hspace': 0.2,
-    #                 'bottom': 0.15, 'top': 0.88, 'wspace': 0.1
-    #             }
-    #             self.cbar_ax_lim = [0.325, 0.08, 0.4, 0.02]
-    #         elif self.n_row == 3:
-    #             self.subplot_lims = {
-    #                 'left': 0.1, 'right': 0.95, 'hspace': 0.15,
-    #                 'bottom': 0.11, 'top': 0.92, 'wspace': 0.1
-    #             }
-    #             self.cbar_ax_lim = [0.325, 0.1, 0.4, 0.02]
-    #         elif self.n_row == 4:
-    #             self.subplot_lims = {
-    #                 'left': 0.1, 'right': 0.95, 'hspace': 0.1,
-    #                 'bottom': 0.1, 'top': 0.94, 'wspace': 0.1
-    #             }
-    #             self.cbar_ax_lim = [0.27, 0.1, 0.5, 0.013]
-    #         else:
-    #             self.subplot_lims = {
-    #                 'left': 0.1, 'right': 0.95, 'hspace': 0.2,
-    #                 'bottom': 0.1, 'top': 0.88, 'wspace': 0.1
-    #             }
-    #             self.cbar_ax_lim = [0.37, 0.07, 0.3, 0.03]
-    #     elif self.n_col == 3:
-    #         if self.n_row == 1:
-    #             self.subplot_lims = {
-    #                 'left': 0.06, 'right': 0.95, 'hspace': 0.2,
-    #                 'bottom': 0.25, 'top': 0.85, 'wspace': 0.05
-    #             }
-    #             self.cbar_ax_lim = [0.35, 0.14, 0.3, 0.04]
-    #         elif self.n_row == 2:
-    #             self.subplot_lims = {
-    #                 'left': 0.08, 'right': 0.95, 'hspace': 0.2,
-    #                 'bottom': 0.15, 'top': 0.88, 'wspace': 0.05
-    #             }
-    #             self.cbar_ax_lim = [0.37, 0.07, 0.3, 0.03]
-    #         elif self.n_row == 3:
-    #             self.subplot_lims = {
-    #                 'left': 0.06, 'right': 0.95, 'hspace': 0.15,
-    #                 'bottom': 0.09, 'top': 0.92, 'wspace': 0.1
-    #             }
-    #             self.cbar_ax_lim = [0.37, 0.07, 0.3, 0.03]
-    #         elif self.n_row == 4:
-    #             self.subplot_lims = {
-    #                 'left': 0.06, 'right': 0.95, 'hspace': 0.15,
-    #                 'bottom': 0.09, 'top': 0.94, 'wspace': 0.1
-    #             }
-    #             self.cbar_ax_lim = [0.355, 0.06, 0.3, 0.013]
-    #         else:
-    #             self.subplot_lims = {
-    #                 'left': 0.08, 'right': 0.95, 'hspace': 0.2,
-    #                 'bottom': 0.1, 'top': 0.88, 'wspace': 0.05
-    #             }
-    #             self.cbar_ax_lim = [0.37, 0.07, 0.3, 0.03]
-    #     elif self.n_col == 4:
-    #         if self.n_row == 1:
-    #             self.subplot_lims = {
-    #                 'left': 0.07, 'right': 0.98, 'hspace': 0.08,
-    #                 'bottom': 0.15, 'top': 0.8, 'wspace': 0.1
-    #             }
-    #         else:
-    #             self.subplot_lims = {
-    #                 'left': 0.06, 'right': 0.95, 'hspace': 0.2,
-    #                 'bottom': 0.25, 'top': 0.85, 'wspace': 0.05
-    #             }
-    #     else:
-    #         self.subplot_lims = {
-    #             'left': 0.08, 'right': 0.95, 'hspace': 0.2,
-    #             'bottom': 0.1, 'top': 0.88, 'wspace': 0.05
-    #         }
-    #         self.cbar_ax_lim = [0.2, 0.05, 0.6, 0.02]

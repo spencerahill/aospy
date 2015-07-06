@@ -1,11 +1,35 @@
-import imp
+"""io.py: utility methods used internally by aospy for input/output, etc."""
 import os
 import string
 import subprocess
 import numpy as np
-import netCDF4 
+import netCDF4
 
-#from . import Proj, Model, Run, Var, Region
+
+def to_dup_list(x, n, single_to_list=True):
+    """
+    Convert singleton or iterable into length-n list.  If the input is
+    a list, with length-1, its lone value gets duplicated n times.  If
+    the input is a list with length-n, leave it the same.  If the
+    input is any other data type, replicate it as a length-n list.
+    """
+    if isinstance(x, list):
+        if len(x) == n:
+            return x
+        elif len(x) == 1:
+            return x*n
+        else:
+            raise ValueError("Input %s must have length 1 or %d : len(%s) = %d"
+                             % (x, n, x, len(x)))
+    else:
+        if n == 1:
+            if single_to_list:
+                return [x]
+            else:
+                return x
+        else:
+            return [x]*n
+
 
 def _var_label(var, level):
     """
@@ -23,6 +47,7 @@ def _var_label(var, level):
     else:
         return var_name
 
+
 def _data_in_label(intvl_in, dtype_in_time, dtype_in_vert=False):
     """Create string label specifying the input data of a calculation."""
     intvl_lbl = intvl_in
@@ -33,23 +58,26 @@ def _data_in_label(intvl_in, dtype_in_time, dtype_in_vert=False):
         lbl = '_'.join([lbl, vert_lbl]).replace('__', '_')
     return lbl
 
+
 def _data_out_label(time_intvl, dtype_time, dtype_vert=False):
-    intvl_lbl =  _time_label(time_intvl, return_val=False)
+    intvl_lbl = _time_label(time_intvl, return_val=False)
     time_lbl = dtype_time
-    lbl =  '.'.join([intvl_lbl, time_lbl]).replace('..', '.')
+    lbl = '.'.join([intvl_lbl, time_lbl]).replace('..', '.')
     vert_lbl = dtype_vert if dtype_vert else False
     if vert_lbl:
         lbl = '.'.join([lbl, vert_lbl]).replace('..', '.')
     return lbl
 
+
 def _ens_label(ens_mem):
     """Create label of the ensemble member for aospy data I/O."""
-    if ens_mem is None:
+    if ens_mem in (None, False):
         return ''
     elif ens_mem == 'avg':
         return 'ens_mean'
     else:
         return 'mem' + str(ens_mem + 1)
+
 
 def _yr_label(yr_range):
     """Create label of start and end years for aospy data I/O."""
@@ -58,6 +86,7 @@ def _yr_label(yr_range):
         return '{:04}'.format(yr_range[0])
     else:
         return '{:04}'.format(yr_range[0]) + '-' + '{:04}'.format(yr_range[1])
+
 
 def _znl_label(var):
     """Create label denoting zonal mean values for aospy data I/O."""
@@ -68,6 +97,7 @@ def _znl_label(var):
             return ''
     except:
         return ''
+
 
 def _time_label(intvl, return_val=True):
     """Create time interval label for aospy data I/O."""
@@ -99,7 +129,7 @@ def _time_label(intvl, return_val=True):
 def _month_indices(months, iterable=True):
     """Convert string labels for months to integer indices.
 
-    :param months: String matching either 'ann' or some subset of 
+    :param months: String matching either 'ann' or some subset of
                    'jfmamjjasond'.  If 'ann', use all months.  Otherwise, use
                    the specified months.
     :type months: str or int
@@ -242,7 +272,7 @@ def _get_time_avg_var(proj, model_name, run_name, var):
             except KeyError:
                 pass
             else:
-                
+
                 break
     except AttributeError:
         var = proj.vars[var]
