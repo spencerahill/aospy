@@ -4,32 +4,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 import mpl_toolkits.basemap
 
+from .__config__ import default_colormap
 from .calc import Calc
-
-
-def to_dup_list(x, n, single_to_list=True):
-    """
-    Convert singleton or iterable into length-n list.  If the input is
-    a list, with length-1, its lone value gets duplicated n times.  If
-    the input is a list with length-n, leave it the same.  If the
-    input is any other data type, replicate it as a length-n list.
-    """
-    if type(x) is list:
-        if len(x) == n:
-            return x
-        elif len(x) == 1:
-            return x*n
-        else:
-            raise ValueError("Input %s must have length 1 or %d : len(%s) = %d"
-                             % (x, n, x, len(x)))
-    else:
-        if n == 1:
-            if single_to_list:
-                return [x]
-            else:
-                return x
-        else:
-            return [x]*n
+from .io import to_dup_list
 
 
 class Fig(object):
@@ -345,7 +322,7 @@ class Ax(object):
         # Axis panel labels, i.e. (a), (b), (c), etc.
         if self.do_ax_label:
             self.panel_label = self.ax.text(
-                0.04, 0.9, '(%s)' % tuple('abcdefghijklmnopqrs')[self.ax_num],
+                0.02, 0.87, '(%s)' % tuple('abcdefghijklmnopqrs')[self.ax_num],
                 fontsize='small', transform=self.ax.transAxes
                 )
         # Labels to left and/or right of Axis.
@@ -428,7 +405,6 @@ class Plot(object):
 
     def _make_calc_obj(self):
         calc_obj = []
-        # for i in range(max(self.n_data, len(self.var[0]))):
         for i in range(self.n_data):
             if type(self.run[i]) is dict:
                 calc_pair = [Calc(
@@ -669,6 +645,11 @@ class Map(Plot):
         self.handle = self.basemap.contourf(
             x, y, plot_data, self.cntr_lvls, extend=self.contourf_extend
         )
+        if self.col_map in ('default', False):
+            try:
+                self.col_map = self.var[0].colormap
+            except AttributeError:
+                self.col_map = default_colormap
         self.handle.set_cmap(self.col_map)
 
         self.basemap.drawcoastlines(linewidth=0.3)

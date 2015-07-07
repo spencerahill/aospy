@@ -60,15 +60,15 @@ class Calc(object):
         if isinstance(ens_mem, int):
             self.direc_nc = self.direc_nc[ens_mem]
 
-        # Some vars are computed as functions of other vars.
+        # Some variables are computed as functions of other variables.
         try:
             self.function = self.var.func
         except AttributeError:
             self.function = lambda x: x
         try:
-            self.vars = self.var.vars
+            self.variables = self.var.vars
         except AttributeError:
-            self.vars = (self.var,)
+            self.variables = (self.var,)
 
         self.ens_mem = ens_mem
         self.level = level
@@ -173,18 +173,18 @@ class Calc(object):
 
     def _set_nc_attrs(self):
         for attr in ('nc_start_yr', 'nc_end_yr', 'nc_dur', 'direc_nc',
-                     # 'nc_start_month', 'nc_end_month',
-                     # 'ens_mem_prefix', 'ens_mem_ext'
-                     'nc_files', 'nc_dir_struc', 'default_yr_range'):
-            attr_val = tuple([get_parent_attr(rn, attr) for rn
+                     'nc_start_month', 'nc_end_month', 'ens_mem_prefix',
+                     'ens_mem_ext' 'nc_files', 'nc_dir_struc',
+                     'default_yr_range'):
+            attr_val = tuple([get_parent_attr(rn, attr, strict=False) for rn
                               in self.run])
             setattr(self, attr, attr_val)
 
     def _set_time_dt(self):
         """Get time and dt arrays at needed time indices."""
         # Use the first var in the list that is an aospy.Var object.
-        nc_var = self.vars[0]
-        for var in self.vars:
+        nc_var = self.variables[0]
+        for var in self.variables:
             if type(var) is Var:
                 nc_var = var
                 break
@@ -444,7 +444,7 @@ class Calc(object):
     def _get_all_vars_data(self, start_yr, end_yr, eddy=False):
         """Get the needed data from all of the vars in the calculation."""
         all_vals = []
-        for n, var in enumerate(self.vars):
+        for n, var in enumerate(self.variables):
             # If only 1 run, use it to load all data.
             # Otherwise assume that # runs == # vars to load.
             if len(self.run) == 1:
@@ -530,7 +530,6 @@ class Calc(object):
             #, 'spvar.ts', 'spvar.av', 'znl.spvar.ts',
             # 'znl.spvar.av', 'zasym.ts', 'zasym.av', 'zasym.std',
             # 'zasym.spvar.ts', 'zasym.spvar.av'
-        regions = [region_inst(reg) for reg in self.region]
         # Perform each calculation for each region.
         for calc in calcs_reg:
             calc_name = ('reg.' + calc)
@@ -538,15 +537,15 @@ class Calc(object):
                 calc_name = '.'.join(['eddy', calc_name])
             if calc_name in self.dtype_out_time:
                 reg_dat = {}
-                for region in regions:
+                for reg in self.region.itervalues():
                     # Just pass along the data if averaged already.
                     if 'av' in self.dtype_in_time:
-                        data_out = region.ts(loc_ts, self.model[n])
+                        data_out = reg.ts(loc_ts, self.model[n])
                     # Otherwise perform the calculation.
                     else:
-                        method = getattr(region, calc)
+                        method = getattr(reg, calc)
                         data_out = method(loc_ts, self.model[n])
-                    reg_dat.update({region.name: data_out})
+                    reg_dat.update({reg.name: data_out})
                 self.save(reg_dat, calc_name)
 
     def _compute_chunk(self, start_yr, end_yr, eddy=False):

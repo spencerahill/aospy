@@ -17,21 +17,33 @@ def load_user_data(name):
     )
 
 
-def get_parent_attr(obj, attr):
+def robust_bool(obj):
+    try:
+        return bool(obj)
+    except ValueError:
+        return obj.any()
+
+
+def get_parent_attr(obj, attr, strict=False):
     """
     Check if the object has the given attribute and it is non-empty.  If not,
     check each parent object for the attribute and use the first one found.
     """
-    # Get the attribute from the object itself, if it exists.
-    try:
-        return getattr(obj, attr)
-    # Otherwise, loop through the parent objects until finding the attr.
-    except AttributeError:
-        for parent_obj in ('var', 'run', 'model', 'proj'):
-            try:
-                return getattr(getattr(obj, parent_obj), attr)
-            except AttributeError:
-                pass
+    attr_val = getattr(obj, attr, False)
+    if robust_bool(attr_val):
+        return attr_val
+
+    else:
+        for parent in ('parent', 'var', 'run', 'model', 'proj'):
+            parent_obj = getattr(obj, parent, False)
+            if parent_obj:
+                return get_parent_attr(parent_obj, attr, strict=strict)
+
+        if strict:
+            raise AttributeError('Attribute %s not found in parent of %s'
+                                 % (attr, obj))
+        else:
+            return None
 
 
 def dict_name_keys(objs):
