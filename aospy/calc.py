@@ -1,4 +1,4 @@
-"""calc.py"""
+"""calc.py: classes for performing specified calculations on aospy data"""
 import cPickle
 import os
 import shutil
@@ -10,7 +10,8 @@ import netCDF4
 import numpy as np
 
 from . import Proj, Model, Run, Var, Region
-from .utils import get_parent_attr
+from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
+                    dp_from_sigma, int_dp_g)
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
                  _month_indices, _yr_label, dmget_nc, nc_name_gfdl)
 
@@ -66,7 +67,7 @@ class Calc(object):
         except AttributeError:
             self.function = lambda x: x
         try:
-            self.variables = self.var.vars
+            self.variables = self.var.variables
         except AttributeError:
             self.variables = (self.var,)
 
@@ -280,13 +281,6 @@ class Calc(object):
         except TypeError:
             files = [self.direc_nc[n] + '/' + nc_file for
                      nc_file in self.nc_files[n][name]]
-        # except KeyError:
-            # if type(self.nc_files[n][self.intvl_in]) in (list, tuple):
-                # files = [self.direc_nc[n] + '/' + nc_file for nc_file in
-                         # self.nc_files[n][self.intvl_in]]
-            # elif type(self.nc_files[self.intvl_in]) is str:
-                # files = [self.direc_nc[n] + '/' +
-                         # self.nc_files[n][self.intvl_in]]
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
@@ -361,16 +355,16 @@ class Calc(object):
             if var == 'p':
                 data = self.model[n].level
             elif var == 'dp':
-                data = calc_levs_thick(self.model[n].level)
+                data = level_thickness(self.model[n].level)
         if self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk
             ps_obj = var_inst('ps')
             ps = self._get_var_data(ps_obj, start_yr, end_yr, eddy=False)
             if var == 'p':
-                data = calcs.pfull_from_sigma(bk, pk, ps)
+                data = pfull_from_sigma(bk, pk, ps)
             elif var == 'dp':
-                data = calcs.dp_from_sigma(bk, pk, ps)
+                data = dp_from_sigma(bk, pk, ps)
         return data
 
     def _get_data_subset(self, data, region=False, eddy=False, time=False,
@@ -527,9 +521,6 @@ class Calc(object):
     def region_calcs(self, loc_ts, eddy=False, n=0):
         """Region-averaged computations.  Execute and save to external file."""
         calcs_reg = ('ts', 'av', 'std')
-            #, 'spvar.ts', 'spvar.av', 'znl.spvar.ts',
-            # 'znl.spvar.av', 'zasym.ts', 'zasym.av', 'zasym.std',
-            # 'zasym.spvar.ts', 'zasym.spvar.av'
         # Perform each calculation for each region.
         for calc in calcs_reg:
             calc_name = ('reg.' + calc)
@@ -550,8 +541,8 @@ class Calc(object):
 
     def _compute_chunk(self, start_yr, end_yr, eddy=False):
         """Perform the calculation on the given chunk of times."""
-        self._print_verbose("Computing desired timeseries from netCDF data for "
-                            "years %d-%d.", (start_yr, end_yr))
+        self._print_verbose("Computing desired timeseries from netCDF data "
+                            "for years %d-%d.", (start_yr, end_yr))
         inds = _get_time(
             self.time, self.time_units, self.calendar,
             start_yr, end_yr, self.months, indices='only'
@@ -631,7 +622,7 @@ class Calc(object):
             try:
                 old_data_path = '/'.join(
                     [self.dir_archive, self.file_name[dtype_out_time]]
-                ).replace('//','/')
+                ).replace('//', '/')
 
                 tar.extract(self.file_name[dtype_out_time],
                             path=old_data_path)
