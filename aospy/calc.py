@@ -66,10 +66,12 @@ class Calc(object):
             self.function = self.var.func
         except AttributeError:
             self.function = lambda x: x
-        try:
+
+        if getattr(self.var, 'variables', False):
             self.variables = self.var.variables
-        except AttributeError:
-            self.variables = (self.var,)
+        else:
+            self.variables = (self.var,)  
+
 
         self.ens_mem = ens_mem
         self.level = level
@@ -186,9 +188,10 @@ class Calc(object):
         # Use the first var in the list that is an aospy.Var object.
         nc_var = self.variables[0]
         for var in self.variables:
-            if type(var) is Var:
+            if isinstance(var, Var) and not var.in_nc_grid:
                 nc_var = var
                 break
+
         with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
             time_obj = nc.variables['time']
             inds, time = _get_time(
