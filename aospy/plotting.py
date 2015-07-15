@@ -7,6 +7,7 @@ import mpl_toolkits.basemap
 from .__config__ import default_colormap
 from .calc import Calc
 from .io import to_dup_list
+from .utils import to_hpa
 
 
 class Fig(object):
@@ -303,14 +304,14 @@ class Ax(object):
             self.ax.set_xlim(self.x_lim)
         if self.x_ticks:
             self.ax.set_xticks(self.x_ticks)
-        if self.x_ticklabels:
+        if self.x_ticklabels[0]:
             self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
-        if self.x_label:
+        if self.x_label[0]:
             self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
 
         plt.tick_params(labelsize='x-small')
-        self.ax.spines['right'].set_visible(False)
-        self.ax.spines['top'].set_visible(False)
+        # self.ax.spines['right'].set_visible(False)
+        # self.ax.spines['top'].set_visible(False)
         self.ax.xaxis.set_ticks_position('bottom')
         self.ax.yaxis.set_ticks_position('left')
 
@@ -381,9 +382,9 @@ class Plot(object):
             self.var = self.var[0]
             self.n_data = len(self.var)
         self.Calc = self._make_calc_obj()
+        self.data = self._load_data()
         self._set_coord_arrays()
         self._set_cntr_lvls()
-        self.data = self._load_data()
         self._apply_data_transforms()
 
     def _traverse_child_tree(self, value, level='data'):
@@ -446,7 +447,7 @@ class Plot(object):
     def _set_coord_arrays(self):
         """Set the arrays holding the x- and y-coordinates."""
         array_names = {'lat': 'lat', 'lon': 'lon', 'p': 'level',
-                       'sigma': 'pfull', 'time': 'time'}
+                       'sigma': 'pfull', 'time': 'time', 'x': 'x', 'y': 'y'}
         if self.n_data == 1:
             mod_inds = (0, 0)
         else:
@@ -454,24 +455,23 @@ class Plot(object):
         for dim, data, lim, i in zip(('x_dim', 'y_dim'), ('x_data', 'y_data'),
                                      ('x_lim', 'y_lim'), mod_inds):
             array_key = getattr(self.Ax, dim)
-            try:
-                array = getattr(self.Calc[i].model[0], array_names[array_key])
-            except AttributeError:
-                array = getattr(self.Calc[i][0].model[0],
-                                array_names[array_key])
-            # Restrict the array to the specified limits.
-            lim = getattr(self.Ax, lim)
-            # Annual cycle has 12 evenly spaced points, one per month.
+
+            if array_key in ('x', 'y'):
+                array = self.data[0]
+            else:
+                try:
+                    array = getattr(self.Calc[i].model[0],
+                                    array_names[array_key])
+                except AttributeError:
+                    array = getattr(self.Calc[i][0].model[0],
+                                    array_names[array_key])
+
+            if array_key == 'p':
+                array = to_hpa(array)
+
             if array_key == 'time' and lim == 'ann_cycle':
                 array = np.arange(1, 13)
-            else:
-                # For sigma coordinates, divide the pfull array by a reference
-                # surface pressure of 1000 hPa to get a fractional value.
-                if array_key == 'sigma':
-                    array /= 1e3
-                # if lim:
-                    # array = array[np.where((array <= max(lim)) &
-                                           # (array >= min(lim)))]
+
             setattr(self, data, array)
 
     def _set_cntr_lvls(self):
@@ -484,10 +484,10 @@ class Plot(object):
             return tuple(
                 [cl.load(dto, dtype_out_vert=dtv, region=reg, time=False,
                          vert=lev, lat=False, lon=False, plot_units=True)
-                 for cl, dto, dtv, reg, lev in zip(self.Calc,
-                                                   self.dtype_out_time,
-                                                   self.dtype_out_vert,
-                                                   self.region, self.level)]
+                 for cl, dto, dtv, reg, lev in zip(
+                         self.Calc, self.dtype_out_time, self.dtype_out_vert,
+                         self.region, self.level
+                 )]
             )
         except AttributeError:
             data = tuple(
@@ -499,38 +499,13 @@ class Plot(object):
             )
             self.Calc = self.Calc[0]
             return data[0] - data[1]
-    #     if self.n_data == 1:
-    #         self._load_2d_data()
-    #     elif self.n_data == 2:
-    #         self._load_xy_data()
-
-    # def _load_2d_data(self):
-    #     """Load 2D-data and set the corresponding attrs."""
-    #     self.data = np.squeeze(load_plot_data(
-    #         self.proj, self.model, self.run, self.ens_mem[0],
-    #         self.var, self.level[0], self.intvl[0], self.dtype[0],
-    #         self.yr_range[0], region=self.region[0]
-    #     ))
-
-    # def _load_xy_data(self):
-    #     """Load x- and y-data and set the corresponding attrs."""
-    #     for i, data in enumerate(('x_data', 'y_data')):
-    #         setattr(self, data, load_plot_data(
-    #             self.proj[i], self.model[i], self.run[i], self.ens_mem[i],
-    #             self.var[i], self.level[i], self.intvl[i], self.dtype[i],
-    #             self.yr_range[i], region=self.region[i]
-    #         ))
 
     def _subtract_mean(self, data):
         return np.subtract(data, np.mean(data))
 
-    # def _mult_by_factor(self, data):
-        # return np.multiply(data, self.mult_factor)
-
     def _apply_data_transforms(self):
         """Apply any specified transformations to the data once loaded."""
         transforms = {'do_subtract_mean': self._subtract_mean}
-                      #'mult_by_factor': self._mult_by_factor}
         for attr, method in transforms.iteritems():
             for data, do_method in zip(['x_data', 'y_data'],
                                        getattr(self, attr)):
@@ -543,8 +518,11 @@ class Line(Plot):
     def __init__(self, Ax, plot_num):
         """Line plot."""
         Plot.__init__(self, Ax, plot_num)
-
+        if self.marker_shape is False:
+            self.marker_shape = None
+            
     def plot(self):
+
         handle = self.Ax.ax.plot(
             self.x_data, self.y_data, color=self.line_color,
             linestyle=self.linestyle, marker=self.marker_shape,
