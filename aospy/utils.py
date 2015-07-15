@@ -76,6 +76,11 @@ def to_pascal(field):
         field *= 100.
     return field
 
+def to_hpa(field):
+    """Convert pressure array from Pa to hPa (if needed)."""
+    if np.max(np.abs(field)) > 1200.:
+        field /= 100.
+    return field
 
 def level_thickness(levs):
     """
