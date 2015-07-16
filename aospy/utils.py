@@ -49,14 +49,14 @@ def get_parent_attr(obj, attr, strict=False):
 
 def dict_name_keys(objs):
     """Create dict whose keys are the 'name' attr of the objects."""
-    assert type(objs) in (tuple, list, dict)
-    if type(objs) in (tuple, list):
+    assert isinstance(objs, (tuple, list, dict))
+    if isinstance(objs, (tuple, list)):
         try:
             return {obj.name: obj for obj in objs}
         except AttributeError:
             raise AttributeError
     else:
-        return dict
+        return objs
 
 
 def to_radians(field):
