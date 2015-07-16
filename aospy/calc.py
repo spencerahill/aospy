@@ -9,7 +9,7 @@ import time
 import netCDF4
 import numpy as np
 
-from . import Proj, Model, Run, Var, Region
+from . import Var, Region
 from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
                     dp_from_sigma, int_dp_g)
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
@@ -24,12 +24,9 @@ class Calc(object):
                  dtype_out_vert=None, level=None, skip_time_inds=False,
                  yr_chunk_len=False, verbose=True):
         # Turn strings into tuples.
-        if type(proj) in (str, Proj):
-            proj = tuple([proj])
-        if type(model) in (str, Model):
-            model = tuple([model])
-        if type(run) in (str, Run):
-            run = tuple([run])
+        proj = tuple([proj])
+        model = tuple([model])
+        run = tuple([run])
         # Make tuples the same length.
         if len(proj) == 1 and (len(model) > 1 or len(run) > 1):
             proj = tuple(list(proj)*len(run))
@@ -37,6 +34,7 @@ class Calc(object):
             model = tuple(list(model)*len(run))
         assert len(model) == len(run)
         assert len(proj) == len(model)
+
         self.proj = proj
         self.model = model
         [mod.set_grid_data() for mod in self.model]
@@ -70,8 +68,7 @@ class Calc(object):
         if getattr(self.var, 'variables', False):
             self.variables = self.var.variables
         else:
-            self.variables = (self.var,)  
-
+            self.variables = (self.var,)
 
         self.ens_mem = ens_mem
         self.level = level
@@ -458,7 +455,8 @@ class Calc(object):
                 # Get grid, time, etc. arrays directly from model object
                 data = getattr(self.model[0], var.name)
             else:
-                data = self._get_var_data(var, start_yr, end_yr, n=n, eddy=eddy)
+                data = self._get_var_data(var, start_yr, end_yr,
+                                          n=n, eddy=eddy)
             all_vals.append(data)
         return all_vals
 
@@ -699,9 +697,9 @@ class Calc(object):
                 conv = self.var.vert_int_plot_units_conv
             else:
                 conv = self.var.plot_units_conv
-            data_out = data*conv
         else:
-            data_out = data
+            conv = 1
+        data_out = data * conv
         # Copy the array to self.data_out for ease of future access.
         self._update_data_out(data_out, dtype_out_time)
         return data_out
