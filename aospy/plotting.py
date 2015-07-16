@@ -47,12 +47,13 @@ class Fig(object):
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
                  dtype_out_vert=None, level=None, **kwargs):
         """Class for producing figures with one or more panels."""
-        self.proj = fig_params.proj,
-        self.model = fig_params.model,
-        self.run = fig_params.run,
-        self.ens_mem = fig_params.ens_mem,
-        self.var = fig_params.var,
-        self.region = fig_params.region,
+
+        self.proj = fig_params.proj
+        self.model = fig_params.model
+        self.run = fig_params.run
+        self.ens_mem = fig_params.ens_mem
+        self.var = fig_params.var
+        self.region = fig_params.region
 
         self.n_ax = n_ax
         self.n_plot = n_plot
