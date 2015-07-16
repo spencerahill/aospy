@@ -42,13 +42,18 @@ class Fig(object):
     )
     specs = fig_specs + ax_specs + plot_specs + data_specs
 
-    def __init__(self, n_ax=1, n_plot=1, n_data=1, n_row=1, n_col=1,
-                 proj=None, model=None, run=None, ens_mem=None, var=None,
-                 yr_range=None, region=None, intvl_in=None,
-                 intvl_out=None, dtype_in_time=None, dtype_in_vert=None,
-                 dtype_out_time=None, dtype_out_vert=None, level=None,
-                 **kwargs):
+    def __init__(self, fig_params, n_ax=1, n_plot=1, n_data=1, n_row=1,
+                 n_col=1, yr_range=None, intvl_in=None, intvl_out=None,
+                 dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
+                 dtype_out_vert=None, level=None, **kwargs):
         """Class for producing figures with one or more panels."""
+        self.proj = fig_params.proj,
+        self.model = fig_params.model,
+        self.run = fig_params.run,
+        self.ens_mem = fig_params.ens_mem,
+        self.var = fig_params.var,
+        self.region = fig_params.region,
+
         self.n_ax = n_ax
         self.n_plot = n_plot
         self.n_data = n_data
@@ -56,14 +61,7 @@ class Fig(object):
         self.n_col = n_col
         self._set_n_ax_plot_data()
 
-        self.proj = proj
-        self.model = model
-        self.run = run
-        self.ens_mem = ens_mem
-        self.var = var
-
         self.yr_range = yr_range
-        self.region = region
         self.intvl_in = intvl_in
         self.intvl_out = intvl_out
         self.dtype_in_time = dtype_in_time
@@ -520,7 +518,7 @@ class Line(Plot):
         Plot.__init__(self, Ax, plot_num)
         if self.marker_shape is False:
             self.marker_shape = None
-            
+
     def plot(self):
 
         handle = self.Ax.ax.plot(
