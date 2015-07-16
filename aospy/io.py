@@ -36,7 +36,7 @@ def _var_label(var, level):
     Create label of variable name and potentially the desired level for aospy
     data I/O.
     """
-    if type(var) == str:
+    if isinstance(var, str):
         var_name = var
         defvert = False
     else:
