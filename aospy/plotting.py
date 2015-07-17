@@ -11,6 +11,7 @@ from .utils import to_hpa
 
 
 class Fig(object):
+    """Class for producing figures with one or more panels."""
     # Various categories of inputted specifications
     fig_specs = (
         'fig_title', 'n_row', 'n_col', 'row_size', 'col_size', 'n_ax',
@@ -46,8 +47,6 @@ class Fig(object):
                  n_col=1, yr_range=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
                  dtype_out_vert=None, level=None, **kwargs):
-        """Class for producing figures with one or more panels."""
-
         self.proj = fig_params.proj
         self.model = fig_params.model
         self.run = fig_params.run
@@ -76,12 +75,13 @@ class Fig(object):
         # Accept all other keyword arguments passed in as attrs.
         for key, val in kwargs.iteritems():
             setattr(self, key, val)
+        print self.x_label
 
         self.do_ax_label = True if self.n_ax > 1 else False
 
         self._expand_attrs_over_tree()
+        print self.x_label
         self._make_ax_objs()
-        # self._set_ax_geom()
 
     def _set_n_ax_plot_data(self):
         """Set the number of axes, plots, and data."""
@@ -188,8 +188,6 @@ class Fig(object):
 
         for n in range(self.n_ax):
             self.Ax[n].ax = self.fig.add_subplot(self.n_row, self.n_col, n+1)
-            self.Ax[n]._set_axes_props()
-            self.Ax[n]._set_axes_labels()
 
     def make_plots(self):
         """Render the plots in every Ax."""
@@ -228,7 +226,8 @@ class Ax(object):
         self.Plot = []
 
         self._copy_attrs_from_fig()
-        self._set_ax_loc_specs()
+        print 'in ax', self.x_label
+        # self._set_ax_loc_specs()
         self._set_xy_attrs_to_coords()
         self._make_plot_objs()
 
@@ -287,14 +286,8 @@ class Ax(object):
 
     def _set_axes_props(self):
         """Set the properties of the matplotlib Axes instance."""
-        if self.y_lim:
-            self.ax.set_ylim(self.y_lim)
-        if self.y_ticks:
-            self.ax.set_yticks(self.y_ticks)
-        if self.y_ticklabels:
-            self.ax.set_yticklabels(self.y_ticklabels, fontsize='small')
-        if self.y_label:
-            self.ax.set_ylabel(self.y_label, fontsize='small', labelpad=-2)
+        print 'x', self.x_lim, self.x_ticks, self.x_ticklabels, self.x_label
+        print 'y', self.y_lim, self.y_ticks, self.y_ticklabels, self.y_label
         if self.x_lim:
             if self.x_lim == 'ann_cycle':
                 self.x_lim = (1, 12)
@@ -303,14 +296,23 @@ class Ax(object):
             self.ax.set_xlim(self.x_lim)
         if self.x_ticks:
             self.ax.set_xticks(self.x_ticks)
-        if self.x_ticklabels[0]:
+        if self.x_ticklabels:
             self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
-        if self.x_label[0]:
+        if self.x_label:
             self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
+        if self.y_lim:
+            self.ax.set_ylim(self.y_lim)
+            self.ax.vlines(0, self.y_lim[0], self.y_lim[1], colors='0.5')
+        if self.y_ticks:
+            self.ax.set_yticks(self.y_ticks)
+        if self.y_ticklabels:
+            self.ax.set_yticklabels(self.y_ticklabels, fontsize='small')
+        if self.y_label:
+            self.ax.set_ylabel(self.y_label, fontsize='small', labelpad=-2)
 
-        plt.tick_params(labelsize='x-small')
-        # self.ax.spines['right'].set_visible(False)
-        # self.ax.spines['top'].set_visible(False)
+        self.ax.tick_params(labelsize='x-small')
+        self.ax.spines['right'].set_visible(False)
+        self.ax.spines['top'].set_visible(False)
         self.ax.xaxis.set_ticks_position('bottom')
         self.ax.yaxis.set_ticks_position('left')
 
@@ -363,6 +365,9 @@ class Ax(object):
 
     def make_plots(self):
         """Call the matplotlib plotting command for each Plot."""
+        self._set_axes_props()
+        self._set_axes_labels()
+
         for n in range(self.n_plot):
             self.Plot[n].plot()
 
@@ -377,7 +382,7 @@ class Plot(object):
         self.plot_num = plot_num
         self.n_data = Ax.n_data[plot_num]
         self._copy_attrs_from_ax()
-        if type(self.var[0]) is tuple:
+        if isinstance(self.var[0], tuple):
             self.var = self.var[0]
             self.n_data = len(self.var)
         self.Calc = self._make_calc_obj()
@@ -406,7 +411,7 @@ class Plot(object):
     def _make_calc_obj(self):
         calc_obj = []
         for i in range(self.n_data):
-            if type(self.run[i]) is dict:
+            if isinstance(self.run[i], dict):
                 calc_pair = [Calc(
                     proj=self.proj[i], model=self.model[i],
                     run=self.run[i].keys()[0][j],
@@ -497,7 +502,7 @@ class Plot(object):
                  for cl in self.Calc[0]]
             )
             self.Calc = self.Calc[0]
-            return data[0] - data[1]
+            return (data[0] - data[1],)
 
     def _subtract_mean(self, data):
         return np.subtract(data, np.mean(data))
@@ -521,7 +526,6 @@ class Line(Plot):
             self.marker_shape = None
 
     def plot(self):
-
         handle = self.Ax.ax.plot(
             self.x_data, self.y_data, color=self.line_color,
             linestyle=self.linestyle, marker=self.marker_shape,
@@ -571,7 +575,7 @@ class Map(Plot):
         Plot.__init__(self, Ax, plot_num)
         # Assume single data source for mapped data.
         self.model = self.Calc[0].model[0]
-        if type(self.data) in (list, tuple):
+        if isinstance(self.data, (list, tuple)):
             self.data = self.data[0]
         self.lon = self.model.lon
         self.lat = self.model.lat
