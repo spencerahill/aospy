@@ -138,15 +138,63 @@ kappa = Constant(
                  'pressure of dry air')
 )
 
-c_va = 719
-c_vv = 1418
-c_vl = 4216
-c_vs = 2106
-R_a = 287.04
-R_v = 461.4
-p_trip = 611.65
-T_trip = 273.16
-E_0v = 2.374e6
-E_0s = 3.337e5
-s_0v = E_0v / T_trip + R_v
-s_0s = E_0s / T_trip
+c_va = Constant(
+    719.,
+    'J/kg/K',
+    description='Specific heat capacity of dry air at constant volume'
+)
+c_vv = Constant(
+    1418.,
+    'J/kg/K',
+    description='Specific heat capacity of water vapor at constant volume'
+)
+c_vl = Constant(
+    4216.,
+    'J/kg/K',
+    description='Specific heat capacity of liquid water at constant volume'
+)
+c_vs = Constant(
+    2106.,
+    'J/kg/K',
+    description='Specific heat capacity of solid water at constant volume'
+)
+R_a = Constant(
+    287.04,
+    'J/kg/K',
+    description='Dry air gas constant'
+)
+R_v = Constant(
+    461.4,
+    'J/kg/K',
+    description='Water vapor gas constant'
+)
+p_trip = Constant(
+    611.65,
+    'hPa',
+    description='Pressure of water triple point'
+)
+T_trip = Constant(
+    273.16,
+    'K',
+    description='Temperature of water triple point'
+)
+E_0v = Constant(
+    2.374e6,
+    'J/kg',
+    description=''
+)
+E_0s = Constant(
+    3.337e5,
+    'J/kg',
+    description=''
+)
+s_0v = Constant(
+    E_0v / T_trip + R_v,
+    'J/kg/K',
+    description='Specific entropy of water vapor at the triple point.'
+)
+s_0s = Constant(
+    E_0s / T_trip,
+    'J/kg/K',
+    description='Specific entropy of solid water at the triple point.'
+)
