@@ -208,8 +208,8 @@ def integrate(integrand, delta, axis):
     return np.ma.sum(prod, axis=axis)
 
 
-def int_dp_g(integrand, dp, start=0., end=None):
+def int_dp_g(integrand, dp, start=0., end=None, axis=-3):
     """Integrate vertically in pressure."""
     # Assume pressure is 3rd to last axis.
     dp = to_pascal(dp)
-    return integrate(integrand, dp, -3) / grav
+    return integrate(integrand, dp, axis) / grav

@@ -1,6 +1,7 @@
 """aospy: management, analysis, and plotting of gridded climate data."""
 from .__config__ import user_path
 from . import constants
+from .constants import Constant
 from . import utils
 from . import io
 from . import units
@@ -20,5 +21,6 @@ from .calc import Calc
 from . import plotting
 from .plotting import Fig, Ax, Plot
 
-__all__ = ['Proj', 'Model', 'Run', 'Var', 'Units', 'Region', 'Fig', 'Ax',
-           'Plot', 'units', 'calc', 'constants', 'utils', 'io', 'plotting']
+__all__ = ['Proj', 'Model', 'Run', 'Var', 'Units', 'Constant', 'Region',
+           'Fig', 'Ax', 'Plot', 'units', 'calc', 'constants', 'utils', 'io',
+           'plotting']
