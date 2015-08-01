@@ -61,6 +61,15 @@ class Constant(object):
     def __rdiv__(self, other):
         return self.__div__(other)
 
+    def __pow__(self, other):
+        if isinstance(other, Constant):
+            other_value = other.value
+        else:
+            other_value = other
+        return np.ma.power(self.value, other_value)
+
+    def __rpow__(self, other):
+        return np.ma.power(other, self.value)
 
 r_e = Constant(
     6370997.,
@@ -134,3 +143,10 @@ c_vv = 1418
 c_vl = 4216
 c_vs = 2106
 R_a = 287.04
+R_v = 461.4
+p_trip = 611.65
+T_trip = 273.16
+E_0v = 2.374e6
+E_0s = 3.337e5
+s_0v = E_0v / T_trip + R_v
+s_0s = E_0s / T_trip

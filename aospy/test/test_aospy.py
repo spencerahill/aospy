@@ -126,5 +126,12 @@ class TestConstant(AospyConstantTestCase):
         self.assertEqual(CONST_VALUE / CONST_VALUE, self.const / CONST_VALUE)
         self.assertEqual(CONST_VALUE / CONST_VALUE, CONST_VALUE / self.const)
 
+    def test_power_two_consts(self):
+        self.assertEqual(CONST_VALUE**CONST_VALUE, self.const**self.const)
+
+    def test_power_const_scalar(self):
+        self.assertEqual(CONST_VALUE**CONST_VALUE, self.const**CONST_VALUE)
+        self.assertEqual(CONST_VALUE**CONST_VALUE, CONST_VALUE**self.const)
+
 if __name__ == '__main__':
     sys.exit(unittest.main())
