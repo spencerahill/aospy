@@ -5,7 +5,12 @@ import numpy as np
 class Constant(object):
     """Physical constants used in atmospheric and oceanic sciences."""
     def __init__(self, value, units, description=''):
-        self.value = value
+        if isinstance(value, int):
+            self.value = np.int_(value)
+        elif isinstance(value, float):
+            self.value = np.float_(value)
+        else:
+            raise NotImplementedError
         self.units = units
         self.description = description
 
@@ -49,17 +54,20 @@ class Constant(object):
             other_value = other
         return np.ma.divide(self.value, other_value)
 
+    def __truediv__(self, other):
+        return self.__div__(other)
+
     def __radd__(self, other):
         return self.__add__(other)
 
     def __rsub__(self, other):
-        return self.__sub__(other)
+        return np.ma.subtract(other, self.value)
 
     def __rmul__(self, other):
         return self.__mul__(other)
 
     def __rdiv__(self, other):
-        return self.__div__(other)
+        return np.ma.divide(other, self.value)
 
     def __pow__(self, other):
         if isinstance(other, Constant):
@@ -181,12 +189,14 @@ T_trip = Constant(
 E_0v = Constant(
     2.374e6,
     'J/kg',
-    description=''
+    description=('Difference in specific internal energy between water vapor '
+                 'and liquid water at the triple-point temperature')
 )
 E_0s = Constant(
     3.337e5,
     'J/kg',
-    description=''
+    description=('Difference in specific internal energy between liquid water '
+                 'and solid water at the triple-point temperature')
 )
 s_0v = Constant(
     E_0v / T_trip + R_v,

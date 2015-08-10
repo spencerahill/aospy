@@ -212,4 +212,4 @@ def int_dp_g(integrand, dp, start=0., end=None, axis=-3):
     """Integrate vertically in pressure."""
     # Assume pressure is 3rd to last axis.
     dp = to_pascal(dp)
-    return integrate(integrand, dp, axis) / grav
+    return integrate(integrand, dp, axis) * (1. / grav)
