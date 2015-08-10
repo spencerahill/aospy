@@ -1,8 +1,8 @@
 """region.py: Region class and region_inst()."""
-import imp
 import numpy as np
 
 from .utils import get_parent_attr
+
 
 class Region(object):
     """Geographical region."""
@@ -47,7 +47,7 @@ class Region(object):
             elif self.land_mask == 'ocean':
                 return mask*(1. - model.land_mask)
             elif self.land_mask == 'strict_ocean':
-                return  mask*np.where(model.land_mask == 0., 1., 0.)
+                return mask*np.where(model.land_mask == 0., 1., 0.)
             else:
                 return mask
 
@@ -57,8 +57,9 @@ class Region(object):
         reg_mask = self.make_mask(model)
         # Mask input values where region mask is zero. Assumes dimensions are
         # (time, level, lat, lon), i.e. data.ndim=4.
-        return np.ma.masked_where(np.tile(reg_mask == 0.,
-                                 (data.shape[0], data.shape[1], 1, 1)), data)
+        return np.ma.masked_where(
+            np.tile(reg_mask == 0., (data.shape[0], data.shape[1], 1, 1)), data
+        )
 
     def ts(self, data, model):
         """Create a time-series of region-average data."""
@@ -84,10 +85,18 @@ class Region(object):
 
     def av(self, data, model):
         """Time average of region-average data."""
-        out = np.squeeze(self.ts(data, model).mean(axis=0))
-        return out
+        ts_ = self.ts(data, model)
+        if isinstance(ts_, float):
+            return ts_
+        else:
+            mean = np.ma.mean(ts_, axis=0)
+            return np.squeeze(mean)
 
     def std(self, data, model):
         """Standard deviation of time-series data."""
-        out = np.squeeze(self.ts(data, model).std(axis=0))
-        return out
+        ts_ = self.ts(data, model)
+        if isinstance(ts_, float):
+            return ts_
+        else:
+            stdev = np.ma.std(ts_, axis=0)
+            return np.squeeze(stdev)
