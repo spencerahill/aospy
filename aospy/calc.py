@@ -9,11 +9,25 @@ import time
 import netCDF4
 import numpy as np
 
-from . import Var, Region
+from . import Var, Region, Constant
 from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
                     dp_from_sigma, int_dp_g)
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
                  _month_indices, _yr_label, dmget_nc, nc_name_gfdl)
+
+ps = Var(
+    name='ps',
+    units='Pa',
+    plot_units='hPa',
+    plot_units_conv=1e-2,
+    domain='atmos',
+    description='Surface pressure.',
+    def_time=True,
+    def_vert=False,
+    def_lat=True,
+    def_lon=True,
+    in_nc_grid=False
+)
 
 
 class Calc(object):
@@ -76,6 +90,8 @@ class Calc(object):
         self.intvl_out = intvl_out
         self.dtype_in_time = dtype_in_time
         self.dtype_in_vert = dtype_in_vert
+        if dtype_in_vert == 'sigma':
+            self.ps = ps
         if isinstance(dtype_out_time, (list, tuple)):
             self.dtype_out_time = tuple(dtype_out_time)
         else:
@@ -359,8 +375,7 @@ class Calc(object):
         if self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk
-            ps_obj = var_inst('ps')
-            ps = self._get_var_data(ps_obj, start_yr, end_yr, eddy=False)
+            ps = self._get_var_data(self.ps, start_yr, end_yr, eddy=False)
             if var == 'p':
                 data = pfull_from_sigma(bk, pk, ps)
             elif var == 'dp':
@@ -447,7 +462,7 @@ class Calc(object):
             if var in ('p', 'dp'):
                 data = self._get_pressure_vals(var, start_yr, end_yr)
             # Pass numerical constants as is.
-            elif type(var) in (float, int):
+            elif isinstance(var, (float, int, Constant)):
                 data = var
             # aospy.Var objects remain.
             elif var.name in ('lat', 'lon', 'level', 'pk',
