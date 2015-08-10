@@ -4,13 +4,9 @@
 import sys
 import unittest
 
-from aospy import Constant
+import numpy as np
 
-CONST_VALUE = 1
-CONST_UNITS = 'dummy_units'
-CONST_DESCRIPTION = 'dummy_description'
-CONST2_VALUE = 2.
-CONST2_UNITS = 'dummy_units2'
+from aospy import Constant
 
 
 class AospyProjTestCase(unittest.TestCase):
@@ -75,9 +71,15 @@ class TestCalc(AospyCalcTestCase):
 
 class AospyConstantTestCase(unittest.TestCase):
     def setUp(self):
-        self.const = Constant(CONST_VALUE, CONST_UNITS,
-                              description=CONST_DESCRIPTION)
-        self.const2 = Constant(CONST2_VALUE, CONST2_UNITS)
+        self._val1 = 1
+        self._const1_units = 'dummy_units'
+        self._const1_description = 'dummy_description'
+        self._val2 = 2.
+        self._const2_units = 'dummy_units2'
+
+        self.const1 = Constant(self._val1, self._const1_units,
+                              description=self._const1_description)
+        self.const2 = Constant(self._val2, self._const2_units)
 
     def tearDown(self):
         pass
@@ -85,53 +87,57 @@ class AospyConstantTestCase(unittest.TestCase):
 
 class TestConstant(AospyConstantTestCase):
     def test_init(self):
-        self.assertEqual(self.const.value, CONST_VALUE)
-        self.assertEqual(self.const.units, CONST_UNITS)
-        self.assertEqual(self.const.description, CONST_DESCRIPTION)
+        self.assertEqual(self.const1.value, self._val1)
+        self.assertEqual(self.const1.units, self._const1_units)
+        self.assertEqual(self.const1.description, self._const1_description)
         self.assertEqual(self.const2.description, '')
 
     def test_add_two_consts(self):
-        self.assertEqual(CONST_VALUE + CONST_VALUE, self.const + self.const)
+        self.assertEqual(self._val1 + self._val1, self.const1 + self.const1)
 
     def test_add_const_scalar(self):
-        self.assertEqual(CONST_VALUE + CONST_VALUE, self.const + CONST_VALUE)
-        self.assertEqual(CONST_VALUE + CONST_VALUE, CONST_VALUE + self.const)
+        self.assertEqual(self._val1 + self._val1, self.const1 + self._val1)
+        self.assertEqual(self._val1 + self._val1, self._val1 + self.const1)
+
+    def test_add_const_numpy_array(self):
+        self.assertEqual(np.array(self._val1) + self.const1,
+                         self._val1 + self.const1.value)
 
     def test_add_two_consts_units_mismatch(self):
-        self.assertRaises(TypeError, self.const.__add__, self.const2)
-        self.assertRaises(TypeError, self.const.__radd__, self.const2)
+        self.assertRaises(TypeError, self.const1.__add__, self.const2)
+        self.assertRaises(TypeError, self.const1.__radd__, self.const2)
 
     def test_subtract_two_consts(self):
-        self.assertEqual(CONST_VALUE - CONST_VALUE, self.const - self.const)
+        self.assertEqual(self._val1 - self._val1, self.const1 - self.const1)
 
     def test_subtract_const_scalar(self):
-        self.assertEqual(CONST_VALUE - CONST_VALUE, self.const - CONST_VALUE)
-        self.assertEqual(CONST_VALUE - CONST_VALUE, CONST_VALUE - self.const)
+        self.assertEqual(self._val1 - self._val1, self.const1 - self._val1)
+        self.assertEqual(self._val1 - self._val1, self._val1 - self.const1)
 
     def test_subtract_two_consts_units_mismatch(self):
-        self.assertRaises(TypeError, self.const.__sub__, self.const2)
-        self.assertRaises(TypeError, self.const.__rsub__, self.const2)
+        self.assertRaises(TypeError, self.const1.__sub__, self.const2)
+        self.assertRaises(TypeError, self.const1.__rsub__, self.const2)
 
     def test_multiply_two_consts(self):
-        self.assertEqual(CONST_VALUE * CONST_VALUE, self.const * self.const)
+        self.assertEqual(self._val1 * self._val2, self.const1 * self.const2)
 
     def test_multiply_const_scalar(self):
-        self.assertEqual(CONST_VALUE * CONST_VALUE, self.const * CONST_VALUE)
-        self.assertEqual(CONST_VALUE * CONST_VALUE, CONST_VALUE * self.const)
+        self.assertEqual(self._val1 * self._val2, self.const1 * self._val2)
+        self.assertEqual(self._val1 * self._val2, self._val1 * self.const2)
 
     def test_divide_two_consts(self):
-        self.assertEqual(CONST_VALUE / CONST_VALUE, self.const / self.const)
+        self.assertEqual(self._val1 / self._val2, self.const1 / self.const2)
 
     def test_divide_const_scalar(self):
-        self.assertEqual(CONST_VALUE / CONST_VALUE, self.const / CONST_VALUE)
-        self.assertEqual(CONST_VALUE / CONST_VALUE, CONST_VALUE / self.const)
+        self.assertEqual(self._val1 / self._val2, self.const1 / self._val2)
+        self.assertEqual(self._val1 / self._val2, self._val1 / self.const2)
 
     def test_power_two_consts(self):
-        self.assertEqual(CONST_VALUE**CONST_VALUE, self.const**self.const)
+        self.assertEqual(self._val1**self._val2, self.const1**self.const2)
 
     def test_power_const_scalar(self):
-        self.assertEqual(CONST_VALUE**CONST_VALUE, self.const**CONST_VALUE)
-        self.assertEqual(CONST_VALUE**CONST_VALUE, CONST_VALUE**self.const)
+        self.assertEqual(self._val1**self._val2, self.const1**self._val2)
+        self.assertEqual(self._val1**self._val2, self._val1**self.const2)
 
 if __name__ == '__main__':
     sys.exit(unittest.main())
