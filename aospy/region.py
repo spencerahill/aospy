@@ -74,14 +74,16 @@ class Region(object):
         # point's surface area and the mask value.
         weights = np.ma.masked_where(reg_mask == 0,
                                      model.sfc_area*reg_mask).ravel()
-        # Tile the weights to be the same shape as the data. Required by the
-        # numpy.ma.average function.
-        weights = np.tile(weights, (data.shape[0], data.shape[1], 1))
         # Average over the region at each timestep and at each level.
-        out = np.squeeze(np.ma.average(data, weights=weights, axis=-1))
-        if type(out) is np.ma.core.MaskedArray and out.ndim == 0:
-            out = float(out)
-        return out
+        weights = np.tile(weights, (data.shape[0], data.shape[1], 1))
+        avg = np.squeeze(np.ma.average(data, weights=weights, axis=-1))
+        # If time axis had length 1, squeeze removed it, so put back on.
+        if data.shape[0] == 1:
+            avg = avg[np.newaxis,:]
+        # If result is singleton, then turn into float, not numpy array.
+        if isinstance(avg, np.ma.core.MaskedArray) and avg.ndim == 0:
+            avg = float(avg)
+        return avg
 
     def av(self, data, model):
         """Time average of region-average data."""
