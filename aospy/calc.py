@@ -465,8 +465,8 @@ class Calc(object):
             elif isinstance(var, (float, int, Constant)):
                 data = var
             # aospy.Var objects remain.
-            elif var.name in ('lat', 'lon', 'level', 'pk',
-                              'bk' 'sfc_area', 'time'):
+            elif var.name in ('lat', 'lon', 'level', 'pk', 'bk', 'sfc_area',
+                              'time'):
                 # Get grid, time, etc. arrays directly from model object
                 data = getattr(self.model[0], var.name)
             else:
