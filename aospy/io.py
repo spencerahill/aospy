@@ -126,6 +126,7 @@ def _time_label(intvl, return_val=True):
     else:
         return label
 
+
 def _month_indices(months, iterable=True):
     """Convert string labels for months to integer indices.
 
@@ -149,6 +150,7 @@ def _month_indices(months, iterable=True):
         st_ind = first_letter.find(months.lower()) + 1
         return range(st_ind, st_ind + len(months))
 
+
 def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
     """Determine the indices of a time array falling in a specified interval.
 
@@ -167,13 +169,14 @@ def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
     """
     dates = netCDF4.num2date(time[:], units, calendar.lower())
     inds = [i for i, date in enumerate(dates) if (date.month in months) and
-                   (date.year in range(start_yr, end_yr+1))]
+            (date.year in range(start_yr, end_yr+1))]
     if indices == 'only':
         return inds
     elif indices:
         return inds, time[inds]
     else:
         return time[inds]
+
 
 def prune_lat_lon(array, model, lats, lons):
     """Cut-off data outside desired lat-lon range."""
@@ -191,6 +194,7 @@ def prune_lat_lon(array, model, lats, lons):
         array[:,:,lons_ind]
     return array
 
+
 def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
                  intvl, nc_start_yr, nc_dur):
     """Determines the gfdl_file name of GFDL model data output."""
@@ -205,8 +209,8 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
                                       name, 'nc'])
             else:
                 gfdl_file = (domain + '.{:04}'.format(nc_yr) +
-                        '-{:04}'.format(nc_yr+nc_dur-1)
-                        + '.' + name + '.nc')
+                             '-{:04}'.format(nc_yr+nc_dur-1)
+                             + '.' + name + '.nc')
         elif intvl_type == 'monthly':
             gfdl_file = (domain + '.{:04}'.format(nc_yr) + '01-' +
                          '{:04}'.format(int(nc_yr+nc_dur-1)) +
@@ -232,19 +236,21 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
         elif intvl_type in ['monthly', 'mon']:
             label, val = _time_label(intvl)
         if nc_dur == 1:
-            gfdl_file = domain + '.{:04}'.format(nc_yr) + '.' + label +'.nc'
+            gfdl_file = domain + '.{:04}'.format(nc_yr) + '.' + label + '.nc'
         else:
             gfdl_file = (domain + '.{:04}'.format(nc_yr) + '-' +
-                    '{:04}'.format(int(nc_yr+nc_dur-1)) +
-                    '.' + label + '.nc')
+                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+                         '.' + label + '.nc')
     elif data_type == 'av_ts':
         gfdl_file = (domain + '.{:04}'.format(nc_yr) + '-' +
-                '{:04}'.format(int(nc_yr+nc_dur-1)) + '.01-12.nc')
+                     '{:04}'.format(int(nc_yr+nc_dur-1)) + '.01-12.nc')
     return gfdl_file
+
 
 def dmget_nc(files_list):
     """Call GFDL command 'dmget' to access archived files."""
     subprocess.call(['dmget'] + files_list)
+
 
 def hsmget_nc(files_list):
     """Call GFDL command 'hsmget' to access archived files."""
@@ -254,19 +260,20 @@ def hsmget_nc(files_list):
     # Assumes files are located somewhere on /archive.
     # Assumes files_list is list of absolute paths to the netCDF files.
     # Assumes that all files in files list are under same archive root.
-    arch_loc = string.join(files_list[0].split('/')[:3],'/') + '/'
+    arch_loc = string.join(files_list[0].split('/')[:3], '/') + '/'
     files = [f.partition(arch_loc)[2] for f in files_list]
     # subprocess.call(['module', 'load', 'hsm'])
     retcode = subprocess.call(['hsmget', '-a', arch_loc, '-p', workdir,
                                '-w', ptmpdir] + files + ['-q'])
     return retcode
 
+
 def _get_time_avg_var(proj, model_name, run_name, var):
     """Get the desired Var object and designate its parent Run oject."""
     try:
         var = proj.vars[var.name]
     except KeyError:
-        for alt_name in self.alt_names:
+        for alt_name in alt_names:
             try:
                 var = proj.vars[alt_name]
             except KeyError:

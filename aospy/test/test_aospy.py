@@ -78,7 +78,7 @@ class AospyConstantTestCase(unittest.TestCase):
         self._const2_units = 'dummy_units2'
 
         self.const1 = Constant(self._val1, self._const1_units,
-                              description=self._const1_description)
+                               description=self._const1_description)
         self.const2 = Constant(self._val2, self._const2_units)
 
     def tearDown(self):

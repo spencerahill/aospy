@@ -188,18 +188,17 @@ def dp_from_sigma(bk, pk, ps):
 
 def weight_by_delta(integrand, delta):
     """
-    Weight the integrand by delta, usually for subsequent integration.
+    Weight the `integrand` by `delta`, usually for subsequent integration.
 
-    delta array may be one dimension or three; in the latter it is assumed to
-    be of shape (vertical, lat, lon).  integrand is assumed to be 3 or 4
+    `delta` array may be one dimension or three; if the latter it is assumed to
+    be of shape (vertical, lat, lon).  `integrand` is assumed to be 3 or 4
     dimensions, with time 1st if 4-D.  Both are assumed to be numpy arrays.
     """
     try:
-        intdel = integrand*delta
+        return integrand*delta
     except ValueError:
         delta = delta[np.newaxis,:,np.newaxis, np.newaxis]
-        intdel = integrand*delta
-    return intdel
+    return integrand*delta
 
 
 def integrate(integrand, delta, axis):
