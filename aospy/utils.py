@@ -204,6 +204,9 @@ def weight_by_delta(integrand, delta):
 def integrate(integrand, delta, axis):
     """Integrate the array along the given axis using the given delta array."""
     prod = weight_by_delta(integrand, delta)
+    # Override axis specified if input is integrand is a singleton.
+    if isinstance(integrand, (int, float)):
+        axis = 0
     return np.ma.sum(prod, axis=axis)
 
 

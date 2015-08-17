@@ -64,6 +64,7 @@ class Calc(object):
         self.name = self.var.name
         self.domain = self.var.domain
         self.def_time = self.var.def_time
+        self.def_vert = self.var.def_vert
 
         self.verbose = verbose
         self._print_verbose("\nInitializing Calc instance: %s", self.__str__())
@@ -479,7 +480,7 @@ class Calc(object):
         """Compute the function on the given gridded input data."""
         result = self.function(*data_in)
         # Apply spatial reductions methods.
-        if self.dtype_out_vert == 'vert_int':
+        if self.def_vert and self.dtype_out_vert == 'vert_int':
             result = int_dp_g(result, dp)[:,np.newaxis,:,:]
         # If already averaged, pass data on.  Otherwise do time averaging.
         if 'av' in self.dtype_in_time or not self.def_time:

@@ -75,12 +75,10 @@ class Fig(object):
         # Accept all other keyword arguments passed in as attrs.
         for key, val in kwargs.iteritems():
             setattr(self, key, val)
-        print self.x_label
 
         self.do_ax_label = True if self.n_ax > 1 else False
 
         self._expand_attrs_over_tree()
-        print self.x_label
         self._make_ax_objs()
 
     def _set_n_ax_plot_data(self):
@@ -226,7 +224,6 @@ class Ax(object):
         self.Plot = []
 
         self._copy_attrs_from_fig()
-        print 'in ax', self.x_label
         # self._set_ax_loc_specs()
         self._set_xy_attrs_to_coords()
         self._make_plot_objs()
@@ -286,8 +283,6 @@ class Ax(object):
 
     def _set_axes_props(self):
         """Set the properties of the matplotlib Axes instance."""
-        print 'x', self.x_lim, self.x_ticks, self.x_ticklabels, self.x_label
-        print 'y', self.y_lim, self.y_ticks, self.y_ticklabels, self.y_label
         if self.x_lim:
             if self.x_lim == 'ann_cycle':
                 self.x_lim = (1, 12)
@@ -302,7 +297,8 @@ class Ax(object):
             self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
-            self.ax.vlines(0, self.y_lim[0], self.y_lim[1], colors='0.5')
+            if False:
+                self.ax.vlines(0, self.y_lim[0], self.y_lim[1], colors='0.5')
         if self.y_ticks:
             self.ax.set_yticks(self.y_ticks)
         if self.y_ticklabels:
@@ -402,11 +398,13 @@ class Plot(object):
         """Copy the attrs of the parent Ax that correspond to this Plot."""
         for attr in self.plot_specs:
             value = getattr(self.Ax, attr)[self.plot_num]
-            setattr(self, attr, self._traverse_child_tree(value, 'plot'))
+            tree_value = self._traverse_child_tree(value, 'plot')
+            setattr(self, attr, tree_value)
 
         for attr in self.data_specs:
             value = getattr(self.Ax, attr)[self.plot_num]
-            setattr(self, attr, self._traverse_child_tree(value, 'data'))
+            tree_value = self._traverse_child_tree(value, 'data')
+            setattr(self, attr, tree_value)
 
     def _make_calc_obj(self):
         calc_obj = []
@@ -494,6 +492,7 @@ class Plot(object):
                  )]
             )
         except AttributeError:
+            # Code below assumes AttributeError was triggered by the
             data = tuple(
                 [cl.load(self.dtype_out_time[0],
                          dtype_out_vert=self.dtype_out_vert[0],

@@ -63,23 +63,22 @@ class Region(object):
 
     def ts(self, data, model):
         """Create a time-series of region-average data."""
-        # Mask the data outside the region, and flatten lat/lon into 1 dim.
         if data.ndim == 3:
             data = data[:,np.newaxis,:,:]
+        # Mask the data outside the region, and flatten lat/lon into 1 dim.
         data = self.mask_var(data, model)
         data = data.reshape(data.shape[0], data.shape[1], -1)
         # Get the region mask for the given model's grid.
         reg_mask = self.make_mask(model)
         # At gridpoints where the region is not totally masked, weight by that
         # point's surface area and the mask value.
-        weights = np.ma.masked_where(reg_mask == 0,
-                                     model.sfc_area*reg_mask).ravel()
+        weights = np.ma.masked_where(reg_mask == 0, model.sfc_area*reg_mask)
         # Average over the region at each timestep and at each level.
-        weights = np.tile(weights, (data.shape[0], data.shape[1], 1))
-        avg = np.squeeze(np.ma.average(data, weights=weights, axis=-1))
-        # If time axis had length 1, squeeze removed it, so put back on.
-        if data.shape[0] == 1:
-            avg = avg[np.newaxis,:]
+        weights = np.tile(weights.ravel(), (data.shape[0], data.shape[1], 1))
+        avg = np.ma.average(data, weights=weights, axis=-1)
+        # # If time axis had length 1, np.squeeze removed it, so put back on.
+        # if data.shape[0] == 1:
+        #     avg = avg[np.newaxis,:]
         # If result is singleton, then turn into float, not numpy array.
         if isinstance(avg, np.ma.core.MaskedArray) and avg.ndim == 0:
             avg = float(avg)
