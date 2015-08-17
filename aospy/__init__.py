@@ -6,6 +6,8 @@ from . import utils
 from . import io
 from . import units
 from .units import Units
+from . import numerics
+from .numerics import FiniteDiff
 from . import var
 from .var import Var
 from . import region

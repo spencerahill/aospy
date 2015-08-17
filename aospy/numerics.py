@@ -22,7 +22,12 @@ class FiniteDiff(object):
                            on the sphere.
         """
         self.field = field
-        self.positions = positions
+        if positions is False:
+            self.positions = np.arange(len(field)).reshape(field.shape)
+        elif isinstance(positions, (float, int)):
+            self.positions = np.arange(len(field)).reshape(field.shape)*positions
+        else:
+            self.positions = positions
         self.geometry = geometry
         self.vector_field = vector_field
         self.wraparound = wraparound
@@ -48,14 +53,28 @@ class FiniteDiff(object):
         """Backward differencing of the array.  Not its full derivative."""
         return self.fwd_diff(array[::-1])[::-1]
 
-    def cen_diff_deriv(self, axis=0, order=2):
-        """Centered differencing approximation of 1st derivative."""
+    def cen_diff_deriv(self, axis=0, order=2, fill_edges=False):
+        """
+        Centered differencing approximation of 1st derivative.
+
+        :param axis: Axis number over which to compute.  (Currently only
+                     axis=0 is supported.)
+        :param order: Order of accuracy to use.  Default 2.
+        :param fill_edges: Whether or not to fill in the edge cells that don't
+                           have the needed neighbor cells for the stencil.  If
+                           `True`, use one-sided differencing with the same
+                           order of accuracy as `order`, and the outputted
+                           array is the same shape as `self.field`.
+
+                           If `False`, the outputted array has a length in
+                           the computed axis reduced by `order`.
+        """
         if order == 2:
             return (self.cen_diff(self.field, axis=axis, spacing=2) /
                     self.cen_diff(self.positions, axis=axis, spacing=2))
         else:
             raise NotImplementedError("Centered differencing of df/dx only "
-                                      "supported for 2nd order for now")
+                                      "supported for 2nd order currently")
 
     def upwind_advection(self, flow, axis=0, order=1):
         """
