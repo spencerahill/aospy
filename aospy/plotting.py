@@ -21,7 +21,7 @@ class Fig(object):
     ax_specs = (
         'n_plot', 'ax_title', 'do_ax_label', 'ax_left_label', 'ax_right_label',
         'map_proj', 'map_corners', 'map_res', 'shiftgrid_start',
-        'shiftgrid_cyclic',
+        'shiftgrid_cyclic', 'do_legend', 'legend_labels', 'legend_loc',
         'x_dim', 'x_lim', 'x_ticks', 'x_ticklabels', 'x_label',
         'y_dim', 'y_lim', 'y_ticks', 'y_ticklabels', 'y_label',
         'lat_lim', 'lat_ticks', 'lat_ticklabels', 'lat_label',
@@ -198,6 +198,10 @@ class Fig(object):
         """Save the Fig using matplotlib's built-in 'savefig' method."""
         self.fig.savefig(*args, **kwargs)
 
+    def draw(self):
+        """Call the matplotlib method canvas.draw() to re-render the figure."""
+        self.fig.canvas.draw()
+
 
 class Ax(object):
     # Which labels to include based on position in the figure.
@@ -297,7 +301,7 @@ class Ax(object):
             self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
-            if False:
+            if True:
                 self.ax.vlines(0, self.y_lim[0], self.y_lim[1], colors='0.5')
         if self.y_ticks:
             self.ax.set_yticks(self.y_ticks)
@@ -320,7 +324,7 @@ class Ax(object):
         # Axis panel labels, i.e. (a), (b), (c), etc.
         if self.do_ax_label:
             self.panel_label = self.ax.text(
-                0.02, 0.87, '(%s)' % tuple('abcdefghijklmnopqrs')[self.ax_num],
+                0.04, 0.9, '(%s)' % tuple('abcdefghijklmnopqrs')[self.ax_num],
                 fontsize='small', transform=self.ax.transAxes
                 )
         # Labels to left and/or right of Axis.
@@ -366,6 +370,10 @@ class Ax(object):
 
         for n in range(self.n_plot):
             self.Plot[n].plot()
+
+        if self.do_legend:
+            self.ax.legend(self.legend_labels, loc=self.legend_loc,
+                           frameon=False, fontsize='small')
 
 
 class Plot(object):
