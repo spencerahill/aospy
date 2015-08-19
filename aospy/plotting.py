@@ -298,12 +298,12 @@ class Ax(object):
                 self.y_lim[0] < 0 and self.y_lim[1] > 0
         ):
             self.ax.hlines(0, self.x_lim[0], self.x_lim[1], colors='0.5')
-        if self.x_ticks:
-            self.ax.set_xticks(self.x_ticks)
-        if self.x_ticklabels:
-            self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
-        if self.x_label:
-            self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
+        # if self.x_ticks:
+        #     self.ax.set_xticks(self.x_ticks)
+        # if self.x_ticklabels:
+        #     self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
+        # if self.x_label:
+        #     self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
         if (

@@ -40,7 +40,8 @@ class Calc(object):
         # Turn strings into tuples.
         proj = tuple([proj])
         model = tuple([model])
-        run = tuple([run])
+        if not isinstance(run, (list, tuple)):
+            run = tuple([run])
         # Make tuples the same length.
         if len(proj) == 1 and (len(model) > 1 or len(run) > 1):
             proj = tuple(list(proj)*len(run))
@@ -624,7 +625,7 @@ class Calc(object):
             else:
                 data_out = data
         with open(path, 'w') as file_scratch:
-            cPickle.dump(data_out, file_scratch)
+            cPickle.dump(data_out, file_scratch, protocol=-1)
 
     def _save_to_archive(self, dtype_out_time, dtype_out_vert=False):
         """Add the data to the tar file in /archive."""
