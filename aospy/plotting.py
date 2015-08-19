@@ -228,7 +228,7 @@ class Ax(object):
         self.Plot = []
 
         self._copy_attrs_from_fig()
-        # self._set_ax_loc_specs()
+        self._set_ax_loc_specs()
         self._set_xy_attrs_to_coords()
         self._make_plot_objs()
 
@@ -293,6 +293,11 @@ class Ax(object):
                 self.x_ticks = range(1, 13)
                 self.x_ticklabels = tuple('JFMAMJJASOND')
             self.ax.set_xlim(self.x_lim)
+        if (
+                'map' not in self.plot_type and
+                self.y_lim[0] < 0 and self.y_lim[1] > 0
+        ):
+            self.ax.hlines(0, self.x_lim[0], self.x_lim[1], colors='0.5')
         if self.x_ticks:
             self.ax.set_xticks(self.x_ticks)
         if self.x_ticklabels:
@@ -301,8 +306,11 @@ class Ax(object):
             self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
-            if True:
-                self.ax.vlines(0, self.y_lim[0], self.y_lim[1], colors='0.5')
+        if (
+                'map' not in self.plot_type and
+                self.x_lim[0] < 0 and self.x_lim[1] > 0
+        ):
+            self.ax.vlines(0, self.y_lim[0], self.y_lim[1], colors='0.5')
         if self.y_ticks:
             self.ax.set_yticks(self.y_ticks)
         if self.y_ticklabels:
@@ -311,10 +319,11 @@ class Ax(object):
             self.ax.set_ylabel(self.y_label, fontsize='small', labelpad=-2)
 
         self.ax.tick_params(labelsize='x-small')
-        self.ax.spines['right'].set_visible(False)
-        self.ax.spines['top'].set_visible(False)
-        self.ax.xaxis.set_ticks_position('bottom')
-        self.ax.yaxis.set_ticks_position('left')
+        if 'map' not in self.plot_type:
+            self.ax.spines['right'].set_visible(False)
+            self.ax.spines['top'].set_visible(False)
+            self.ax.xaxis.set_ticks_position('bottom')
+            self.ax.yaxis.set_ticks_position('left')
 
     def _set_axes_labels(self):
         """Create the axis title and other text labels."""
