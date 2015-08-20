@@ -694,7 +694,8 @@ class Calc(object):
         return data_vals
 
     def load(self, dtype_out_time, dtype_out_vert=False, region=False,
-             time=False, vert=False, lat=False, lon=False, plot_units=False):
+             time=False, vert=False, lat=False, lon=False, plot_units=False,
+             mask_unphysical=False):
         """Load the data from the object if possible or from disk."""
         # Grab from the object if its there.
         try:
@@ -709,14 +710,11 @@ class Calc(object):
             if any((region, time, vert, lat, lon)):
                 data = self._get_data_subset(data, region=region, time=time,
                                              vert=vert, lat=lat, lon=lon)
-        if plot_units:
-            if dtype_out_vert == 'vert_int':
-                conv = self.var.vert_int_plot_units_conv
-            else:
-                conv = self.var.plot_units_conv
-        else:
-            conv = 1
-        data_out = data * conv
         # Copy the array to self.data_out for ease of future access.
-        self._update_data_out(data_out, dtype_out_time)
-        return data_out
+        self._update_data_out(data, dtype_out_time)
+        # Apply desired plotting/cleanup methods.
+        if mask_unphysical:
+            data = self.var.mask_unphysical(data)
+        if plot_units:
+            data = self.var.to_plot_units(data, vert_int=dtype_out_vert)
+        return data
