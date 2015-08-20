@@ -17,9 +17,20 @@ class Proj(object):
         self.nc_dir_struc = nc_dir_struc
 
         self.vars = dict_name_keys(vars)
-        self.models = dict_name_keys(models)
-        self.default_models = dict_name_keys(default_models)
-        self.regions = dict_name_keys(regions)
+        if models:
+            self.models = dict_name_keys(models)
+        else:
+            self.models = {}
+        if default_models == 'all':
+            self.default_models = self.models
+        elif default_models:
+            self.default_models = dict_name_keys(default_models)
+        else:
+            self.default_models = {}
+        if regions:
+            self.regions = dict_name_keys(regions)
+        else:
+            self.regions = {}
 
         for obj_dict in (self.vars, self.models, self.regions):
             for obj in obj_dict.values():

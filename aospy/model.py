@@ -25,7 +25,10 @@ class Model(object):
         self.default_yr_range = default_yr_range
         self.runs = dict_name_keys(runs)
         [setattr(run, 'parent', self) for run in self.runs.values()]
-        self.default_runs = dict_name_keys(default_runs)
+        if default_runs:
+            self.default_runs = dict_name_keys(default_runs)
+        else:
+            self.default_runs = {}
 
         self.grid_data_is_set = False
         if load_grid_data:
