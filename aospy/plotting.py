@@ -1,7 +1,7 @@
 """Classes for creating multi-panel figures using data generated via aospy."""
 import scipy.stats
 import numpy as np
-from matplotlib import pyplot as plt
+import matplotlib.pyplot
 import mpl_toolkits.basemap
 
 from .__config__ import default_colormap
@@ -12,7 +12,6 @@ from .utils import to_hpa
 
 class Fig(object):
     """Class for producing figures with one or more panels."""
-    # Various categories of inputted specifications
     fig_specs = (
         'fig_title', 'n_row', 'n_col', 'row_size', 'col_size', 'n_ax',
         'subplot_lims', 'do_colorbar', 'cbar_ax_lim', 'cbar_ticks',
@@ -29,12 +28,14 @@ class Fig(object):
         'p_lim', 'p_ticks', 'p_ticklabels', 'p_label',
         'sigma_lim', 'sigma_ticks', 'sigma_ticklabels', 'sigma_label',
         'time_lim', 'time_ticks', 'time_ticklabels', 'time_label',
+        'do_mark_x0', 'do_mark_y0'
     )
     plot_specs = (
         'plot_type', 'marker_size', 'marker_shape', 'marker_color',
-        'line_color', 'linestyle', 'do_best_fit_line', 'print_best_fit_slope',
-        'print_corr_coeff', 'cntr_lvls', 'col_map', 'min_cntr', 'max_cntr',
-        'num_cntr', 'contourf_extend', 'latlon_rect'
+        'line_color', 'line_style', 'line_width', 'do_best_fit_line',
+        'print_best_fit_slope', 'print_corr_coeff', 'cntr_lvls', 'colormap',
+        'min_cntr', 'max_cntr', 'num_cntr', 'contours_extend', 'latlon_rect',
+        'do_mask_oceans', 'contour_labels'
     )
     data_specs = (
         'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region',
@@ -156,7 +157,7 @@ class Fig(object):
         self.cbar = self.fig.colorbar(
             self.Ax[0].Plot[0].handle,
             cax=self.cbar_ax, orientation='horizontal', drawedges=False,
-            spacing='proportional', extend=self.contourf_extend
+            spacing='proportional', extend=self.contours_extend
         )
         # Set tick and label properties.
         if np.any(self.cbar_ticks):
@@ -178,8 +179,8 @@ class Fig(object):
 
     def create_fig(self):
         """Create the figure and set up the subplots."""
-        self.fig = plt.figure(figsize=(self.n_col*self.col_size,
-                                       self.n_row*self.row_size))
+        self.fig = matplotlib.pyplot.figure(figsize=(self.n_col*self.col_size,
+                                                     self.n_row*self.row_size))
         self.fig.subplots_adjust(**self.subplot_lims)
         if self.fig_title:
             self.fig.suptitle(self.fig_title, fontsize=12)
@@ -230,7 +231,6 @@ class Ax(object):
         self._copy_attrs_from_fig()
         self._set_ax_loc_specs()
         self._set_xy_attrs_to_coords()
-        self._make_plot_objs()
 
     def _traverse_child_tree(self, value, level='data'):
         """Traverse the "tree" of child Plot, and Data objects."""
@@ -293,10 +293,7 @@ class Ax(object):
                 self.x_ticks = range(1, 13)
                 self.x_ticklabels = tuple('JFMAMJJASOND')
             self.ax.set_xlim(self.x_lim)
-        if (
-                'map' not in self.plot_type and
-                self.y_lim[0] < 0 and self.y_lim[1] > 0
-        ):
+        if self.do_mark_y0 and self.y_lim[0] < 0 and self.y_lim[1] > 0:
             self.ax.hlines(0, self.x_lim[0], self.x_lim[1], colors='0.5')
         # if self.x_ticks:
         #     self.ax.set_xticks(self.x_ticks)
@@ -306,10 +303,7 @@ class Ax(object):
         #     self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
-        if (
-                'map' not in self.plot_type and
-                self.x_lim[0] < 0 and self.x_lim[1] > 0
-        ):
+        if self.do_mark_x0 and self.x_lim[0] < 0 and self.x_lim[1] > 0:
             self.ax.vlines(0, self.y_lim[0], self.y_lim[1], colors='0.5')
         if self.y_ticks:
             self.ax.set_yticks(self.y_ticks)
@@ -360,20 +354,23 @@ class Ax(object):
 
     def _make_plot_objs(self):
         """Create the Plot object for each plotted element."""
-        plots = {'scatter': Scatter, 'map': Map, 'contour': Contour,
-                 'contourf': Map, 'line': Line}
         self.Plot = []
         for n in range(self.n_plot):
-            try:
-                p = plots[self.plot_type[n]]
-            except KeyError:
+            if self.plot_type[n] == 'scatter':
+                self.Plot.append(Scatter(self, n))
+            elif self.plot_type[n] == 'contour':
+                self.Plot.append(Contour(self, n, filled=False))
+            elif self.plot_type[n] == 'contourf':
+                self.Plot.append(Contour(self, n, filled=True))
+            elif self.plot_type[n] == 'line':
+                self.Plot.append(Line(self, n))
+            else:
                 raise TypeError("Plot type '%s' not recognized."
                                 % self.plot_type[n])
-            else:
-                self.Plot.append(p(self, n))
 
     def make_plots(self):
         """Call the matplotlib plotting command for each Plot."""
+        self._make_plot_objs()
         self._set_axes_props()
         self._set_axes_labels()
 
@@ -395,14 +392,41 @@ class Plot(object):
         self.plot_num = plot_num
         self.n_data = Ax.n_data[plot_num]
         self._copy_attrs_from_ax()
+
         if isinstance(self.var[0], tuple):
             self.var = self.var[0]
             self.n_data = len(self.var)
         self.Calc = self._make_calc_obj()
         self.data = self._load_data()
-        self._set_coord_arrays()
-        self._set_cntr_lvls()
         self._apply_data_transforms()
+
+        self._set_coord_arrays()
+        self.cntr_lvls = np.linspace(self.min_cntr, self.max_cntr,
+                                     self.num_cntr + 1)
+
+        if self.Ax.x_dim == 'lon' and self.Ax.y_dim == 'lat':
+            self.basemap = self._make_basemap()
+            self.backend = self.basemap
+        else:
+            self.backend = self.Ax.ax
+
+    def prep_data_for_basemap(self):
+        # if self.Ax.shiftgrid_start:
+        #     lon0 = 180
+        # else:
+        #     lon0 = self.Ax.shiftgrid_start
+        lon0 = 180
+        self.plot_data, plot_lons = mpl_toolkits.basemap.shiftgrid(
+            lon0, self.data[0], self.x_data,
+            start=self.Ax.shiftgrid_start, cyclic=self.Ax.shiftgrid_cyclic
+        )
+        self.x_data, self.y_data = self.basemap(*np.meshgrid(plot_lons,
+                                                             self.y_data))
+        if self.do_mask_oceans:
+            self.plot_data = mpl_toolkits.basemap.maskoceans(
+                self.x_data, self.y_data, self.plot_data,
+                inlands=False, resolution='c'
+            )
 
     def _traverse_child_tree(self, value, level='data'):
         """Traverse the "tree" of child Data objects."""
@@ -454,15 +478,6 @@ class Plot(object):
                 ))
         return calc_obj
 
-    def _set_plot_func(self):
-        """
-        Set the matplotlib plotting function that will render this plot.
-
-        Can be the name of any pyplot plotting function, e.g. 'contour',
-        'contourf', 'plot', 'scatter', 'imshow', etc.
-        """
-        self.plot_func = getattr(self.Ax.ax, self.plot_type)
-
     def _set_coord_arrays(self):
         """Set the arrays holding the x- and y-coordinates."""
         array_names = {'lat': 'lat', 'lon': 'lon', 'p': 'level',
@@ -493,32 +508,56 @@ class Plot(object):
 
             setattr(self, data, array)
 
-    def _set_cntr_lvls(self):
-        self.cntr_lvls = np.linspace(
-            self.min_cntr, self.max_cntr, self.num_cntr + 1
+    def _make_basemap(self):
+        if self.Ax.x_lim:
+            llcrnrlon, urcrnrlon = self.Ax.x_lim
+        else:
+            llcrnrlon, urcrnrlon = -180, 180
+        if self.Ax.y_lim:
+            llcrnrlat, urcrnrlat = self.Ax.y_lim
+        else:
+            llcrnrlat, urcrnrlat = -90, 90
+
+        return mpl_toolkits.basemap.Basemap(
+            projection=self.Ax.map_proj, resolution=self.Ax.map_res,
+            ax=self.Ax.ax, llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat,
+            urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat
         )
 
     def _load_data(self):
         try:
             return tuple(
                 [cl.load(dto, dtype_out_vert=dtv, region=reg, time=False,
-                         vert=lev, lat=False, lon=False, plot_units=True)
+                         vert=lev, lat=False, lon=False, plot_units=True,
+                         mask_unphysical=True)
                  for cl, dto, dtv, reg, lev in zip(
                          self.Calc, self.dtype_out_time, self.dtype_out_vert,
                          self.region, self.level
                  )]
             )
         except AttributeError:
-            # Code below assumes AttributeError was triggered by the
+            # Code below assumes AttributeError was triggered by self.Calc
+            # being a dict with a tuple of runs as the key and a string
+            # representing an operator as the value.  The output should be
+            # that operator applied to the runs.  But currently it's assumed
+            # that subtraction is always wanted.  This should be fixed.  Also
+            # this functionality doesn't belong in the plotting classes --
+            # should be refactored to somewhere else. (S. Hill 2015-08-19)
             data = tuple(
                 [cl.load(self.dtype_out_time[0],
                          dtype_out_vert=self.dtype_out_vert[0],
                          region=self.region[0], time=False, vert=self.level[0],
-                         lat=False, lon=False, plot_units=True)
+                         lat=False, lon=False, plot_units=True,
+                         mask_unphysical=True)
                  for cl in self.Calc[0]]
             )
             self.Calc = self.Calc[0]
-            return (data[0] - data[1],)
+            # Combine masks of the two inputs.
+            try:
+                joint_mask = np.ma.mask_or(data[0].mask, data[1].mask)
+                return (np.ma.array(data[0] - data[1], mask=joint_mask),)
+            except AttributeError:
+                return (data[0] - data[1],)
 
     def _subtract_mean(self, data):
         return np.subtract(data, np.mean(data))
@@ -533,6 +572,30 @@ class Plot(object):
                     setattr(self, data, method(getattr(self, data)))
         return data
 
+    def plot_rectangle(self, x_min, x_max, y_min, y_max, **kwargs):
+        xs = [x_min, x_max, x_max, x_min, x_min]
+        ys = [y_min, y_min, y_max, y_max, y_min]
+        return self.backend.plot(xs, ys, latlon=True, **kwargs)
+
+    def corr_coeff(self):
+        """Compute the Pearson correlation coefficient and plot it."""
+        pearsonr, p_val = scipy.stats.pearsonr(self.x_data, self.y_data)
+        self.Ax.ax.text(0.3, 0.89, r'$r=$ %.2f' % pearsonr,
+                        transform=self.Ax.ax.transAxes, fontsize='x-small')
+
+    def best_fit_line(self, print_slope=True):
+        """Plot the best fit line to the data."""
+        best_fit = np.polyfit(self.x_data, self.y_data, 1)
+        x_lin_fit = [-1e3, 1e3]
+
+        def lin_fit(m, x, b):
+            return [m*xx + b for xx in x]
+        self.backend.plot(x_lin_fit, lin_fit(best_fit[0], x_lin_fit,
+                                             best_fit[1]), 'k')
+        if print_slope:
+            self.Ax.ax.text(0.3, 0.07, r'slope = %0.2f' % best_fit[0],
+                            transform=self.Ax.ax.transAxes, fontsize='x-small')
+
 
 class Line(Plot):
     def __init__(self, Ax, plot_num):
@@ -542,12 +605,11 @@ class Line(Plot):
             self.marker_shape = None
 
     def plot(self):
-        handle = self.Ax.ax.plot(
+        self.handle = self.backend.plot(
             self.x_data, self.y_data, color=self.line_color,
-            linestyle=self.linestyle, marker=self.marker_shape,
+            linestyle=self.line_style, marker=self.marker_shape,
             markerfacecolor=self.marker_color, markersize=self.marker_size
         )
-        self.handle = handle
 
 
 class Scatter(Plot):
@@ -556,7 +618,7 @@ class Scatter(Plot):
         assert self.n_data == 2
 
     def plot(self):
-        self.Ax.ax.scatter(
+        self.handle = self.backend.scatter(
             self.x_data, self.y_data, s=self.marker_size, c=self.marker_color,
             marker=self.marker_shape
         )
@@ -566,104 +628,43 @@ class Scatter(Plot):
         if self.print_corr_coeff:
             self.corr_coeff()
 
-    def corr_coeff(self):
-        """Compute the Pearson correlation coefficient and plot it."""
-        pearsonr, p_val = scipy.stats.pearsonr(self.x_data, self.y_data)
-        self.Ax.ax.text(0.3, 0.89, r'$r=$ %.2f' % pearsonr,
-                        transform=self.Ax.ax.transAxes, fontsize='x-small')
-
-    def best_fit_line(self, print_slope=True):
-        """Plot the best fit line to the scatterplot data."""
-        best_fit = np.polyfit(self.x_data, self.y_data, 1)
-        x_lin_fit = [-1e3, 1e3]
-
-        def lin_fit(m, x, b):
-            return [m*xx + b for xx in x]
-        self.Ax.ax.plot(x_lin_fit, lin_fit(best_fit[0], x_lin_fit,
-                                           best_fit[1]), 'k')
-        if print_slope:
-            self.Ax.ax.text(0.3, 0.07, r'slope = %0.2f' % best_fit[0],
-                            transform=self.Ax.ax.transAxes, fontsize='x-small')
-
-
-class Map(Plot):
-    def __init__(self, Ax, plot_num):
-        Plot.__init__(self, Ax, plot_num)
-        # Assume single data source for mapped data.
-        self.model = self.Calc[0].model[0]
-        if isinstance(self.data, (list, tuple)):
-            self.data = self.data[0]
-        self.lon = self.model.lon
-        self.lat = self.model.lat
-
-    def _make_basemap(self):
-        if self.Ax.x_lim:
-            llcrnrlon, urcrnrlon = self.Ax.x_lim
-        else:
-            llcrnrlon, urcrnrlon = -180, 180
-        if self.Ax.y_lim:
-            llcrnrlat, urcrnrlat = self.Ax.y_lim
-        else:
-            llcrnrlat, urcrnrlat = -90, 90
-
-        self.basemap = mpl_toolkits.basemap.Basemap(
-            projection=self.Ax.map_proj, resolution=self.Ax.map_res,
-            ax=self.Ax.ax, llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat,
-            urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat
-        )
-
-    def _shiftgrid(self, lon0, datain, lonsin, start=True, cyclic=360.0):
-        return mpl_toolkits.basemap.shiftgrid(
-            lon0, datain, lonsin, start=start, cyclic=cyclic
-        )
-
-    def plot_latlon_rect(self, lonmin, lonmax, latmin, latmax):
-        """Plot a lon-lat rectangle in Basemap.  Taken from:
-        http://stackoverflow.com/questions/23941738/python-draw-rectangle-in-basemap
-        """
-        xs = [lonmin, lonmax, lonmax, lonmin, lonmin]
-        ys = [latmin, latmin, latmax, latmax, latmin]
-        return self.basemap.plot(xs, ys, latlon=True)
-
-    def plot(self):
-        self._make_basemap()
-        if self.Ax.shiftgrid_start:
-            lon0 = 180
-        else:
-            lon0 = 180
-        plot_data, lons = self._shiftgrid(
-            lon0, self.data, self.lon,
-            start=self.Ax.shiftgrid_start, cyclic=self.Ax.shiftgrid_cyclic
-        )
-        x, y = self.basemap(*np.meshgrid(lons, self.lat))
-        # plot_data = mpl_toolkits.basemap.maskoceans(
-        #     x, y, plot_data, inlands=False, resolution='c'
-        # )
-        self.handle = self.basemap.contourf(
-            x, y, plot_data, self.cntr_lvls, extend=self.contourf_extend
-        )
-        if self.col_map in ('default', False):
-            try:
-                self.col_map = self.var[0].colormap
-            except AttributeError:
-                self.col_map = default_colormap
-        self.handle.set_cmap(self.col_map)
-
-        self.basemap.drawcoastlines(linewidth=0.3)
-        self.basemap.drawmapboundary(linewidth=0.3, fill_color='0.85')
-        if self.latlon_rect:
-            self.plot_latlon_rect(*self.latlon_rect)
-
 
 class Contour(Plot):
-    def __init__(self, Ax, plot_num):
+    def __init__(self, Ax, plot_num, filled=True):
         """Contour or contourf plot."""
         Plot.__init__(self, Ax, plot_num)
+        self.plot_kwargs = {'extend': self.contours_extend}
+        self.filled = filled
+        if self.filled:
+            self.plot_func = self.backend.contourf
+        else:
+            self.plot_func = self.backend.contour
+            self.plot_kwargs.update({'colors': self.line_color,
+                                     'linewidths': self.line_width,
+                                     'linestyles': self.line_style})
 
     def plot(self):
-        # self._set_plot_func()
-        self.handle = self.contourf(
-            self.x_data, self.y_data, self.data.T, self.cntr_lvls,
-            extend=self.contourf_extend
-        )
-        self.handle.set_cmap(self.col_map)
+        if self.basemap:
+            self.prep_data_for_basemap()
+        else:
+            self.plot_data = self.data[0]
+
+        self.handle = self.plot_func(self.x_data, self.y_data, self.plot_data,
+                                     self.cntr_lvls, **self.plot_kwargs)
+
+        if self.filled:
+            if self.colormap in ('default', False):
+                try:
+                    self.colormap = self.var[0].colormap
+                except AttributeError:
+                    self.colormap = default_colormap
+            self.handle.set_cmap(self.colormap)
+
+        if self.contour_labels:
+            self.Ax.ax.clabel(self.handle, fontsize=7, fmt='%1d')
+
+        if self.basemap:
+            self.basemap.drawcoastlines(linewidth=0.3, color='k')
+            self.basemap.drawmapboundary(linewidth=0.3, fill_color='0.85')
+            if self.latlon_rect:
+                self.plot_rectangle(*self.latlon_rect)
