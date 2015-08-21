@@ -8,8 +8,8 @@ from . import units
 from .units import Units
 from . import numerics
 from .numerics import FiniteDiff
-from . import windspharm_interface
-from .windspharm_interface import WindspharmInterface
+from . import spharm_interface
+from .spharm_interface import SpharmInterface
 from . import var
 from .var import Var
 from . import region
