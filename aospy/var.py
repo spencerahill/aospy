@@ -11,11 +11,11 @@ class Var(object):
                  description='', def_time=False, def_vert=False, def_lat=False,
                  def_lon=False, in_nc_grid=False, math_str=False,
                  colormap='RdBu_r', valid_range=False):
+        """Create Var object."""
         self.name = name
         if alt_names:
             self.alt_names = alt_names
 
-        # Identity transform if no function specified.
         if not func:
             self.func = lambda x: x
             self.variables = False
@@ -23,22 +23,11 @@ class Var(object):
             self.func = func
             self.variables = variables
 
-        # `units` kwarg can be `Units` object or string
-        if isinstance(units, Units):
-            self._Units = units
-            for var_attr, units_attr in zip(
-                    ('units', 'plot_units', 'plot_units_conv',
-                     'vert_int_units', 'vert_int_plot_units',
-                     'vert_int_plot_units_conv'),
-                    ('units', 'plot', 'plot_conv', 'vert_int', 'vert_int_plot',
-                     'vert_int_plot_conv')
-            ):
-                setattr(self, var_attr, getattr(units, units_attr))
+        if not isinstance(units, Units):
+            self.units = Units(units=units)
         else:
             self.units = units
-            self.plot_units = plot_units
-            self.plot_units_conv = plot_units_conv
-            self.vert_int_plot_conv = 1
+
         self.domain = domain
         self.description = description
         self.def_time = def_time
@@ -58,10 +47,9 @@ class Var(object):
         Multiply the given data by the plotting units conversion if it exists.
         """
         if vert_int:
-            conv_factor = self.vert_int_plot_conv
+            return data*self.units.vert_int_plot_units_conv
         else:
-            conv_factor = self.plot_units_conv
-        return data*conv_factor
+            return data*self.units.plot_units_conv
 
     def mask_unphysical(self, data):
         """Mask data array where values are outside physically valid range."""

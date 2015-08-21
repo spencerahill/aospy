@@ -169,9 +169,9 @@ class Fig(object):
             var = self.var[0][0][0]
             if self.cbar_label == 'units':
                 if self.dtype_out_vert[0][0][0] == 'vert_int':
-                    label = var.vert_int_plot_units
+                    label = var.units.vert_int_plot_units
                 else:
-                    label = var.plot_units
+                    label = var.units.plot_units
             else:
                 label = self.cbar_label
             self.cbar.set_label(label, fontsize='x-small',

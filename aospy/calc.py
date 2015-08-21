@@ -18,8 +18,6 @@ from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
 ps = Var(
     name='ps',
     units='Pa',
-    plot_units='hPa',
-    plot_units_conv=1e-2,
     domain='atmos',
     description='Surface pressure.',
     def_time=True,
@@ -706,12 +704,12 @@ class Calc(object):
                 data = self._load_from_scratch(dtype_out_time, dtype_out_vert)
             except OSError:
                 data = self._load_from_archive(dtype_out_time, dtype_out_vert)
-            # Subset the array and convert units as desired.
-            if any((region, time, vert, lat, lon)):
-                data = self._get_data_subset(data, region=region, time=time,
-                                             vert=vert, lat=lat, lon=lon)
         # Copy the array to self.data_out for ease of future access.
         self._update_data_out(data, dtype_out_time)
+        # Subset the array and convert units as desired.
+        if any((region, time, vert, lat, lon)):
+            data = self._get_data_subset(data, region=region, time=time,
+                                         vert=vert, lat=lat, lon=lon)
         # Apply desired plotting/cleanup methods.
         if mask_unphysical:
             data = self.var.mask_unphysical(data)
