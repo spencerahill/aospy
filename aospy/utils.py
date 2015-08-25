@@ -76,13 +76,15 @@ def to_pascal(field):
         field *= 100.
     return field
 
+
 def to_hpa(field):
     """Convert pressure array from Pa to hPa (if needed)."""
     if np.max(np.abs(field)) > 1200.:
         field /= 100.
     return field
 
-def level_thickness(levs):
+
+def level_thickness(p):
     """
     Calculates the thickness, in Pa, of each pressure level.
 
@@ -91,17 +93,17 @@ def level_thickness(levs):
     bottom boundary. The uppermost level extends to 0 hPa.
 
     """
-    # Bottom level extends from levs[0] to halfway betwen levs[0]
-    # and levs[1].
-    levs = to_pascal(levs)
-    lev_thick = [0.5*(levs[0] - levs[1])]
+    # Bottom level extends from p[0] to halfway betwen p[0]
+    # and p[1].
+    p = to_pascal(p)
+    dp = [0.5*(p[0] - p[1])]
     # Middle levels extend from halfway between [k-1], [k] and [k], [k+1].
-    for k in range(1, levs.size-1):
-        lev_thick.append(0.5*(levs[k-1] - levs[k+1]))
+    for k in range(1, p.size-1):
+        dp.append(0.5*(p[k-1] - p[k+1]))
     # Top level extends from halfway between top two levels to 0 hPa.
-    lev_thick.append(0.5*(levs[-2] + levs[-1]))
+    dp.append(0.5*(p[-2] + p[-1]))
     # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
-    return np.array(lev_thick)
+    return np.array(dp)
 
 
 def phalf_from_sigma(bk, pk, ps):
@@ -215,3 +217,13 @@ def int_dp_g(integrand, dp, start=0., end=None, axis=-3):
     # Assume pressure is 3rd to last axis.
     dp = to_pascal(dp)
     return integrate(integrand, dp, axis) * (1. / grav)
+
+
+def dp_from_p(field, p, ps):
+    """Get level thickness of pressure data, incorporating surface pressure."""
+    p = to_pascal(p)[np.newaxis,:,np.newaxis,np.newaxis]
+    ps = to_pascal(ps)[:,np.newaxis,:,:]
+    dp_interior = level_thickness(p)
+    dp_adj_sfc = p - ps
+    return np.where(np.sign(ps - p) > 0, dp_interior, dp_adj_sfc)
+    
