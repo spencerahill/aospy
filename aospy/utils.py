@@ -168,8 +168,7 @@ def pfull_from_sigma(bk, pk, ps):
     Compute pressure at full sigma levels from the sigma coordinate arrays and
     surface pressure.
     """
-    phalf = phalf_from_sigma(bk, pk, ps)
-    return pfull_from_phalf(phalf)
+    return pfull_from_phalf(phalf_from_sigma(bk, pk, ps))
 
 
 def dp_from_phalf(phalf):
@@ -184,8 +183,7 @@ def dp_from_phalf(phalf):
 
 def dp_from_sigma(bk, pk, ps):
     """Compute sigma layer pressure thickness."""
-    phalf = phalf_from_sigma(bk, pk, ps)
-    return dp_from_phalf(phalf)
+    return dp_from_phalf(phalf_from_sigma(bk, pk, ps))
 
 
 def weight_by_delta(integrand, delta):
@@ -219,11 +217,23 @@ def int_dp_g(integrand, dp, start=0., end=None, axis=-3):
     return integrate(integrand, dp, axis) * (1. / grav)
 
 
-def dp_from_p(field, p, ps):
+def dp_from_p(p, ps):
     """Get level thickness of pressure data, incorporating surface pressure."""
+    # Top layer goes to 0 hPa; bottom layer goes to 1100 hPa.
     p = to_pascal(p)[np.newaxis,:,np.newaxis,np.newaxis]
+    p_top = np.array([0])[np.newaxis,:,np.newaxis,np.newaxis]
+    p_bot = np.array([1.1e5])[np.newaxis,:,np.newaxis,np.newaxis]
+
+    # Layer edges are halfway between the given pressure levels.
+    p_edges_interior = 0.5*(p[:,:-1] + p[:,1:])
+    p_edges = np.concatenate((p_bot, p_edges_interior, p_top), axis=1)
+    p_edge_above = p_edges[:, 1:]
+    p_edge_below = p_edges[:, :-1]
+    dp_interior = p_edge_below - p_edge_above
+
     ps = to_pascal(ps)[:,np.newaxis,:,:]
-    dp_interior = level_thickness(p)
-    dp_adj_sfc = p - ps
-    return np.where(np.sign(ps - p) > 0, dp_interior, dp_adj_sfc)
-    
+    # If ps < p_edge_below, then ps becomes the layer's bottom boundary.
+    dp_adj_sfc = ps - p_edge_above[np.newaxis,:,np.newaxis,np.newaxis]
+    dp = np.where(np.sign(ps - p_edge_below) > 0, dp_interior, dp_adj_sfc)
+    # Mask where ps is less than the p.
+    return np.ma.masked_where(ps < p, dp)

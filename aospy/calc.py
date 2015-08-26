@@ -324,17 +324,17 @@ class Calc(object):
             dtype = self.dtype_in_time
         direc = (self.direc_nc[n] + '/' + domain + '/' + dtype_lbl + '/' +
                  self.intvl_in + separator + str(self.nc_dur[n]) + 'yr/')
-        files_in_dir = os.listdir(direc)
-        files_var = [nc for nc in files_in_dir if name in nc]
-        yrs_regexp = '.' + start_yr + '[0-9]*-' + end_yr
-        yrs_re = [re.search(yrs_regexp, nc] for nc in files_var]
-        # Assume time range is printed to 
-        yr_ranges = [nc.split('.')[1] for nc in files_var]
-        files_time = [nc for nc in 
-        # files = [direc + nc_name_gfdl(name, domain, dtype,
-                                      # self.intvl_in, yr, self.intvl_out,
-                                      # self.nc_start_yr[n], self.nc_dur[n])
-                 # for yr in range(start_yr, end_yr + 1)]
+        # files_in_dir = os.listdir(direc)
+        # files_var = [nc for nc in files_in_dir if name in nc]
+        # yrs_regexp = '.' + start_yr + '[0-9]*-' + end_yr
+        # yrs_re = [re.search(yrs_regexp, nc] for nc in files_var]
+        # Assume time range is printed to
+        # yr_ranges = [nc.split('.')[1] for nc in files_var]
+        # files_time = [nc for nc in
+        files = [direc + nc_name_gfdl(name, domain, dtype,
+                                      self.intvl_in, yr, self.intvl_out,
+                                      self.nc_start_yr[n], self.nc_dur[n])
+                 for yr in range(start_yr, end_yr + 1)]
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
