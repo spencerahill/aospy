@@ -308,7 +308,7 @@ class Ax(object):
             self.ax.set_ylabel(self.y_label, fontsize='small', labelpad=-2)
 
         self.ax.tick_params(labelsize='x-small')
-        if 'map' not in self.plot_type:
+        if not (self.x_dim == 'lon' and self.y_dim == 'lat'):
             self.ax.spines['right'].set_visible(False)
             self.ax.spines['top'].set_visible(False)
             self.ax.xaxis.set_ticks_position('bottom')
@@ -419,12 +419,6 @@ class Plot(object):
     def __init__(self, plot_interface):
         """Class for plotting single data element."""
         self.__dict__ = vars(plot_interface)
-        # self.ax = plot_interface.ax
-        # self.fig = plot_interface.fig
-        # self.plot_num = plot_interface.plot_num
-        # self.n_data = plot_interface.n_data
-        # self.var = plot_interface.var
-        # self.run = plot_interface.run
 
         if isinstance(self.var[0], tuple):
             self.var = self.var[0]
@@ -432,6 +426,7 @@ class Plot(object):
 
         self.Calc = self._make_calc_obj()
         self.data = self._load_data()
+        # print self.data[0].shape, self.data[1].shape
         self._apply_data_transforms()
 
         self._set_coord_arrays()
@@ -449,24 +444,6 @@ class Plot(object):
                                    "implemented for the classes that "
                                    "inherit from Plot.")
 
-    def prep_data_for_basemap(self, quiver=False):
-        # if self.ax.shiftgrid_start:
-        #     lon0 = 180
-        # else:
-        #     lon0 = self.ax.shiftgrid_start
-        lon0 = 180
-        self.plot_data, plot_lons = mpl_toolkits.basemap.shiftgrid(
-            lon0, self.data[0], self.x_data,
-            start=self.ax.shiftgrid_start, cyclic=self.ax.shiftgrid_cyclic
-        )
-        self.x_data, self.y_data = self.basemap(*np.meshgrid(plot_lons,
-                                                             self.y_data))
-        if self.do_mask_oceans:
-            self.plot_data = mpl_toolkits.basemap.maskoceans(
-                self.x_data, self.y_data, self.plot_data,
-                inlands=False, resolution='c'
-            )
-            
     def _make_calc_obj(self):
         calc_obj = []
         for i in range(self.n_data):
@@ -545,7 +522,25 @@ class Plot(object):
         )
 
     def _load_data(self):
-        try:
+        print self.Calc, self.run
+        if isinstance(self.run, dict):
+            data = tuple(
+                [cl.load(self.dtype_out_time[0],
+                         dtype_out_vert=self.dtype_out_vert[0],
+                         region=self.region[0], time=False, vert=self.level[0],
+                         lat=False, lon=False, plot_units=True,
+                         mask_unphysical=True)
+                 for cl in self.Calc[0]]
+            )
+
+            self.Calc = self.Calc[0]
+            # Combine masks of the two inputs.
+            try:
+                joint_mask = np.ma.mask_or(data[0].mask, data[1].mask)
+                return (np.ma.array(data[0] - data[1], mask=joint_mask),)
+            except AttributeError:
+                return (data[0] - data[1],)
+        else:
             return tuple(
                 [cl.load(dto, dtype_out_vert=dtv, region=reg, time=False,
                          vert=lev, lat=False, lon=False, plot_units=True,
@@ -555,29 +550,6 @@ class Plot(object):
                          self.region, self.level
                  )]
             )
-        except AttributeError:
-            # Code below assumes AttributeError was triggered by self.Calc
-            # being a dict with a tuple of runs as the key and a string
-            # representing an operator as the value.  The output should be
-            # that operator applied to the runs.  But currently it's assumed
-            # that subtraction is always wanted.  This should be fixed.  Also
-            # this functionality doesn't belong in the plotting classes --
-            # should be refactored to somewhere else. (S. Hill 2015-08-19)
-            data = tuple(
-                [cl.load(self.dtype_out_time[0],
-                         dtype_out_vert=self.dtype_out_vert[0],
-                         region=self.region[0], time=False, vert=self.level[0],
-                         lat=False, lon=False, plot_units=True,
-                         mask_unphysical=True)
-                 for cl in self.Calc[0]]
-            )
-            self.Calc = self.Calc[0]
-            # Combine masks of the two inputs.
-            try:
-                joint_mask = np.ma.mask_or(data[0].mask, data[1].mask)
-                return (np.ma.array(data[0] - data[1], mask=joint_mask),)
-            except AttributeError:
-                return (data[0] - data[1],)
 
     def _subtract_mean(self, data):
         return np.subtract(data, np.mean(data))
@@ -591,6 +563,33 @@ class Plot(object):
                 if do_method:
                     setattr(self, data, method(getattr(self, data)))
         return data
+
+    def prep_data_for_basemap(self):
+        # if self.ax.shiftgrid_start:
+        #     lon0 = 180
+        # else:
+        #     lon0 = self.ax.shiftgrid_start
+        lon0 = 180
+        self.lons = self.x_data
+        self.lats = self.y_data
+            
+        self.plot_data = []
+        for data in self.data:
+            pd, self.plot_lons = mpl_toolkits.basemap.shiftgrid(
+                lon0, data, self.x_data,
+                start=self.ax.shiftgrid_start, cyclic=self.ax.shiftgrid_cyclic
+            )
+            self.plot_data.append(pd)
+        if len(self.plot_data) == 1:
+            self.plot_data = self.plot_data[0]
+
+        self.x_data, self.y_data = self.basemap(*np.meshgrid(self.plot_lons,
+                                                             self.y_data))
+        if self.do_mask_oceans:
+            self.plot_data = mpl_toolkits.basemap.maskoceans(
+                self.x_data, self.y_data, self.plot_data,
+                inlands=False, resolution='c'
+            )
 
     def plot_rectangle(self, x_min, x_max, y_min, y_max, **kwargs):
         xs = [x_min, x_max, x_max, x_min, x_min]
@@ -650,10 +649,11 @@ class Contour(Plot):
 
     def plot(self):
         self._prep_data()
+        # print self.x_data.shape, self.y_data.shape, self.plot_data.shape
         self.handle = self.plot_func(self.x_data, self.y_data, self.plot_data,
                                      self.cntr_lvls, **self.plot_kwargs)
         if self.contour_labels:
-            self.ax.ax.clabel(self.handle, fontsize=7, fmt='%1d')
+            matplotlib.pyplot.gca().clabel(self.handle, fontsize=7, fmt='%1d')
         if self.colormap:
             self.apply_colormap(self.colormap)
         if self.basemap:
@@ -706,9 +706,11 @@ class Quiver(Plot):
         Plot.__init__(self, plot_interface)
 
     def prep_quiver(self):
+        n_lon = self.plot_lons.size
+        n_lat = self.lats.size
         self.plot_data_u, self.plot_data_v = self.backend.transform_vector(
-            self.plot_data[0], self.plot_data[1], self.x_data, self.y_data,
-            self.n_lon, self.n_lat, returnxy=False
+            self.plot_data[0], self.plot_data[1], self.plot_lons, self.lats,
+            n_lon, n_lat
         )
 
     def plot(self):
@@ -718,7 +720,6 @@ class Quiver(Plot):
         else:
             self.plot_data = self.data[0]
 
-        self.handle = self.backend.plot(
+        self.handle = self.backend.quiver(
             self.x_data, self.y_data, self.plot_data[0], self.plot_data[1],
-
             )
