@@ -362,6 +362,8 @@ class Ax(object):
                 self.Plot.append(Contour(self, n, filled=False))
             elif self.plot_type[n] == 'contourf':
                 self.Plot.append(Contour(self, n, filled=True))
+            elif self.plot_type[n] == 'quiver':
+                self.Plot.append(Quiver(self, n))
             elif self.plot_type[n] == 'line':
                 self.Plot.append(Line(self, n))
             else:
@@ -410,7 +412,10 @@ class Plot(object):
         else:
             self.backend = self.Ax.ax
 
-    def prep_data_for_basemap(self):
+    def plot(self):
+        return NotImplementedError
+
+    def prep_data_for_basemap(self, quiver=False):
         # if self.Ax.shiftgrid_start:
         #     lon0 = 180
         # else:
@@ -597,38 +602,6 @@ class Plot(object):
                             transform=self.Ax.ax.transAxes, fontsize='x-small')
 
 
-class Line(Plot):
-    def __init__(self, Ax, plot_num):
-        """Line plot."""
-        Plot.__init__(self, Ax, plot_num)
-        if self.marker_shape is False:
-            self.marker_shape = None
-
-    def plot(self):
-        self.handle = self.backend.plot(
-            self.x_data, self.y_data, color=self.line_color,
-            linestyle=self.line_style, marker=self.marker_shape,
-            markerfacecolor=self.marker_color, markersize=self.marker_size
-        )
-
-
-class Scatter(Plot):
-    def __init__(self, Ax, plot_num):
-        Plot.__init__(self, Ax, plot_num)
-        assert self.n_data == 2
-
-    def plot(self):
-        self.handle = self.backend.scatter(
-            self.x_data, self.y_data, s=self.marker_size, c=self.marker_color,
-            marker=self.marker_shape
-        )
-        if self.do_best_fit_line:
-            self.best_fit_line(print_slope=self.print_best_fit_slope)
-
-        if self.print_corr_coeff:
-            self.corr_coeff()
-
-
 class Contour(Plot):
     def __init__(self, Ax, plot_num, filled=True):
         """Contour or contourf plot."""
@@ -668,3 +641,59 @@ class Contour(Plot):
             self.basemap.drawmapboundary(linewidth=0.3, fill_color='0.85')
             if self.latlon_rect:
                 self.plot_rectangle(*self.latlon_rect)
+
+
+class Line(Plot):
+    def __init__(self, Ax, plot_num):
+        """Line plot."""
+        Plot.__init__(self, Ax, plot_num)
+        if self.marker_shape is False:
+            self.marker_shape = None
+
+    def plot(self):
+        self.handle = self.backend.plot(
+            self.x_data, self.y_data, color=self.line_color,
+            linestyle=self.line_style, marker=self.marker_shape,
+            markerfacecolor=self.marker_color, markersize=self.marker_size
+        )
+
+
+class Scatter(Plot):
+    def __init__(self, Ax, plot_num):
+        Plot.__init__(self, Ax, plot_num)
+        assert self.n_data == 2
+
+    def plot(self):
+        self.handle = self.backend.scatter(
+            self.x_data, self.y_data, s=self.marker_size, c=self.marker_color,
+            marker=self.marker_shape
+        )
+        if self.do_best_fit_line:
+            self.best_fit_line(print_slope=self.print_best_fit_slope)
+
+        if self.print_corr_coeff:
+            self.corr_coeff()
+
+
+class Quiver(Plot):
+    def __init__(self, AX, plot_num):
+        """Quiver (i.e. vector) plot."""
+        Plot.__init__(self, Ax, plot_num)
+
+    def prep_quiver(self):
+        self.plot_data_u, self.plot_data_v = self.backend.transform_vector(
+            self.plot_data[0], self.plot_data[1], self.x_data, self.y_data,
+            self.n_lon, self.n_lat, returnxy=False
+        )
+
+    def plot(self):
+        if self.basemap:
+            self.prep_data_for_basemap()
+            self.prep_quiver()
+        else:
+            self.plot_data = self.data[0]
+
+        self.handle = self.backend.plot(
+            self.x_data, self.y_data, self.plot_data[0], self.plot_data[1],
+
+            )
