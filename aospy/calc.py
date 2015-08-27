@@ -379,6 +379,7 @@ class Calc(object):
                 data = self.model[n].level
             elif var == 'dp':
                 data = level_thickness(self.model[n].level)
+            data = data[np.newaxis,:,np.newaxis,np.newaxis]
         if self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk
