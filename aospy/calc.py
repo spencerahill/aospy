@@ -13,7 +13,7 @@ from . import Var, Region, Constant
 from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
                     dp_from_sigma, int_dp_g)
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
-                 _month_indices, _yr_label, dmget_nc, nc_name_gfdl)
+                 _month_indices, _yr_label, dmget, nc_name_gfdl)
 
 ps = Var(
     name='ps',
@@ -362,7 +362,7 @@ class Calc(object):
                                                      end_yr, n=n)
             try:
                 # Retrieve files from archive using desired system calls.
-                dmget_nc(files)
+                dmget(files)
                 # hsmget_retcode = hsmget_nc(files)
                 # Return netCDF4.MFDataset object containing the data.
                 return netCDF4.MFDataset(files)
@@ -640,6 +640,12 @@ class Calc(object):
         # tarfile 'append' mode won't overwrite the old file, which we want.
         # So open in 'read' mode, extract the file, and then delete it.
         # But 'read' mode throws OSError if file doesn't exist: make it first.
+        dmget([self.path_archive])
+        # SAH 201-08-27: Within the last few weeks, both of the 'with' blocks
+        # below are causing frequent hangups when trying to save to archive
+        # for the first time during a shell session.  But then if I Ctrl-C to
+        # kill the job and then restart, the hangup goes away.  Don't know
+        # why it started happening all of a sudden.
         with tarfile.open(self.path_archive, 'a') as tar:
             pass
         with tarfile.open(self.path_archive, 'r') as tar:
@@ -672,7 +678,7 @@ class Calc(object):
             self.data_out = {dtype: data}
 
     def save(self, data, dtype_out_time, dtype_out_vert=False,
-             scratch=True, archive=True):
+             scratch=True, archive=False):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
         if scratch:
@@ -692,7 +698,7 @@ class Calc(object):
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
         """Load data save in tarball on archive file system."""
         path = '/'.join([self.dir_archive, 'data.tar']).replace('//', '/')
-        subprocess.call(['dmget'] + [path])
+        dmget([path])
         with tarfile.open(path, 'r') as data_tar:
             data_vals = cPickle.load(
                 data_tar.extractfile(self.file_name[dtype_out_time])

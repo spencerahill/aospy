@@ -247,7 +247,7 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
     return gfdl_file
 
 
-def dmget_nc(files_list):
+def dmget(files_list):
     """Call GFDL command 'dmget' to access archived files."""
     subprocess.call(['dmget'] + files_list)
 
