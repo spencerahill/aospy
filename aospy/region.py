@@ -12,6 +12,8 @@ class Region(object):
     def __str__(self):
         return 'Geographical region "' + self.name + '"'
 
+    __repr__ = __str__
+
     def _add_to_mask(self, mask, latb, lonb, lat, lon):
         """Return specified lat-lon rectangle as 2D grid."""
         lons, lats = np.meshgrid((lon > lonb[0]) & (lon < lonb[1]),

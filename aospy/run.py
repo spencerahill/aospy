@@ -30,6 +30,8 @@ class Run(object):
     def __str__(self):
         return 'Run instance "%s"' % self.name
 
+    __repr__ = __str__
+
     def _set_direc(self, direc_nc, ens_mem_prefix, ens_mem_ext, ens_mem_suffix):
         """Set the list of paths containing the Run's netCDF data."""
         if all((ens_mem_prefix, ens_mem_ext, ens_mem_suffix)):

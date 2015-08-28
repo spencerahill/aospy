@@ -38,6 +38,8 @@ class Model(object):
     def __str__(self):
         return 'Model instance "' + self.name + '"'
 
+    __repr__ = __str__
+
     def _get_nc_grid(self):
         """Get the nc_grid of an aospy object."""
         nc_objs = []

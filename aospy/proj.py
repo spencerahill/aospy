@@ -38,3 +38,5 @@ class Proj(object):
 
     def __str__(self):
         return 'Project instance "' + self.name + '"'
+
+    __repr__ = __str__

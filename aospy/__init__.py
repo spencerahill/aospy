@@ -21,7 +21,7 @@ from .model import Model
 from . import proj
 from .proj import Proj
 from . import calc
-from .calc import Calc
+from .calc import CalcInterface, Calc
 from . import plotting
 from .plotting import Fig, Ax, Plot
 

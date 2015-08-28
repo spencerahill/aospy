@@ -9,11 +9,11 @@ import time
 import netCDF4
 import numpy as np
 
-from . import Var, Region, Constant
-from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
-                    dp_from_sigma, int_dp_g)
+from . import Constant, Var, Region
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
                  _month_indices, _yr_label, dmget, nc_name_gfdl)
+from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
+                    dp_from_sigma, int_dp_g)
 
 ps = Var(
     name='ps',
@@ -28,8 +28,40 @@ ps = Var(
 )
 
 
-class Calc(object):
+class CalcInterface(object):
     """Class for executing, saving, and loading a single computation."""
+    def _get_yr_range(self):
+        """Set the object's span of years."""
+        if self.yr_range == 'default':
+            start_yr, end_yr = get_parent_attr(self.run[0], 'default_yr_range')
+        elif self.yr_range == 'all':
+            start_yr = get_parent_attr(self.run[0], 'nc_start_yr')
+            end_yr = get_parent_attr(self.run[0], 'nc_end_yr')
+        else:
+            start_yr, end_yr = self.yr_range
+        return start_yr, end_yr
+
+    def _get_num_yr(self):
+        """Compute effective number of years in the input data."""
+        if self.dtype_in_time in ('ts', 'inst'):
+            num_yr = self.end_yr - self.start_yr + 1
+        else:
+            num_yr = 1
+        return num_yr
+
+    def _make_time_chunks(self):
+        """Create tuple of (start, end) pairs based on given year chunks."""
+        if self.yr_chunk_len:
+            dur = self.yr_chunk_len - 1
+            st_yrs = range(self.start_yr, self.end_yr + 1, self.yr_chunk_len)
+            end_yrs = range(self.start_yr + dur, self.end_yr + dur + 1,
+                            self.yr_chunk_len)
+            if len(end_yrs) == len(st_yrs) - 1:
+                end_yrs.append(self.end_yr)
+        else:
+            st_yrs, end_yrs = [self.start_yr], [self.end_yr]
+        return zip(st_yrs, end_yrs)
+
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  yr_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
@@ -50,7 +82,6 @@ class Calc(object):
 
         self.proj = proj
         self.model = model
-        [mod.set_grid_data() for mod in self.model]
         self.run = run
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
@@ -64,21 +95,15 @@ class Calc(object):
         self.domain = self.var.domain
         self.def_time = self.var.def_time
         self.def_vert = self.var.def_vert
-
         self.verbose = verbose
-        self._print_verbose("\nInitializing Calc instance: %s", self.__str__())
-
-        self._set_nc_attrs()
 
         if isinstance(ens_mem, int):
             self.direc_nc = self.direc_nc[ens_mem]
 
-        # Some variables are computed as functions of other variables.
         try:
             self.function = self.var.func
         except AttributeError:
             self.function = lambda x: x
-
         if getattr(self.var, 'variables', False):
             self.variables = self.var.variables
         else:
@@ -90,8 +115,7 @@ class Calc(object):
         self.intvl_out = intvl_out
         self.dtype_in_time = dtype_in_time
         self.dtype_in_vert = dtype_in_vert
-        if dtype_in_vert == 'sigma':
-            self.ps = ps
+        self.ps = ps
         if isinstance(dtype_out_time, (list, tuple)):
             self.dtype_out_time = tuple(dtype_out_time)
         else:
@@ -103,8 +127,22 @@ class Calc(object):
         self.start_yr, self.end_yr = self._get_yr_range()
         self.num_yr = self._get_num_yr()
         self.months = _month_indices(intvl_out, iterable=True)
+        self.skip_time_inds = skip_time_inds
         self.yr_chunk_len = yr_chunk_len
         self.chunk_ranges = self._make_time_chunks()
+
+
+class Calc(object):
+    """Class for executing, saving, and loading a single computation."""
+    def __init__(self, calc_interface):
+        self.__dict__ = vars(calc_interface)
+        self._print_verbose("\nInitializing Calc instance: %s", self.__str__())
+
+        [mod.set_grid_data() for mod in self.model]
+        self._set_nc_attrs()
+        print calc_interface.skip_time_inds
+        if not calc_interface.skip_time_inds:
+            self._set_time_dt()
 
         self.dir_scratch = self._dir_scratch()
         self.dir_archive = self._dir_archive()
@@ -118,9 +156,6 @@ class Calc(object):
             '/'.join([self.dir_archive, 'data.tar']).replace('//', '/')
         )
 
-        if not skip_time_inds:
-            self._set_time_dt()
-
         self.data_out = {}
 
     def __str__(self):
@@ -129,34 +164,39 @@ class Calc(object):
             (self.name, self.proj_str, self.model_str, self.run_str_full)
         )
 
-    def __call__(self, dtype_out):
-        try:
-            data = self.data_out[dtype_out]
-        except AttributeError:
-            raise AttributeError("'data_out' attribute has not been set for "
-                                 "aospy.Calc object '%s'." % self)
-        except KeyError:
-            raise KeyError("No data exists for dtype '%s' for aospy.Calc "
-                           "object '%s'." % (dtype_out, self))
-        else:
-            return data
+    __repr__ = __str__
 
-    def __add__(self, other):
-        """Add aospy.Calc.data_out, numpy.array, int, or float to the array."""
-        try:
-            data_self = getattr(self, 'data_out')
-        except AttributeError:
-            raise AttributeError("Object '%s' lacks a 'data_out' attr" % self)
-        # aospy.Calc, numpy array, and int/flot objects each use a different
-        # named attribute to store their values
-        for attr in ('data_out', '__array__', 'real'):
-            try:
-                data_other = getattr(other, 'data_out')
-            except AttributeError:
-                pass
-            else:
-                break
-        return np.add(data_self, data_other)
+    # 2015-08-28: These __call__ and __add__ methods were never fully
+    # implemented, let alone tested.  Nor is their resulting functionality used
+    # at all currently.
+    # def __call__(self, dtype_out):
+    #     try:
+    #         data = self.data_out[dtype_out]
+    #     except AttributeError:
+    #         raise AttributeError("'data_out' attribute has not been set for "
+    #                              "aospy.Calc object '%s'." % self)
+    #     except KeyError:
+    #         raise KeyError("No data exists for dtype '%s' for aospy.Calc "
+    #                        "object '%s'." % (dtype_out, self))
+    #     else:
+    #         return data
+
+    # def __add__(self, other):
+    #     """Add aospy.Calc.data_out, numpy.array, int, or float to the array."""
+    #     try:
+    #         data_self = getattr(self, 'data_out')
+    #     except AttributeError:
+    #         raise AttributeError("Object '%s' lacks a 'data_out' attr" % self)
+    #     # aospy.Calc, numpy array, and int/flot objects each use a different
+    #     # named attribute to store their values
+    #     for attr in ('data_out', '__array__', 'real'):
+    #         try:
+    #             data_other = getattr(other, 'data_out')
+    #         except AttributeError:
+    #             pass
+    #         else:
+    #             break
+    #     return np.add(data_self, data_other)
 
     def _print_verbose(self, *args):
         """Print diagnostic message."""
@@ -167,25 +207,6 @@ class Calc(object):
                 print args[0] % args[1], '(%s)' % time.ctime()
             except IndexError:
                 print args[0], '(%s)' % time.ctime()
-
-    def _get_yr_range(self):
-        """Set the object's span of years."""
-        if self.yr_range == 'default':
-            start_yr, end_yr = get_parent_attr(self.run[0], 'default_yr_range')
-        elif self.yr_range == 'all':
-            start_yr = get_parent_attr(self.run[0], 'nc_start_yr')
-            end_yr = get_parent_attr(self.run[0], 'nc_end_yr')
-        else:
-            start_yr, end_yr = self.yr_range
-        return start_yr, end_yr
-
-    def _get_num_yr(self):
-        """Compute effective number of years in the input data."""
-        if self.dtype_in_time in ('ts', 'inst'):
-            num_yr = self.end_yr - self.start_yr + 1
-        else:
-            num_yr = 1
-        return num_yr
 
     def _set_nc_attrs(self):
         for attr in ('nc_start_yr', 'nc_end_yr', 'nc_dur', 'direc_nc',
@@ -244,19 +265,6 @@ class Calc(object):
 
         reshaped = np.reshape(array, (end_yr - start_yr + 1, -1))
         return reshaped[:,:,np.newaxis,np.newaxis,np.newaxis]
-
-    def _make_time_chunks(self):
-        """Create tuple of (start, end) pairs based on given year chunks."""
-        if self.yr_chunk_len:
-            dur = self.yr_chunk_len - 1
-            st_yrs = range(self.start_yr, self.end_yr + 1, self.yr_chunk_len)
-            end_yrs = range(self.start_yr + dur, self.end_yr + dur + 1,
-                            self.yr_chunk_len)
-            if len(end_yrs) == len(st_yrs) - 1:
-                end_yrs.append(self.end_yr)
-        else:
-            st_yrs, end_yrs = [self.start_yr], [self.end_yr]
-        return zip(st_yrs, end_yrs)
 
     def _dir_scratch(self):
         """Create string of the data directory on the scratch filesystem."""

@@ -42,6 +42,8 @@ class Var(object):
     def __str__(self):
         return 'Var instance "' + self.name + '"'
 
+    __repr__ = __str__
+
     def to_plot_units(self, data, vert_int=False):
         """
         Multiply the given data by the plotting units conversion if it exists.
