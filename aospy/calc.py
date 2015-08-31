@@ -67,7 +67,11 @@ class CalcInterface(object):
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
                  dtype_out_vert=None, level=None, skip_time_inds=False,
                  yr_chunk_len=False, verbose=True):
-        # Turn strings into tuples.
+        """Create the CalcInterface object with the given parameters."""
+        if run not in model.runs.values():
+            raise AttributeError("Model '%s' has no run '%s'.  Calc object "
+                                 "will not be generated." % (model, run))
+        # Everything gets turned into tuples.
         proj = tuple([proj])
         model = tuple([model])
         if not isinstance(run, (list, tuple)):
@@ -77,8 +81,6 @@ class CalcInterface(object):
             proj = tuple(list(proj)*len(run))
         if len(model) == 1 and len(run) > 1:
             model = tuple(list(model)*len(run))
-        assert len(model) == len(run)
-        assert len(proj) == len(model)
 
         self.proj = proj
         self.model = model
@@ -96,9 +98,6 @@ class CalcInterface(object):
         self.def_time = self.var.def_time
         self.def_vert = self.var.def_vert
         self.verbose = verbose
-
-        if isinstance(ens_mem, int):
-            self.direc_nc = self.direc_nc[ens_mem]
 
         try:
             self.function = self.var.func
@@ -140,7 +139,10 @@ class Calc(object):
 
         [mod.set_grid_data() for mod in self.model]
         self._set_nc_attrs()
-        print calc_interface.skip_time_inds
+
+        if isinstance(calc_interface.ens_mem, int):
+            self.direc_nc = self.direc_nc[calc_interface.ens_mem]
+
         if not calc_interface.skip_time_inds:
             self._set_time_dt()
 
@@ -573,7 +575,7 @@ class Calc(object):
 
     def _compute_chunk(self, start_yr, end_yr, eddy=False):
         """Perform the calculation on the given chunk of times."""
-        self._print_verbose("Computing desired timeseries from netCDF data "
+        self._print_verbose("\nComputing desired timeseries from netCDF data "
                             "for years %d-%d.", (start_yr, end_yr))
         inds = _get_time(
             self.time, self.time_units, self.calendar,

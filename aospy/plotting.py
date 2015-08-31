@@ -1,11 +1,11 @@
 """Classes for creating multi-panel figures using data generated via aospy."""
 import scipy.stats
 import numpy as np
-import matplotlib.pyplot
+import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
 
 from .__config__ import default_colormap
-from .calc import Calc
+from .calc import Calc, CalcInterface
 from .io import to_dup_list
 from .utils import to_hpa
 
@@ -30,7 +30,8 @@ plot_specs = (
     'line_style', 'line_width', 'do_best_fit_line', 'print_best_fit_slope',
     'print_corr_coeff', 'cntr_lvls', 'colormap', 'min_cntr', 'max_cntr',
     'num_cntr', 'contours_extend', 'latlon_rect', 'do_mask_oceans',
-    'contour_labels'
+    'contour_labels', 'plotting_func_kwargs', 'quiver_n_lon', 'quiver_n_lat',
+    'do_quiverkey', 'quiverkey_args', 'quiverkey_kwargs'
 )
 data_specs = (
     'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'yr_range',
@@ -40,18 +41,25 @@ data_specs = (
 specs = fig_specs + ax_specs + plot_specs + data_specs
 
 
+class Operator(object):
+    def __init__(self, operator, objects):
+        self.operator = operator
+        self.objects = objects
+
+    def __str__(self):
+        return ("Operator object with operator '%s' and objects '%s'"
+                % (self.operator, self.objects))
+
+    __repr__ = __str__
+
+
 class Fig(object):
     """Class for producing figures with one or more panels."""
     def __init__(self, fig_params, n_ax=1, n_plot=1, n_data=1, n_row=1,
                  n_col=1, yr_range=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
                  dtype_out_vert=None, level=None, **kwargs):
-        self.proj = fig_params.proj
-        self.model = fig_params.model
-        self.run = fig_params.run
-        self.ens_mem = fig_params.ens_mem
-        self.var = fig_params.var
-        self.region = fig_params.region
+        self.__dict__ = vars(fig_params)
 
         self.n_ax = n_ax
         self.n_plot = n_plot
@@ -177,7 +185,7 @@ class Fig(object):
 
     def create_fig(self):
         """Create the figure and set up the subplots."""
-        self.fig = matplotlib.pyplot.figure(figsize=(self.n_col*self.col_size,
+        self.fig = plt.figure(figsize=(self.n_col*self.col_size,
                                                      self.n_row*self.row_size))
         self.fig.subplots_adjust(**self.subplot_lims)
         if self.fig_title:
@@ -200,6 +208,10 @@ class Fig(object):
     def draw(self):
         """Call the matplotlib method canvas.draw() to re-render the figure."""
         self.fig.canvas.draw()
+
+
+class AxInterface(object):
+    pass
 
 
 class Ax(object):
@@ -424,9 +436,21 @@ class Plot(object):
             self.var = self.var[0]
             self.n_data = len(self.var)
 
-        self.Calc = self._make_calc_obj()
-        self.data = self._load_data()
-        # print self.data[0].shape, self.data[1].shape
+        self.calc = self._make_calc_obj()
+
+        # Pass the calcs to the _load_data method.
+        self.data = [self._load_data(calc) for calc in self.calc]
+        # Strip extra dimensions as necessary.
+        data_shape = np.shape(self.data)
+        if data_shape[0] == 1:
+            self.data = self.data[0]
+        elif data_shape[0] == 2 and data_shape[1] == 1:
+            self.data = np.squeeze(self.data)
+        # _set_coord_arrays() below needs Calc, not Operator, objects.
+        for i, calc in enumerate(self.calc):
+            if isinstance(calc, Operator):
+                self.calc[i] = calc.objects[0]
+
         self._apply_data_transforms()
 
         self._set_coord_arrays()
@@ -447,10 +471,10 @@ class Plot(object):
     def _make_calc_obj(self):
         calc_obj = []
         for i in range(self.n_data):
-            if isinstance(self.run[i], dict):
-                calc_pair = [Calc(
+            if isinstance(self.run[i], Operator):
+                calcs = [Calc(CalcInterface(
                     proj=self.proj[i], model=self.model[i],
-                    run=self.run[i].keys()[0][j],
+                    run=run,
                     ens_mem=self.ens_mem[i], var=self.var[i],
                     yr_range=self.yr_range[i], region=self.region[i],
                     intvl_in=self.intvl_in[i], intvl_out=self.intvl_out[i],
@@ -459,10 +483,24 @@ class Plot(object):
                     dtype_out_time=self.dtype_out_time[i],
                     dtype_out_vert=self.dtype_out_vert[i], level=self.level[i],
                     verbose=self.fig.verbose, skip_time_inds=True
-                ) for j in range(2)]
-                calc_obj.append(calc_pair)
+                )) for run in self.run[i].objects]
+                calc_obj.append(Operator(self.run[i].operator, calcs))
+            # elif isinstance(self.run[i], dict):
+            #     calc_pair = [Calc(CalcInterface(
+            #         proj=self.proj[i], model=self.model[i],
+            #         run=self.run[i].keys()[0][j],
+            #         ens_mem=self.ens_mem[i], var=self.var[i],
+            #         yr_range=self.yr_range[i], region=self.region[i],
+            #         intvl_in=self.intvl_in[i], intvl_out=self.intvl_out[i],
+            #         dtype_in_time=self.dtype_in_time[i],
+            #         dtype_in_vert=self.dtype_in_vert[i],
+            #         dtype_out_time=self.dtype_out_time[i],
+            #         dtype_out_vert=self.dtype_out_vert[i], level=self.level[i],
+            #         verbose=self.fig.verbose, skip_time_inds=True
+            #     )) for j in range(2)]
+            #     calc_obj.append({calc_pair: self.run[i].values()[0]})
             else:
-                calc_obj.append(Calc(
+                calc_obj.append(Calc(CalcInterface(
                     proj=self.proj[i], model=self.model[i], run=self.run[i],
                     ens_mem=self.ens_mem[i], var=self.var[i],
                     yr_range=self.yr_range[i], region=self.region[i],
@@ -472,7 +510,7 @@ class Plot(object):
                     dtype_out_time=self.dtype_out_time[i],
                     dtype_out_vert=self.dtype_out_vert[i], level=self.level[i],
                     verbose=self.fig.verbose, skip_time_inds=True
-                ))
+                )))
         return calc_obj
 
     def _set_coord_arrays(self):
@@ -491,10 +529,10 @@ class Plot(object):
                 array = self.data[0]
             else:
                 try:
-                    array = getattr(self.Calc[i].model[0],
+                    array = getattr(self.calc[i].model[0],
                                     array_names[array_key])
                 except AttributeError:
-                    array = getattr(self.Calc[i][0].model[0],
+                    array = getattr(self.calc[i][0].model[0],
                                     array_names[array_key])
 
             if array_key == 'p':
@@ -521,35 +559,60 @@ class Plot(object):
             urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat
         )
 
-    def _load_data(self):
-        print self.Calc, self.run
-        if isinstance(self.run, dict):
+    def _load_data(self, calc):
+        if isinstance(calc, Operator):
             data = tuple(
                 [cl.load(self.dtype_out_time[0],
                          dtype_out_vert=self.dtype_out_vert[0],
                          region=self.region[0], time=False, vert=self.level[0],
                          lat=False, lon=False, plot_units=True,
                          mask_unphysical=True)
-                 for cl in self.Calc[0]]
+                 for cl in calc.objects]
             )
-
-            self.Calc = self.Calc[0]
             # Combine masks of the two inputs.
+            ans = eval('data[0]' + calc.operator + 'data[1]')
             try:
-                joint_mask = np.ma.mask_or(data[0].mask, data[1].mask)
-                return (np.ma.array(data[0] - data[1], mask=joint_mask),)
+                joint_mask = (np.ma.mask_or(data[0].mask, data[1].mask),)
             except AttributeError:
-                return (data[0] - data[1],)
-        else:
+                return ans
+            else:
+                return (np.ma.array(ans, mask=joint_mask),)
+
+        # elif isinstance(calc, dict):
+        #     data = tuple(
+        #         [cl.load(self.dtype_out_time[0],
+        #                  dtype_out_vert=self.dtype_out_vert[0],
+        #                  region=self.region[0], time=False, vert=self.level[0],
+        #                  lat=False, lon=False, plot_units=True,
+        #                  mask_unphysical=True)
+        #          for cl in calc]
+        #     )
+        #     # Combine masks of the two inputs.
+        #     try:
+        #         joint_mask = np.ma.mask_or(data[0].mask, data[1].mask)
+        #         return (np.ma.array(data[0] - data[1], mask=joint_mask),)
+        #     except AttributeError:
+        #         return (data[0] - data[1],)
+
+        elif isinstance(calc, (list, tuple)):
             return tuple(
                 [cl.load(dto, dtype_out_vert=dtv, region=reg, time=False,
                          vert=lev, lat=False, lon=False, plot_units=True,
                          mask_unphysical=True)
                  for cl, dto, dtv, reg, lev in zip(
-                         self.Calc, self.dtype_out_time, self.dtype_out_vert,
+                         calc, self.dtype_out_time, self.dtype_out_vert,
                          self.region, self.level
                  )]
             )
+        else:
+            return calc.load(self.dtype_out_time[0],
+                             dtype_out_vert=self.dtype_out_vert[0],
+                             region=self.region[0], time=False,
+                             vert=self.level[0],
+                             lat=False,
+                             lon=False,
+                             plot_units=True,
+                             mask_unphysical=True)
 
     def _subtract_mean(self, data):
         return np.subtract(data, np.mean(data))
@@ -572,7 +635,7 @@ class Plot(object):
         lon0 = 180
         self.lons = self.x_data
         self.lats = self.y_data
-            
+
         self.plot_data = []
         for data in self.data:
             pd, self.plot_lons = mpl_toolkits.basemap.shiftgrid(
@@ -595,6 +658,21 @@ class Plot(object):
         xs = [x_min, x_max, x_max, x_min, x_min]
         ys = [y_min, y_min, y_max, y_max, y_min]
         return self.backend.plot(xs, ys, latlon=True, **kwargs)
+
+    def apply_basemap(self, basemap):
+        """Apply basemap extras: coastlines, etc."""
+        basemap.drawcoastlines(linewidth=0.3, color='k')
+        basemap.drawmapboundary(linewidth=0.3, fill_color='0.85')
+        if self.latlon_rect:
+            self.plot_rectangle(*self.latlon_rect)
+
+    def apply_colormap(self, colormap):
+        if colormap == 'default':
+            try:
+                colormap = self.var[0].colormap
+            except AttributeError:
+                colormap = default_colormap
+        self.handle.set_cmap(colormap)
 
     def corr_coeff(self):
         """Compute the Pearson correlation coefficient and plot it."""
@@ -632,28 +710,12 @@ class Contour(Plot):
         else:
             self.plot_data = self.data[0]
 
-    def apply_colormap(self, colormap):
-        if colormap == 'default':
-            try:
-                colormap = self.var[0].colormap
-            except AttributeError:
-                colormap = default_colormap
-        self.handle.set_cmap(colormap)
-
-    def apply_basemap(self, basemap):
-        """Apply basemap extras: coastlines, etc."""
-        basemap.drawcoastlines(linewidth=0.3, color='k')
-        basemap.drawmapboundary(linewidth=0.3, fill_color='0.85')
-        if self.latlon_rect:
-            self.plot_rectangle(*self.latlon_rect)
-
     def plot(self):
         self._prep_data()
-        # print self.x_data.shape, self.y_data.shape, self.plot_data.shape
         self.handle = self.plot_func(self.x_data, self.y_data, self.plot_data,
                                      self.cntr_lvls, **self.plot_kwargs)
         if self.contour_labels:
-            matplotlib.pyplot.gca().clabel(self.handle, fontsize=7, fmt='%1d')
+            plt.gca().clabel(self.handle, fontsize=7, fmt='%1d')
         if self.colormap:
             self.apply_colormap(self.colormap)
         if self.basemap:
@@ -706,20 +768,28 @@ class Quiver(Plot):
         Plot.__init__(self, plot_interface)
 
     def prep_quiver(self):
-        n_lon = self.plot_lons.size
-        n_lat = self.lats.size
-        self.plot_data_u, self.plot_data_v = self.backend.transform_vector(
+        if not self.quiver_n_lon:
+            self.quiver_n_lon = self.plot_lons.size
+        if not self.quiver_n_lat:
+            self.quiver_n_lat = self.lats.size
+        return self.backend.transform_vector(
             self.plot_data[0], self.plot_data[1], self.plot_lons, self.lats,
-            n_lon, n_lat
+            self.quiver_n_lon, self.quiver_n_lat, returnxy=True
         )
 
     def plot(self):
         if self.basemap:
             self.prep_data_for_basemap()
-            self.prep_quiver()
         else:
             self.plot_data = self.data[0]
 
+        u, v, x, y = self.prep_quiver()
+
         self.handle = self.backend.quiver(
-            self.x_data, self.y_data, self.plot_data[0], self.plot_data[1],
-            )
+            x, y, u, v, **self.plotting_func_kwargs
+        )
+        if self.do_quiverkey:
+            self.quiverkey = plt.quiverkey(self.handle, *self.quiverkey_args,
+                                           **self.quiverkey_kwargs)
+        if self.basemap:
+            self.apply_basemap(self.basemap)
