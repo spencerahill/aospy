@@ -30,6 +30,22 @@ ps = Var(
 
 class CalcInterface(object):
     """Class for executing, saving, and loading a single computation."""
+    def _set_nc_attrs(self):
+        for attr in ('nc_start_yr',
+                     'nc_end_yr',
+                     'nc_dur',
+                     'direc_nc',
+                     'nc_start_month',
+                     'nc_end_month',
+                     'ens_mem_prefix',
+                     'ens_mem_ext',
+                     'nc_files',
+                     'nc_dir_struc',
+                     'default_yr_range'):
+            attr_val = tuple([get_parent_attr(rn, attr, strict=False) for rn
+                              in self.run])
+            setattr(self, attr, attr_val)
+
     def _get_yr_range(self):
         """Set the object's span of years."""
         if self.yr_range == 'default':
@@ -86,6 +102,8 @@ class CalcInterface(object):
         self.model = model
         self.run = run
 
+        self._set_nc_attrs()
+
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
         self.model_str = '_'.join(set([m.name for m in self.model]))
         run_names = [r.name for r in self.run]
@@ -138,7 +156,6 @@ class Calc(object):
         self._print_verbose("\nInitializing Calc instance: %s", self.__str__())
 
         [mod.set_grid_data() for mod in self.model]
-        self._set_nc_attrs()
 
         if isinstance(calc_interface.ens_mem, int):
             self.direc_nc = self.direc_nc[calc_interface.ens_mem]
@@ -210,15 +227,6 @@ class Calc(object):
             except IndexError:
                 print args[0], '(%s)' % time.ctime()
 
-    def _set_nc_attrs(self):
-        for attr in ('nc_start_yr', 'nc_end_yr', 'nc_dur', 'direc_nc',
-                     'nc_start_month', 'nc_end_month', 'ens_mem_prefix',
-                     'ens_mem_ext' 'nc_files', 'nc_dir_struc',
-                     'default_yr_range'):
-            attr_val = tuple([get_parent_attr(rn, attr, strict=False) for rn
-                              in self.run])
-            setattr(self, attr, attr_val)
-
     def _set_time_dt(self):
         """Get time and dt arrays at needed time indices."""
         # Use the first var in the list that is an aospy.Var object.
@@ -229,7 +237,7 @@ class Calc(object):
                 break
 
         with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
-            time_obj = nc.variables['time']
+            time_obj = netCDF4.MFTime(nc.variables['time'])
             inds, time = _get_time(
                 time_obj[:], time_obj.units, time_obj.calendar,
                 self.start_yr, self.end_yr, self.months, indices=True
@@ -244,17 +252,24 @@ class Calc(object):
         """Get durations of the desired timesteps."""
         if self.dtype_in_time == 'inst':
             return np.ones(np.shape(indices))
-        else:
-            for dt_name in ('average_DT',):
-                try:
-                    dt = nc.variables[dt_name]
-                except KeyError:
-                    pass
-                else:
-                    break
+        for dt_name in ('average_DT',):
+            try:
+                dt = nc.variables[dt_name]
+            except KeyError:
+                pass
             else:
-                dt = self.model[0]._get_dt()
-            return dt[indices]
+                return dt[indices]
+        for name in ('time_bounds', 'time_bnds'):
+            try:
+                time_bounds = nc.variables[name]
+            except KeyError:
+                pass
+            else:
+                assert time_bounds.ndim == 2
+                assert time_bounds.dimensions[1] == 'bnds'
+                dt = time_bounds[:,1] - time_bounds[:,0]
+                return dt[indices]
+        raise ValueError("dt array could not be created.")
 
     def _reshape_time_indices(self, array, start_yr, end_yr):
         """Reshape time array to have year- and within-year axes.
@@ -448,7 +463,7 @@ class Calc(object):
                         pass
                     else:
                         break
-            time = nc.variables['time']
+            time = netCDF4.MFTime(nc.variables['time'])
             t_array, t_units, t_cal = time[:], time.units, time.calendar
             t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
                                self.months, indices='only')
