@@ -348,13 +348,22 @@ class Calc(object):
 
     def _get_nc_one_dir(self, name, n=0):
         """Get the names of netCDF files when all in same directory."""
-        try:
-            files = [self.direc_nc[n] + '/' + self.nc_files[n][name]]
-        except TypeError:
-            files = [self.direc_nc[n] + '/' + nc_file for
-                     nc_file in self.nc_files[n][name]]
+        if isinstance(self.nc_files[n][name], str):
+            nc_files = [self.nc_files[n][name]]
+        else:
+            nc_files = self.nc_files[n][name]
+        # nc_files may hold absolute or relative paths
+        paths = []
+        for nc in nc_files:
+            full = '/'.join([self.direc_nc[n], nc]).replace('//', '/')
+            if os.path.isfile(nc):
+                paths.append(nc)
+            elif os.path.isfile(full):
+                paths.append(full)
+            else:
+                print "Warning: specified netCDF file `%s` not found" % nc
         # Remove duplicate entries.
-        files = list(set(files))
+        files = list(set(paths))
         files.sort()
         return files
 
@@ -403,29 +412,32 @@ class Calc(object):
         Files chosen depend on the specified variables and time intvl and the
         attributes of the netCDF files.
         """
-        # Cycle through possible names.
+        # Cycle through possible names until the data is found.
         names = [var.name]
         if hasattr(var, 'alt_names'):
             names += list(var.alt_names)
-        # Get directory and file info from the corresponding Run.
-        # if n:
-        # Get the data.
         for name in names:
             if self.nc_dir_struc[n] == 'one_dir':
-                files = self._get_nc_one_dir(name, n=n)
+                try:
+                    files = self._get_nc_one_dir(name, n=n)
+                except KeyError:
+                    pass
+                else:
+                    break
             elif self.nc_dir_struc[0].lower() == 'gfdl':
-                files = self._get_nc_gfdl_dir_struct(name, start_yr,
-                                                     end_yr, n=n)
-            try:
-                # Retrieve files from archive using desired system calls.
-                dmget(files)
-                # hsmget_retcode = hsmget_nc(files)
-                # Return netCDF4.MFDataset object containing the data.
-                return netCDF4.MFDataset(files)
-            except (RuntimeError, KeyError):
-                pass
+                try:
+                    files = self._get_nc_gfdl_dir_struct(name, start_yr,
+                                                         end_yr, n=n)
+                except:
+                    raise
+                else:
+                    break
         else:
-            raise IOError("Could not find files for variable '%s'." % var)
+            raise Exception("netCDF files for variable `%s` not found" % var)
+        # Retrieve files from archive using desired system calls.
+        dmget(files)
+        # hsmget_retcode = hsmget_nc(files)
+        return netCDF4.MFDataset(files)
 
     def _get_pressure_vals(self, var, start_yr, end_yr, n=0):
         """Get pressure array, whether sigma or standard levels."""
@@ -555,14 +567,12 @@ class Calc(object):
     def _local_ts(self, dp, dt, num_yr, *data_in):
         """Compute the function on the given gridded input data."""
         result = self.function(*data_in)
-        print 'result', result.shape
         # Apply spatial reductions methods.
         if self.def_vert and self.dtype_out_vert == 'vert_int':
             result = int_dp_g(result, dp)[:,np.newaxis,:,:]
         # If already averaged, pass data on.  Otherwise do time averaging.
         if 'av' in self.dtype_in_time or not self.def_time:
             return result
-        # print dp.shape, dt.shape, num_yr, result.shape
         try:
             result = result.reshape((num_yr, -1, result.shape[-3],
                                      result.shape[-2], result.shape[-1]))
