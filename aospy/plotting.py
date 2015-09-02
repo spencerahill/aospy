@@ -26,12 +26,12 @@ ax_specs = (
     'time_ticklabels', 'time_label', 'do_mark_x0', 'do_mark_y0'
 )
 plot_specs = (
-    'plot_type', 'marker_size', 'marker_shape', 'marker_color', 'line_color',
-    'line_style', 'line_width', 'do_best_fit_line', 'print_best_fit_slope',
+    'plot_type', 'do_best_fit_line', 'print_best_fit_slope',
     'print_corr_coeff', 'cntr_lvls', 'colormap', 'min_cntr', 'max_cntr',
     'num_cntr', 'contours_extend', 'latlon_rect', 'do_mask_oceans',
-    'contour_labels', 'plotting_func_kwargs', 'quiver_n_lon', 'quiver_n_lat',
-    'do_quiverkey', 'quiverkey_args', 'quiverkey_kwargs'
+    'contour_labels', 'contour_kwargs', 'plot_kwargs', 'quiver_kwargs',
+    'quiver_n_lon', 'quiver_n_lat', 'do_quiverkey', 'quiverkey_args',
+    'quiverkey_kwargs', 'scatter_kwargs'
 )
 data_specs = (
     'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'yr_range',
@@ -236,7 +236,7 @@ class Ax(object):
         self.Plot = []
 
         self._copy_attrs_from_fig()
-        self._set_ax_loc_specs()
+        # self._set_ax_loc_specs()
         self._set_xy_attrs_to_coords()
 
     def _traverse_child_tree(self, value, level='data'):
@@ -302,12 +302,13 @@ class Ax(object):
             self.ax.set_xlim(self.x_lim)
         if self.do_mark_y0 and self.y_lim[0] < 0 and self.y_lim[1] > 0:
             self.ax.hlines(0, self.x_lim[0], self.x_lim[1], colors='0.5')
-        # if self.x_ticks:
-        #     self.ax.set_xticks(self.x_ticks)
-        # if self.x_ticklabels:
-        #     self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
-        # if self.x_label:
-        #     self.ax.set_xlabel(self.x_label, fontsize='small', labelpad=1)
+        if self.x_ticks:
+            self.ax.set_xticks(self.x_ticks)
+        if self.x_ticklabels:
+            self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
+        if self.x_label:
+            self.ax.set_xlabel(self.x_label,
+                               fontsize='small', labelpad=1)
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
         if self.do_mark_x0 and self.x_lim[0] < 0 and self.x_lim[1] > 0:
@@ -451,11 +452,9 @@ class Plot(object):
             if isinstance(calc, Operator):
                 self.calc[i] = calc.objects[0]
 
-        self._apply_data_transforms()
+        # self._apply_data_transforms()
 
         self._set_coord_arrays()
-        self.cntr_lvls = np.linspace(self.min_cntr, self.max_cntr,
-                                     self.num_cntr + 1)
 
         if self.ax.x_dim == 'lon' and self.ax.y_dim == 'lat':
             self.basemap = self._make_basemap()
@@ -485,20 +484,6 @@ class Plot(object):
                     verbose=self.fig.verbose, skip_time_inds=True
                 )) for run in self.run[i].objects]
                 calc_obj.append(Operator(self.run[i].operator, calcs))
-            # elif isinstance(self.run[i], dict):
-            #     calc_pair = [Calc(CalcInterface(
-            #         proj=self.proj[i], model=self.model[i],
-            #         run=self.run[i].keys()[0][j],
-            #         ens_mem=self.ens_mem[i], var=self.var[i],
-            #         yr_range=self.yr_range[i], region=self.region[i],
-            #         intvl_in=self.intvl_in[i], intvl_out=self.intvl_out[i],
-            #         dtype_in_time=self.dtype_in_time[i],
-            #         dtype_in_vert=self.dtype_in_vert[i],
-            #         dtype_out_time=self.dtype_out_time[i],
-            #         dtype_out_vert=self.dtype_out_vert[i], level=self.level[i],
-            #         verbose=self.fig.verbose, skip_time_inds=True
-            #     )) for j in range(2)]
-            #     calc_obj.append({calc_pair: self.run[i].values()[0]})
             else:
                 calc_obj.append(Calc(CalcInterface(
                     proj=self.proj[i], model=self.model[i], run=self.run[i],
@@ -526,7 +511,10 @@ class Plot(object):
             array_key = getattr(self.ax, dim)
 
             if array_key in ('x', 'y'):
-                array = self.data[0]
+                if len(self.data) == 1:
+                    array = self.data[0]
+                else:
+                    array = self.data
             else:
                 try:
                     array = getattr(self.calc[i].model[0],
@@ -698,11 +686,9 @@ class Contour(Plot):
     def __init__(self, plot_interface):
         """Contour plot."""
         Plot.__init__(self, plot_interface)
-        self.plot_kwargs = {'extend': self.contours_extend}
         self.plot_func = self.backend.contour
-        self.plot_kwargs.update({'colors': self.line_color,
-                                 'linewidths': self.line_width,
-                                 'linestyles': self.line_style})
+        self.cntr_lvls = np.linspace(self.min_cntr, self.max_cntr,
+                                     self.num_cntr + 1)
 
     def _prep_data(self):
         if self.basemap:
@@ -713,7 +699,7 @@ class Contour(Plot):
     def plot(self):
         self._prep_data()
         self.handle = self.plot_func(self.x_data, self.y_data, self.plot_data,
-                                     self.cntr_lvls, **self.plot_kwargs)
+                                     self.cntr_lvls, **self.contour_kwargs)
         if self.contour_labels:
             plt.gca().clabel(self.handle, fontsize=7, fmt='%1d')
         if self.colormap:
@@ -725,36 +711,36 @@ class Contour(Plot):
 class Contourf(Contour):
     def __init__(self, plot_interface):
         """Filled contour ('contourf') plot."""
-        Plot.__init__(self, plot_interface)
-        self.plot_kwargs = {'extend': self.contours_extend}
+        Contour.__init__(self, plot_interface)
         self.plot_func = self.backend.contourf
+        # Remove contour-only kwargs.
+        for key in ('linewidths', 'linestyles'):
+            try:
+                self.contour_kwargs.pop(key)
+            except KeyError:
+                pass
 
 
 class Line(Plot):
     def __init__(self, plot_interface):
         """Line plot."""
         Plot.__init__(self, plot_interface)
-        if self.marker_shape is False:
-            self.marker_shape = None
 
     def plot(self):
-        self.handle = self.backend.plot(
-            self.x_data, self.y_data, color=self.line_color,
-            linestyle=self.line_style, marker=self.marker_shape,
-            markerfacecolor=self.marker_color, markersize=self.marker_size
-        )
+        self.handle = self.backend.plot(self.x_data, self.y_data,
+                                        **self.plot_kwargs)
 
 
 class Scatter(Plot):
     def __init__(self, plot_interface):
         Plot.__init__(self, plot_interface)
-        assert self.n_data == 2
+        self.x_data = self.data[0]
+        self.y_data = self.data[1]
+        self._apply_data_transforms()
 
     def plot(self):
-        self.handle = self.backend.scatter(
-            self.x_data, self.y_data, s=self.marker_size, c=self.marker_color,
-            marker=self.marker_shape
-        )
+        self.handle = self.backend.scatter(self.x_data, self.y_data,
+                                           **self.scatter_kwargs)
         if self.do_best_fit_line:
             self.best_fit_line(print_slope=self.print_best_fit_slope)
 
@@ -784,10 +770,8 @@ class Quiver(Plot):
             self.plot_data = self.data[0]
 
         u, v, x, y = self.prep_quiver()
+        self.handle = self.backend.quiver(x, y, u, v, **self.quiver_kwargs)
 
-        self.handle = self.backend.quiver(
-            x, y, u, v, **self.plotting_func_kwargs
-        )
         if self.do_quiverkey:
             self.quiverkey = plt.quiverkey(self.handle, *self.quiverkey_args,
                                            **self.quiverkey_kwargs)
