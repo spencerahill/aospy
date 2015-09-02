@@ -61,7 +61,7 @@ class Model(object):
                 return nc.variables[attr_name][:]
             except KeyError:
                 pass
-        return None
+        raise KeyError
 
     def _set_mult_nc_grid_attr(self):
         """
@@ -96,9 +96,13 @@ class Model(object):
         try:
             for name_int, names_ext in grid_attrs.iteritems():
                 for name in names_ext:
-                    setattr(self, name_int,
-                            self._get_nc_grid_attr(nc_grid, name))
-                    break
+                    try:
+                        setattr(self, name_int,
+                                self._get_nc_grid_attr(nc_grid, name))
+                    except KeyError:
+                        setattr(self, name_int, None)
+                    else:
+                        break
         except:
             raise
         finally:
