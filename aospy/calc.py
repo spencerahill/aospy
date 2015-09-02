@@ -248,6 +248,37 @@ class Calc(object):
             self.time_inds = inds
             self.dt = self._get_dt(nc, inds)
 
+            for name in ('level', 'lev', 'plev'):
+                try:
+                    self.pressure = nc.variables[name][:]
+                except KeyError:
+                    pass
+                else:
+                    break
+            else:
+                self.pressure = False
+
+            for name in ('lat', 'latitude', 'LATITUDE', 'y', 'yto'):
+                try:
+                    self.lat = nc.variables[name][:]
+                except KeyError:
+                    pass
+                else:
+                    break
+            else:
+                self.lat = False
+
+            for name in ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'):
+                try:
+                    self.lon = nc.variables[name][:]
+                except KeyError:
+                    pass
+                else:
+                    break
+            else:
+                self.lon = False
+
+
     def _get_dt(self, nc, indices):
         """Get durations of the desired timesteps."""
         if self.dtype_in_time == 'inst':
@@ -400,10 +431,14 @@ class Calc(object):
         """Get pressure array, whether sigma or standard levels."""
         self._print_verbose("Getting pressure data: %s", var)
         if self.dtype_in_vert == 'pressure':
+            if np.any(self.pressure):
+                pressure = self.pressure
+            else:
+                pressure = self.model[n].level
             if var == 'p':
-                data = self.model[n].level
+                data = pressure
             elif var == 'dp':
-                data = level_thickness(self.model[n].level)
+                data = level_thickness(pressure)
             data = data[np.newaxis,:,np.newaxis,np.newaxis]
         if self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
@@ -419,10 +454,10 @@ class Calc(object):
                          vert=False, lat=False, lon=False, n=0):
         """Subset the data array to the specified time/level/lat/lon, etc."""
         if region:
-            if type(region) is str:
-                data = data[region]
-            elif type(region) is Region:
-                data = data[region.name]
+            # if type(region) is str:
+                # data = data[region]
+            # elif type(region) is Region:
+            data = data[region.name]
         if np.any(time):
             data = data[time]
             if 'av_from_' in self.dtype_in_time:
@@ -498,9 +533,18 @@ class Calc(object):
             elif isinstance(var, (float, int, Constant)):
                 data = var
             # aospy.Var objects remain.
-            elif var.name in ('lat', 'lon', 'level', 'pk', 'bk', 'sfc_area',
-                              'time'):
-                # Get grid, time, etc. arrays directly from model object
+            elif var.name == 'lat':
+                if np.any(self.lat):
+                    data = self.lat
+                else:
+                    data = getattr(self.model[0], var.name)
+            elif var.name == 'lon':
+                if np.any(self.lon):
+                    data = self.lon
+                else:
+                    data = getattr(self.model[0], var.name)
+            # Get other grid, time, etc. arrays directly from model object
+            elif var.name in ('level', 'pk', 'bk', 'sfc_area', 'time'):
                 data = getattr(self.model[0], var.name)
             else:
                 data = self._get_var_data(var, start_yr, end_yr,
@@ -511,12 +555,14 @@ class Calc(object):
     def _local_ts(self, dp, dt, num_yr, *data_in):
         """Compute the function on the given gridded input data."""
         result = self.function(*data_in)
+        print 'result', result.shape
         # Apply spatial reductions methods.
         if self.def_vert and self.dtype_out_vert == 'vert_int':
             result = int_dp_g(result, dp)[:,np.newaxis,:,:]
         # If already averaged, pass data on.  Otherwise do time averaging.
         if 'av' in self.dtype_in_time or not self.def_time:
             return result
+        # print dp.shape, dt.shape, num_yr, result.shape
         try:
             result = result.reshape((num_yr, -1, result.shape[-3],
                                      result.shape[-2], result.shape[-1]))
