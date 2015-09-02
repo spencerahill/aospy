@@ -100,9 +100,12 @@ class Model(object):
                         setattr(self, name_int,
                                 self._get_nc_grid_attr(nc_grid, name))
                     except KeyError:
-                        setattr(self, name_int, None)
+                        pass
                     else:
                         break
+                else:
+                    setattr(self, name_int, None)
+
         except:
             raise
         finally:
@@ -155,8 +158,8 @@ class Model(object):
             return
         self._set_mult_nc_grid_attr()
         self._set_sfc_area()
-        try:
+        if not (self.level is None):
             self.levs_thick = level_thickness(self.level)
-        except AttributeError:
+        else:
             self.levs_thick = None
         self.grid_data_is_set = True
