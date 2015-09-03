@@ -352,10 +352,18 @@ class Calc(object):
             nc_files = [self.nc_files[n][name]]
         else:
             nc_files = self.nc_files[n][name]
+        if isinstance(self.direc_nc, str):
+            direc_nc = self.direc_nc
+        elif isinstance(self.direc_nc, (list, tuple)):
+            direc_nc = self.direc_nc[n]
+        else:
+            raise IOError("direc_nc must be string, list, or tuple: %s"
+                          % self.direc_nc)
+        print direc_nc
         # nc_files may hold absolute or relative paths
         paths = []
         for nc in nc_files:
-            full = '/'.join([self.direc_nc[n], nc]).replace('//', '/')
+            full = '/'.join([direc_nc, nc]).replace('//', '/')
             if os.path.isfile(nc):
                 paths.append(nc)
             elif os.path.isfile(full):
