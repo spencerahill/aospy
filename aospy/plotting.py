@@ -662,13 +662,18 @@ class Plot(object):
                 colormap = default_colormap
         self.handle.set_cmap(colormap)
 
-    def corr_coeff(self):
+    def corr_coeff(self, x_data, y_data, print_corr=True, print_pval=True):
         """Compute the Pearson correlation coefficient and plot it."""
-        pearsonr, p_val = scipy.stats.pearsonr(self.x_data, self.y_data)
-        self.ax.ax.text(0.3, 0.89, r'$r=$ %.2f' % pearsonr,
-                        transform=self.ax.ax.transAxes, fontsize='x-small')
+        pearsonr, p_val = scipy.stats.pearsonr(x_data, y_data)
+        if print_corr:
+            self.ax.ax.text(0.3, 0.95, r'$r=$ %.2f' % pearsonr,
+                            transform=self.ax.ax.transAxes, fontsize='x-small')
+        if print_pval:
+            self.ax.ax.text(0.3, 0.9, r'$p=$ %.3f' % p_val,
+                            transform=self.ax.ax.transAxes, fontsize='x-small')
+        return pearsonr, p_val
 
-    def best_fit_line(self, print_slope=True):
+    def best_fit_line(self, print_slope=True, print_y0=True):
         """Plot the best fit line to the data."""
         best_fit = np.polyfit(self.x_data, self.y_data, 1)
         x_lin_fit = [-1e3, 1e3]
@@ -678,7 +683,10 @@ class Plot(object):
         self.backend.plot(x_lin_fit, lin_fit(best_fit[0], x_lin_fit,
                                              best_fit[1]), 'k')
         if print_slope:
-            self.ax.ax.text(0.3, 0.07, r'slope = %0.2f' % best_fit[0],
+            self.ax.ax.text(0.3, 0.1, r'slope = %0.2f' % best_fit[0],
+                            transform=self.ax.ax.transAxes, fontsize='x-small')
+        if print_y0:
+            self.ax.ax.text(0.3, 0.05, r'y0 = %0.2f' % best_fit[1],
                             transform=self.ax.ax.transAxes, fontsize='x-small')
 
 
@@ -734,8 +742,8 @@ class Line(Plot):
 class Scatter(Plot):
     def __init__(self, plot_interface):
         Plot.__init__(self, plot_interface)
-        self.x_data = self.data[0]
-        self.y_data = self.data[1]
+        self.x_data = np.squeeze(self.data[0])
+        self.y_data = np.squeeze(self.data[1])
         self._apply_data_transforms()
 
     def plot(self):
@@ -745,7 +753,7 @@ class Scatter(Plot):
             self.best_fit_line(print_slope=self.print_best_fit_slope)
 
         if self.print_corr_coeff:
-            self.corr_coeff()
+            self.corr_coeff(self.x_data, self.y_data)
 
 
 class Quiver(Plot):
