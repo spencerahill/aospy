@@ -4,7 +4,6 @@ import string
 import subprocess
 import numpy as np
 import netCDF4
-import warnings
 
 def to_dup_list(x, n, single_to_list=True):
     """
