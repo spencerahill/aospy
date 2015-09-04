@@ -241,6 +241,9 @@ class Calc(object):
             try:
                 time_obj = netCDF4.MFTime(nc.variables['time'])
             except ValueError:
+                warnings.warn('Unsupported calendar attribute provided: %s.'
+                              ' Defaulting to 360_day calendar type.'
+                              % nc.variables['time'].calendar, RuntimeWarning)
                 nc.variables['time'].calendar = '360_day'
                 time_obj = netCDF4.MFTime(nc.variables['time'])
             inds, time = _get_time(
@@ -506,8 +509,9 @@ class Calc(object):
             try:        
                 time = netCDF4.MFTime(nc.variables['time'])
             except ValueError:
-                warnings.warn('Unsupported calendar attribute provided: %s. Defaulting to 360_day calendar type.' % nc.variables['time'].calendar, RuntimeWarning) 
-    #            print "Unsupported calendar attribute provided: %s. Defaulting to 360_day calendar type." % nc.variables['time'].calendar
+                warnings.warn('Unsupported calendar attribute provided: %s.'
+                              ' Defaulting to 360_day calendar type.'
+                              % nc.variables['time'].calendar, RuntimeWarning) 
                 nc.variables['time'].calendar = '360_day'
                 time = netCDF4.MFTime(nc.variables['time'])
 
