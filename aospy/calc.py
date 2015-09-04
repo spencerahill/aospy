@@ -5,9 +5,11 @@ import shutil
 import subprocess
 import tarfile
 import time
+import warnings
 
 import netCDF4
 import numpy as np
+import xray
 
 from . import Constant, Var, Region
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
@@ -237,7 +239,11 @@ class Calc(object):
                 break
 
         with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
-            time_obj = netCDF4.MFTime(nc.variables['time'])
+            try:
+                time_obj = netCDF4.MFTime(nc.variables['time'])
+            except ValueError:
+                nc.variables['time'].calendar = '360_day'
+                time_obj = netCDF4.MFTime(nc.variables['time'])
             inds, time = _get_time(
                 time_obj[:], time_obj.units, time_obj.calendar,
                 self.start_yr, self.end_yr, self.months, indices=True
@@ -498,7 +504,14 @@ class Calc(object):
                         pass
                     else:
                         break
-            time = netCDF4.MFTime(nc.variables['time'])
+            try:        
+                time = netCDF4.MFTime(nc.variables['time'])
+            except ValueError:
+                warnings.warn('Unsupported calendar attribute provided: %s. Defaulting to 360_day calendar type.' % nc.variables['time'].calendar, RuntimeWarning) 
+    #            print "Unsupported calendar attribute provided: %s. Defaulting to 360_day calendar type." % nc.variables['time'].calendar
+                nc.variables['time'].calendar = '360_day'
+                time = netCDF4.MFTime(nc.variables['time'])
+
             t_array, t_units, t_cal = time[:], time.units, time.calendar
             t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
                                self.months, indices='only')
@@ -752,6 +765,7 @@ class Calc(object):
              scratch=True, archive=False):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
+        print self._to_DataArray(data)
         if scratch:
             self._save_to_scratch(data, dtype_out_time,
                                   dtype_out_vert=dtype_out_vert)
@@ -801,3 +815,16 @@ class Calc(object):
         if plot_units:
             data = self.var.to_plot_units(data, vert_int=dtype_out_vert)
         return data
+
+    def _to_DataArray(self, data):
+        """
+        Converts a Calc instance to an xray DataArray.  Pulls grid information from instance.
+        """
+        
+        if not self.pressure:
+            print data.shape
+            print self.lat
+            print self.lon
+            return xray.DataArray(data, coords=[self.lat, self.lon], dims=['lat','lon'], encoding={'lat' : 'f8', 'lon' : 'f8'})
+        else:
+            return None

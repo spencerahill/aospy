@@ -167,7 +167,10 @@ def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
                     the time array itself at those time indices.
     :type indices: bool
     """
-    dates = netCDF4.num2date(time[:], units, calendar.lower())
+    try:
+        dates = netCDF4.num2date(time[:], units, calendar.lower())
+    except:
+        dates = netCDF4.num2date(time[:], units, '360_day')    
     inds = [i for i, date in enumerate(dates) if (date.month in months) and
             (date.year in range(start_yr, end_yr+1))]
     if indices == 'only':

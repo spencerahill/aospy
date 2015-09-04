@@ -157,6 +157,6 @@ class Model(object):
         self._set_sfc_area()
         try:
             self.levs_thick = level_thickness(self.level)
-        except AttributeError:
+        except (AttributeError, TypeError):
             self.levs_thick = None
         self.grid_data_is_set = True
