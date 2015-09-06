@@ -268,33 +268,19 @@ def hsmget_nc(files_list):
     return retcode
 
 
-def _get_time_avg_var(proj, model_name, run_name, var):
-    """Get the desired Var object and designate its parent Run oject."""
-    try:
-        var = proj.vars[var.name]
-    except KeyError:
-        for alt_name in alt_names:
-            try:
-                var = proj.vars[alt_name]
-            except KeyError:
-                pass
-            else:
-
-                break
-    except AttributeError:
-        var = proj.vars[var]
-    var.proj = proj
-    try:
-        var.model = proj.models[model_name]
-    except KeyError:
-        var.model = model_name
-    # try/except TypeError clause is hack solution to deal with plotting
-    # functions inputting a list of run names rather than a single run name
-    # string.
-    try:
-        var.run = var.model.runs[run_name]
-    except KeyError:
-        var.run = run_name
-    except TypeError:
-        var.run = var.model.runs[run_name[-1]]
-    return var
+def get_nc_direc_repo(nc_direc, var_name, version=-1):
+    """Determine the directory containing the needed netCDF files."""
+    dir_prefix = os.path.realpath(nc_direc)
+    dirs_after = [os.path.join(dir_prefix, name)
+                  for name in os.listdir(dir_prefix) if
+                  (os.path.isdir(os.path.join(dir_prefix, name)) and
+                   name[0] == 'v')]
+    dirs_after.sort()
+    # We assume that the directories are all of the format "v#[###...]",
+    # the numbers typically specifiying a date YYYYMMDD, but occasionally
+    # just a single number, e.g. 'v1' instead.  We assume we want the
+    # latest/most recent version, which after sorting will be the last
+    # entry in the list.  Or the version can be specified using the
+    # 'version' kwarg.
+    # Then append the run's direc_nc specification.
+    return os.path.join(dir_prefix, dirs_after[version], var_name)

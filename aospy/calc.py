@@ -1,5 +1,6 @@
 """calc.py: classes for performing specified calculations on aospy data"""
 import cPickle
+import glob
 import os
 import shutil
 import subprocess
@@ -11,7 +12,8 @@ import numpy as np
 
 from . import Constant, Var, Region
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
-                 _month_indices, _yr_label, dmget, nc_name_gfdl)
+                 _month_indices, _yr_label, dmget, nc_name_gfdl,
+                 get_nc_direc_repo)
 from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
                     dp_from_sigma, int_dp_g)
 
@@ -160,8 +162,9 @@ class Calc(object):
         if isinstance(calc_interface.ens_mem, int):
             self.direc_nc = self.direc_nc[calc_interface.ens_mem]
 
-        if not calc_interface.skip_time_inds:
-            self._set_time_dt()
+        # if not calc_interface.skip_time_inds:
+            # self._set_time_dt()
+        self.dt_set = False
 
         self.dir_scratch = self._dir_scratch()
         self.dir_archive = self._dir_archive()
@@ -236,7 +239,7 @@ class Calc(object):
                 nc_var = var
                 break
 
-        with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
+        with self._get_nc(var, self.start_yr, self.end_yr) as nc:
             time_obj = netCDF4.MFTime(nc.variables['time'])
             inds, time = _get_time(
                 time_obj[:], time_obj.units, time_obj.calendar,
@@ -277,7 +280,6 @@ class Calc(object):
                     break
             else:
                 self.lon = False
-
 
     def _get_dt(self, nc, indices):
         """Get durations of the desired timesteps."""
@@ -346,20 +348,12 @@ class Calc(object):
         ).replace('..', '.')
         return file_name
 
-    def _get_nc_one_dir(self, name, n=0):
+    def _get_nc_one_dir(self, name, direc_nc, n=0):
         """Get the names of netCDF files when all in same directory."""
         if isinstance(self.nc_files[n][name], str):
             nc_files = [self.nc_files[n][name]]
         else:
             nc_files = self.nc_files[n][name]
-        if isinstance(self.direc_nc, str):
-            direc_nc = self.direc_nc
-        elif isinstance(self.direc_nc, (list, tuple)):
-            direc_nc = self.direc_nc[n]
-        else:
-            raise IOError("direc_nc must be string, list, or tuple: %s"
-                          % self.direc_nc)
-        print direc_nc
         # nc_files may hold absolute or relative paths
         paths = []
         for nc in nc_files:
@@ -375,7 +369,13 @@ class Calc(object):
         files.sort()
         return files
 
-    def _get_nc_gfdl_dir_struct(self, name, start_yr, end_yr, n=0):
+    def _get_nc_gfdl_repo(self, name, n=0):
+        """Get the names of netCDF files from a GFDL repo on /archive."""
+        return self.model[n].find_nc_direc_repo(
+            run_name=self.run[n].name, var_name=name
+        )
+
+    def _get_nc_gfdl_dir_struct(self, name, direc_nc, start_yr, end_yr, n=0):
         """
         Get the names of netCDF files stored in GFDL standard directory
         structure and names.
@@ -395,7 +395,7 @@ class Calc(object):
             dtype_lbl = dtype
         else:
             dtype = self.dtype_in_time
-        direc = (self.direc_nc[n] + '/' + domain + '/' + dtype_lbl + '/' +
+        direc = (direc_nc + '/' + domain + '/' + dtype_lbl + '/' +
                  self.intvl_in + separator + str(self.nc_dur[n]) + 'yr/')
         # files_in_dir = os.listdir(direc)
         # files_var = [nc for nc in files_in_dir if name in nc]
@@ -420,6 +420,13 @@ class Calc(object):
         Files chosen depend on the specified variables and time intvl and the
         attributes of the netCDF files.
         """
+        if isinstance(self.direc_nc, str):
+            direc_nc = self.direc_nc
+        elif isinstance(self.direc_nc, (list, tuple)):
+            direc_nc = self.direc_nc[n]
+        else:
+            raise IOError("direc_nc must be string, list, or tuple: %s"
+                          % self.direc_nc)
         # Cycle through possible names until the data is found.
         names = [var.name]
         if hasattr(var, 'alt_names'):
@@ -427,21 +434,33 @@ class Calc(object):
         for name in names:
             if self.nc_dir_struc[n] == 'one_dir':
                 try:
-                    files = self._get_nc_one_dir(name, n=n)
+                    files = self._get_nc_one_dir(name, direc_nc, n=n)
                 except KeyError:
                     pass
                 else:
                     break
             elif self.nc_dir_struc[0].lower() == 'gfdl':
                 try:
-                    files = self._get_nc_gfdl_dir_struct(name, start_yr,
-                                                         end_yr, n=n)
+                    files = self._get_nc_gfdl_dir_struct(name, direc_nc,
+                                                         start_yr, end_yr, n=n)
                 except:
                     raise
                 else:
                     break
+            elif self.nc_dir_struc[0].lower() == 'gfdl_repo':
+                try:
+                    files = self._get_nc_gfdl_repo(name, n=n)
+                except IOError:
+                    pass
+                else:
+                    break
+            else:
+                raise ValueError("Specified directory type not supported: %s"
+                                 % self.nc_dir_struc[n])
         else:
-            raise Exception("netCDF files for variable `%s` not found" % var)
+            raise IOError("netCDF files for variable `%s`, year range %s-%s, "
+                          "in directory %s, not found" % (var, start_yr,
+                                                          end_yr, direc_nc))
         # Retrieve files from archive using desired system calls.
         dmget(files)
         # hsmget_retcode = hsmget_nc(files)
@@ -656,6 +675,11 @@ class Calc(object):
         """Perform the calculation on the given chunk of times."""
         self._print_verbose("\nComputing desired timeseries from netCDF data "
                             "for years %d-%d.", (start_yr, end_yr))
+
+        if not self.dt_set:
+            self._set_time_dt()
+            self.dt_set = True
+
         inds = _get_time(
             self.time, self.time_units, self.calendar,
             start_yr, end_yr, self.months, indices='only'

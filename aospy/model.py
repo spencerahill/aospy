@@ -1,8 +1,12 @@
 """model.py: Model class of aospy for storing attributes of a GCM."""
+import glob
+import os
+
 import numpy as np
 import netCDF4
 
 from .constants import r_e
+from .io import get_nc_direc_repo
 from .utils import dict_name_keys, level_thickness
 
 
@@ -12,16 +16,27 @@ class Model(object):
                  nc_dur=False, nc_start_yr=False, nc_end_yr=False,
                  nc_start_month=False, nc_end_month=False,
                  default_yr_range=False, runs={}, default_runs={},
-                 load_grid_data=False):
+                 load_grid_data=False, nc_dir_struc=False, nc_direc=False,
+                 repo_version=-1):
         self.name = name
         self.description = description
         self.proj = proj
-        self.nc_dur = nc_dur
-        self.nc_grid_paths = nc_grid_paths
+
+        self.nc_direc = nc_direc
+        if nc_dir_struc == 'gfdl_repo':
+            self.repo_version = repo_version
+            self.nc_grid_paths = self.find_nc_direc_repo()
+        else:
+            self.nc_grid_paths = nc_grid_paths
+        self.nc_dir_struc = nc_dir_struc
+
         self.nc_start_yr = nc_start_yr
         self.nc_end_yr = nc_end_yr
         self.nc_start_month = nc_start_month
         self.nc_end_month = nc_end_month
+        self.nc_dur = nc_dur
+
+
         self.default_yr_range = default_yr_range
         self.runs = dict_name_keys(runs)
         [setattr(run, 'parent', self) for run in self.runs.values()]
@@ -40,17 +55,36 @@ class Model(object):
 
     __repr__ = __str__
 
+    def find_nc_direc_repo(self, run_name='amip', var_name='ta',
+                           direc_sub='mon/atmos/Amon/r1i1p1'):
+        """Find the netCDF files used to populate grid attrs for a GFDL repo"""
+        direc = os.path.join(self.nc_direc, run_name, direc_sub)
+        direc_full = get_nc_direc_repo(direc, var_name,
+                                       version=self.repo_version)
+        # Some repos have all variables in the same directory.
+        files = glob.glob(os.path.join(direc_full, var_name + '_*.nc'))
+        if len(files) == 0:
+            files = glob.glob(os.path.join(direc_full, var_name,
+                                           var_name + '_*.nc'))
+        # Others have subdirectories for each variable.
+        if len(files) > 0:
+            files.sort()
+            return files
+        else:
+            raise IOError("Specified files don't exist for var name '%s' "
+                          "in directory '%s" % (var_name, direc_full))
+
+        return glob.glob(os.path.join(direc_full, var_name + '_*.nc'))
+
+
     def _get_nc_grid(self):
         """Get the nc_grid of an aospy object."""
         nc_objs = []
         for path in self.nc_grid_paths:
             try:
-                nc_obj = netCDF4.Dataset(path)
-            except TypeError:
                 nc_obj = netCDF4.MFDataset(path)
             except RuntimeError:
-                raise RuntimeError('No netCDF file found at the specified '
-                                   'directory: %s' % path)
+                nc_obj = netCDF4.MFDataset([path])
             nc_objs.append(nc_obj)
         return tuple(nc_objs)
 
