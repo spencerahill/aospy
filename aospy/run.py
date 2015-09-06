@@ -7,7 +7,7 @@ class Run(object):
                  nc_start_month=False, nc_end_month=False, nc_dir_struc='gfdl',
                  nc_suffix=False, nc_files={}, default_yr_range=False,
                  ens_mem_prefix=False, ens_mem_ext=False, ens_mem_suffix=False,
-                 tags=()):
+                 tags=(), read_mode='netcdf4'):
         self.name = name
         self.description = description
         self.proj = proj
@@ -21,6 +21,8 @@ class Run(object):
         self.nc_files = nc_files
         self.default_yr_range = default_yr_range
         self.tags = tags
+        
+        self.read_mode = read_mode
 
         self.ens_mem_prefix = ens_mem_prefix
         self.ens_mem_ext = ens_mem_ext

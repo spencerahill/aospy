@@ -6,6 +6,7 @@ import subprocess
 import tarfile
 import time
 import warnings
+import xray
 
 import netCDF4
 import numpy as np
@@ -42,9 +43,12 @@ class CalcInterface(object):
                      'ens_mem_ext',
                      'nc_files',
                      'nc_dir_struc',
-                     'default_yr_range'):
+                     'default_yr_range',
+                     'read_mode'):
+
             attr_val = tuple([get_parent_attr(rn, attr, strict=False) for rn
                               in self.run])
+
             setattr(self, attr, attr_val)
 
     def _get_yr_range(self):
@@ -425,16 +429,30 @@ class Calc(object):
             elif self.nc_dir_struc[0].lower() == 'gfdl':
                 files = self._get_nc_gfdl_dir_struct(name, start_yr,
                                                      end_yr, n=n)
-            try:
-                # Retrieve files from archive using desired system calls.
-                dmget(files)
-                # hsmget_retcode = hsmget_nc(files)
-                # Return netCDF4.MFDataset object containing the data.
-                return netCDF4.MFDataset(files)
-            except (RuntimeError, KeyError):
-                pass
-        else:
-            raise IOError("Could not find files for variable '%s'." % var)
+
+            if self.read_mode[n] == 'netcdf4':
+                try:
+                    dmget(files)
+                    return netCDF4.MFDataset(files)
+                except (RuntimeError, KeyError):
+                    pass
+            elif self.read_mode[n] == 'xray':
+                try:
+                    dmget(files)
+                    ds = []
+                    for file in files:
+                        test = xray.open_dataset(file,
+                                                 decode_cf=False,
+                                                 drop_variables=['time_bounds','nv'])
+                        for v in ['time', 'average_T1', 'average_T2']:
+                            test[v].attrs['units'] = 'days since 1900-01-01 00:00:00'
+                        test['time'].attrs['calendar'] = 'noleap'
+                        ds.append(test)
+                    return xray.concat(ds, dim='time')
+                except (RuntimeError, KeyError):
+                    pass
+            else:
+                raise IOError("Could not find files for variable '%s'." % var)
 
     def _get_pressure_vals(self, var, start_yr, end_yr, n=0):
         """Get pressure array, whether sigma or standard levels."""
@@ -769,6 +787,7 @@ class Calc(object):
              scratch=True, archive=False):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
+        print(self._to_DataArray(data))
         if scratch:
             self._save_to_scratch(data, dtype_out_time,
                                   dtype_out_vert=dtype_out_vert)
@@ -818,3 +837,16 @@ class Calc(object):
         if plot_units:
             data = self.var.to_plot_units(data, vert_int=dtype_out_vert)
         return data
+
+    def _to_DataArray(self, data):
+       """
+       Converts a Calc instance to an xray DataArray.  Pulls grid information from instance.
+       """
+        
+       if not self.pressure:
+           print(data.shape)
+           print(self.lat)
+           print(self.lon)
+           return xray.DataArray(data, coords=[self.lat, self.lon], dims=['lat','lon'], encoding={'lat' : 'f8', 'lon' : 'f8'})
+       else:
+           return None
