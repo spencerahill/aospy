@@ -39,6 +39,9 @@ class CalcInterface(object):
                      'direc_nc',
                      'nc_start_month',
                      'nc_end_month',
+                     'nc_start_day',
+                     'default_time_range',
+                     'nc_end_day',
                      'ens_mem_prefix',
                      'ens_mem_ext',
                      'nc_files',
@@ -53,14 +56,25 @@ class CalcInterface(object):
 
     def _get_yr_range(self):
         """Set the object's span of years."""
-        if self.yr_range == 'default':
-            start_yr, end_yr = get_parent_attr(self.run[0], 'default_yr_range')
-        elif self.yr_range == 'all':
-            start_yr = get_parent_attr(self.run[0], 'nc_start_yr')
-            end_yr = get_parent_attr(self.run[0], 'nc_end_yr')
-        else:
-            start_yr, end_yr = self.yr_range
-        return start_yr, end_yr
+        if self.read_mode == 'netcdf4': 
+            if self.yr_range == 'default':
+                start_yr, end_yr = get_parent_attr(self.run[0], 'default_yr_range')
+            elif self.yr_range == 'all':
+                start_yr = get_parent_attr(self.run[0], 'nc_start_yr')
+                end_yr = get_parent_attr(self.run[0], 'nc_end_yr')
+            else:
+                start_yr, end_yr = self.yr_range
+            return start_yr, end_yr
+        elif self.read_mode == 'xray':
+            if self.yr_range == 'default':
+                start_day, end_day = get_parent_attr(self.run[0], 'default_time_range')
+            elif self.yr_range == 'all':
+                start_day = get_parent_attr(self.run[0], 'nc_start_day')
+                end_day = get_parent_attr(self.run[0], 'nc_end_day')
+            else:
+                start_day, end_day = self.yr_range
+         else:
+             pass
 
     def _get_num_yr(self):
         """Compute effective number of years in the input data."""
