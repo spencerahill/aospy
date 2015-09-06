@@ -94,7 +94,7 @@ class Model(object):
         }
         nc_grid = self._get_nc_grid()
         try:
-            for name_int, names_ext in grid_attrs.iteritems():
+            for name_int, names_ext in grid_attrs.items():
                 for name in names_ext:
                     try:
                         setattr(self, name_int,
@@ -157,6 +157,6 @@ class Model(object):
         self._set_sfc_area()
         try:
             self.levs_thick = level_thickness(self.level)
-        except AttributeError:
+        except (AttributeError, TypeError):
             self.levs_thick = None
         self.grid_data_is_set = True

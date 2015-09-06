@@ -116,7 +116,7 @@ def _time_label(intvl, return_val=True):
                   'ond':(10,11,12), 'ndj': (11,12,1), 'djf': (1,  2, 12),
                   'jjas': (6,7,8,9), 'djfm': (12, 1, 2, 3),
                   'ann': range(1,13)}
-        for lbl, vals in labels.iteritems():
+        for lbl, vals in labels.items():
             if intvl == lbl or set(intvl) == set(vals):
                 label = lbl
                 value = np.array(vals)

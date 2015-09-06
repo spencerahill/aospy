@@ -47,15 +47,26 @@ class Constant(object):
             other_value = other
         return np.ma.multiply(self.value, other_value)
 
-    def __div__(self, other):
+#    def __div__(self, other):
+#        if isinstance(other, Constant):
+#            other_value = other.value
+#        else:
+#            other_value = other
+#        return np.ma.divide(self.value, other_value)
+
+    def __truediv__(self, other):
         if isinstance(other, Constant):
             other_value = other.value
         else:
             other_value = other
-        return np.ma.divide(self.value, other_value)
+        return np.ma.divide(self.value, other_value)    
 
-    def __truediv__(self, other):
-        return self.__div__(other)
+    def __floordiv__(self, other):
+        if isinstance(other, Constant):
+            other_value = other.value
+        else:
+            other_value = other
+        return np.ma.divide(self.value, other_value)    
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -66,7 +77,10 @@ class Constant(object):
     def __rmul__(self, other):
         return self.__mul__(other)
 
-    def __rdiv__(self, other):
+    def __rtruediv__(self, other):
+        return np.ma.divide(other, self.value)
+
+    def __rfloordiv__(self, other):
         return np.ma.divide(other, self.value)
 
     def __pow__(self, other):

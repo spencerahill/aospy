@@ -1,10 +1,11 @@
 """calc.py: classes for performing specified calculations on aospy data"""
-import cPickle
+import pickle
 import os
 import shutil
 import subprocess
 import tarfile
 import time
+import warnings
 
 import netCDF4
 import numpy as np
@@ -223,9 +224,9 @@ class Calc(object):
             pass
         else:
             try:
-                print args[0] % args[1], '(%s)' % time.ctime()
+                print(args[0] % args[1], '(%s)' % time.ctime())
             except IndexError:
-                print args[0], '(%s)' % time.ctime()
+                print(args[0], '(%s)' % time.ctime())
 
     def _set_time_dt(self):
         """Get time and dt arrays at needed time indices."""
@@ -237,7 +238,15 @@ class Calc(object):
                 break
 
         with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
-            time_obj = netCDF4.MFTime(nc.variables['time'])
+            try:
+                time_obj = netCDF4.MFTime(nc.variables['time'])
+            except ValueError:
+                warnings.warn('Unsupported calendar attribute provided: %s.'
+                              ' Defaulting to 360_day calendar type.'
+                              % nc.variables['time'].calendar, RuntimeWarning)
+                nc.variables['time'].calendar = '360_day'
+                nc.variables['time'].units = 'days since 2001-01-01 00:00:00'
+                time_obj = netCDF4.MFTime(nc.variables['time'])
             inds, time = _get_time(
                 time_obj[:], time_obj.units, time_obj.calendar,
                 self.start_yr, self.end_yr, self.months, indices=True
@@ -498,7 +507,15 @@ class Calc(object):
                         pass
                     else:
                         break
-            time = netCDF4.MFTime(nc.variables['time'])
+            try:        
+                time = netCDF4.MFTime(nc.variables['time'])
+            except ValueError:
+                warnings.warn('Unsupported calendar attribute provided: %s.'
+                              ' Defaulting to 360_day calendar type.'
+                              % nc.variables['time'].calendar, RuntimeWarning) 
+                nc.variables['time'].calendar = '360_day'
+                nc.variables['time'].units = 'days since 2001-01-01 00:00:00'
+                time = netCDF4.MFTime(nc.variables['time'])
             t_array, t_units, t_cal = time[:], time.units, time.calendar
             t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
                                self.months, indices='only')
@@ -555,7 +572,7 @@ class Calc(object):
     def _local_ts(self, dp, dt, num_yr, *data_in):
         """Compute the function on the given gridded input data."""
         result = self.function(*data_in)
-        print 'result', result.shape
+        print('result', result.shape)
         # Apply spatial reductions methods.
         if self.def_vert and self.dtype_out_vert == 'vert_int':
             result = int_dp_g(result, dp)[:,np.newaxis,:,:]
@@ -623,7 +640,7 @@ class Calc(object):
                 calc_name = '.'.join(['eddy', calc_name])
             if calc_name in self.dtype_out_time:
                 reg_dat = {}
-                for reg in self.region.itervalues():
+                for reg in self.region.values():
                     # Just pass along the data if averaged already.
                     if 'av' in self.dtype_in_time:
                         data_out = reg.ts(loc_ts, self.model[n])
@@ -671,7 +688,7 @@ class Calc(object):
         else:
             reduced = {'': full_ts}
         self._print_verbose("Writing desired gridded outputs to disk.")
-        for dtype_out_time, data in reduced.iteritems():
+        for dtype_out_time, data in reduced.items():
             self.save(np.squeeze(data), dtype_out_time,
                       dtype_out_vert=self.dtype_out_vert)
         # Apply time reduction methods to regional averages and save.
@@ -688,12 +705,12 @@ class Calc(object):
         path = self.path_scratch[dtype_out_time]
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
-        with open(path, 'a+') as file_scratch:
+        with open(path, 'ab+') as file_scratch:
             # Update, rather than overwrite, existing regional data.
             if 'reg' in dtype_out_time:
                 # Open the existing dictionary if it exists.
                 try:
-                    reg_data = cPickle.load(file_scratch)
+                    reg_data = pickle.load(file_scratch)
                 except EOFError:
                     reg_data = {}
                 # Add the new data to the dictionary.
@@ -701,8 +718,8 @@ class Calc(object):
                 data_out = reg_data
             else:
                 data_out = data
-        with open(path, 'w') as file_scratch:
-            cPickle.dump(data_out, file_scratch, protocol=-1)
+        with open(path, 'wb') as file_scratch:
+            pickle.dump(data_out, file_scratch, protocol=-1)
 
     def _save_to_archive(self, dtype_out_time, dtype_out_vert=False):
         """Add the data to the tar file in /archive."""
@@ -758,12 +775,12 @@ class Calc(object):
         if archive:
             self._save_to_archive(dtype_out_time,
                                   dtype_out_vert=dtype_out_vert)
-        print '\t%s' % self.path_scratch[dtype_out_time]
+        print('\t%s' % self.path_scratch[dtype_out_time])
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
         with open(self.path_scratch[dtype_out_time], 'r') as data:
-            data_vals = cPickle.load(data)
+            data_vals = pickle.load(data)
         return data_vals
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
@@ -771,7 +788,7 @@ class Calc(object):
         path = '/'.join([self.dir_archive, 'data.tar']).replace('//', '/')
         dmget([path])
         with tarfile.open(path, 'r') as data_tar:
-            data_vals = cPickle.load(
+            data_vals = pickle.load(
                 data_tar.extractfile(self.file_name[dtype_out_time])
             )
         return data_vals
