@@ -56,7 +56,7 @@ class CalcInterface(object):
 
     def _get_yr_range(self):
         """Set the object's span of years."""
-        if self.read_mode == 'netcdf4': 
+        if self.read_mode[0] == 'netcdf4': 
             if self.yr_range == 'default':
                 start_yr, end_yr = get_parent_attr(self.run[0], 'default_yr_range')
             elif self.yr_range == 'all':
@@ -65,16 +65,18 @@ class CalcInterface(object):
             else:
                 start_yr, end_yr = self.yr_range
             return start_yr, end_yr
-        elif self.read_mode == 'xray':
+        elif self.read_mode[0] == 'xray':
             if self.yr_range == 'default':
+                print(get_parent_attr(self.run[0], 'default_time_range'))
                 start_day, end_day = get_parent_attr(self.run[0], 'default_time_range')
             elif self.yr_range == 'all':
                 start_day = get_parent_attr(self.run[0], 'nc_start_day')
                 end_day = get_parent_attr(self.run[0], 'nc_end_day')
             else:
                 start_day, end_day = self.yr_range
-         else:
-             pass
+            return start_day, end_day    
+        else:
+            pass
 
     def _get_num_yr(self):
         """Compute effective number of years in the input data."""

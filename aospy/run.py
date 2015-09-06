@@ -8,7 +8,7 @@ class Run(object):
                  nc_suffix=False, nc_files={}, default_yr_range=False,
                  ens_mem_prefix=False, ens_mem_ext=False, ens_mem_suffix=False,
                  tags=(), read_mode='netcdf4', nc_start_day=None,
-                 nc_end_day=None, nc_time_range=None):
+                 nc_end_day=None, default_time_range=None):
         self.name = name
         self.description = description
         self.proj = proj
@@ -26,7 +26,7 @@ class Run(object):
         self.read_mode = read_mode
         self.nc_start_day = nc_start_day
         self.nc_end_day = nc_end_day
-        self.nc_time_range = nc_time_range 
+        self.default_time_range = default_time_range 
 
         self.ens_mem_prefix = ens_mem_prefix
         self.ens_mem_ext = ens_mem_ext
