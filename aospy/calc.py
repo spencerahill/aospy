@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tarfile
 import time
+import warnings
 
 import netCDF4
 import numpy as np
@@ -238,9 +239,15 @@ class Calc(object):
             if isinstance(var, Var) and not var.in_nc_grid:
                 nc_var = var
                 break
-
-        with self._get_nc(var, self.start_yr, self.end_yr) as nc:
-            time_obj = netCDF4.MFTime(nc.variables['time'])
+        with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
+            try:
+                time_obj = netCDF4.MFTime(nc.variables['time'])
+            except ValueError:
+                warnings.warn('Unsupported calendar attribute provided: %s.'
+                              ' Defaulting to 360_day calendar type.'
+                              % nc.variables['time'].calendar, RuntimeWarning)
+                nc.variables['time'].calendar = '360_day'
+                time_obj = netCDF4.MFTime(nc.variables['time'])
             inds, time = _get_time(
                 time_obj[:], time_obj.units, time_obj.calendar,
                 self.start_yr, self.end_yr, self.months, indices=True
@@ -537,7 +544,15 @@ class Calc(object):
                         pass
                     else:
                         break
-            time = netCDF4.MFTime(nc.variables['time'])
+            try:
+                time = netCDF4.MFTime(nc.variables['time'])
+            except ValueError:
+                warnings.warn('Unsupported calendar attribute provided: %s.'
+                              ' Defaulting to 360_day calendar type.'
+                              % nc.variables['time'].calendar, RuntimeWarning)
+                nc.variables['time'].calendar = '360_day'
+                time = netCDF4.MFTime(nc.variables['time'])
+
             t_array, t_units, t_cal = time[:], time.units, time.calendar
             t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
                                self.months, indices='only')
