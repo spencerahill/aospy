@@ -139,7 +139,6 @@ class Model(object):
                         break
                 else:
                     setattr(self, name_int, None)
-
         except:
             raise
         finally:
@@ -192,7 +191,7 @@ class Model(object):
             return
         self._set_mult_nc_grid_attr()
         self._set_sfc_area()
-        if not (self.level is None):
+        if self.level is not None:
             self.levs_thick = level_thickness(self.level)
         else:
             self.levs_thick = None

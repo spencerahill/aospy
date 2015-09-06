@@ -5,7 +5,6 @@ import subprocess
 import numpy as np
 import netCDF4
 
-
 def to_dup_list(x, n, single_to_list=True):
     """
     Convert singleton or iterable into length-n list.  If the input is
