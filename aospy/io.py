@@ -82,9 +82,9 @@ def _yr_label(yr_range):
     """Create label of start and end years for aospy data I/O."""
     assert yr_range is not None, "yr_range is None"
     if yr_range[0] == yr_range[1]:
-        return '{:04}'.format(yr_range[0])
+        return '{:04d}'.format(yr_range[0])
     else:
-        return '{:04}'.format(yr_range[0]) + '-' + '{:04}'.format(yr_range[1])
+        return '{:04d}'.format(yr_range[0]) + '-' + '{:04d}'.format(yr_range[1])
 
 
 def _znl_label(var):
@@ -204,24 +204,24 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
     if data_type in ('ts', 'inst'):
         if intvl_type == 'annual':
             if nc_dur == 1:
-                gfdl_file = '.'.join([domain, '{:04}'.format(nc_yr),
+                gfdl_file = '.'.join([domain, '{:04d}'.format(nc_yr),
                                       name, 'nc'])
             else:
-                gfdl_file = (domain + '.{:04}'.format(nc_yr) +
-                             '-{:04}'.format(nc_yr+nc_dur-1)
+                gfdl_file = (domain + '.{:04d}'.format(nc_yr) +
+                             '-{:04d}'.format(nc_yr+nc_dur-1)
                              + '.' + name + '.nc')
         elif intvl_type == 'monthly':
-            gfdl_file = (domain + '.{:04}'.format(nc_yr) + '01-' +
-                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+            gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '01-' +
+                         '{:04d}'.format(int(nc_yr+nc_dur-1)) +
                          '12.' + name + '.nc')
         elif intvl_type == 'daily':
-            gfdl_file = (domain + '.{:04}'.format(nc_yr) + '0101-' +
-                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+            gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '0101-' +
+                         '{:04d}'.format(int(nc_yr+nc_dur-1)) +
                          '1231.' + name + '.nc')
         elif 'hr' in intvl_type:
             gfdl_file = '.'.join(
-                [domain, '{:04}'.format(nc_yr) + '010100-' +
-                 '{:04}'.format(nc_yr+nc_dur-1) + '123123', name, 'nc']
+                [domain, '{:04d}'.format(nc_yr) + '010100-' +
+                 '{:04d}'.format(nc_yr+nc_dur-1) + '123123', name, 'nc']
             )
     elif data_type == 'av':
         if intvl_type in ['annual', 'ann']:
@@ -235,14 +235,14 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
         elif intvl_type in ['monthly', 'mon']:
             label, val = _time_label(intvl)
         if nc_dur == 1:
-            gfdl_file = domain + '.{:04}'.format(nc_yr) + '.' + label + '.nc'
+            gfdl_file = domain + '.{:04d}'.format(nc_yr) + '.' + label + '.nc'
         else:
-            gfdl_file = (domain + '.{:04}'.format(nc_yr) + '-' +
-                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+            gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '-' +
+                         '{:04d}'.format(int(nc_yr+nc_dur-1)) +
                          '.' + label + '.nc')
     elif data_type == 'av_ts':
-        gfdl_file = (domain + '.{:04}'.format(nc_yr) + '-' +
-                     '{:04}'.format(int(nc_yr+nc_dur-1)) + '.01-12.nc')
+        gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '-' +
+                     '{:04d}'.format(int(nc_yr+nc_dur-1)) + '.01-12.nc')
     return gfdl_file
 
 

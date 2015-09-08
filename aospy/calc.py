@@ -1,10 +1,6 @@
 """calc.py: classes for performing specified calculations on aospy data"""
-<<<<<<< HEAD
 import pickle
-=======
-import cPickle
 import glob
->>>>>>> 4e3dfba54da6d0e46ca0c9130b85701f0cd7988e
 import os
 import shutil
 import subprocess
@@ -12,6 +8,7 @@ import tarfile
 import time
 import warnings
 import xray
+import pandas as pd
 
 import netCDF4
 import numpy as np
@@ -87,7 +84,10 @@ class CalcInterface(object):
     def _get_num_yr(self):
         """Compute effective number of years in the input data."""
         if self.dtype_in_time in ('ts', 'inst'):
-            num_yr = self.end_yr - self.start_yr + 1
+            if self.read_mode[0] == 'xray':
+                num_yr = self.end_yr.year - self.start_yr.year + 1
+            else:
+                num_yr = self.end_yr - self.start_yr + 1
         else:
             num_yr = 1
         return num_yr
@@ -373,7 +373,10 @@ class Calc(object):
         in_lbl = _data_in_label(self.intvl_in, self.dtype_in_time,
                                 self.dtype_in_vert)
         ens_lbl = _ens_label(self.ens_mem)
-        yr_lbl = _yr_label((self.start_yr, self.end_yr))
+        if self.read_mode[0] == 'xray':
+            yr_lbl = _yr_label((self.start_yr.year, self.end_yr.year))
+        else:
+            yr_lbl = _yr_label((self.start_yr, self.end_yr))
         file_name = '.'.join(
             [self.name, out_lbl, in_lbl, self.model_str, self.run_str_full,
              ens_lbl, yr_lbl, 'p']
@@ -395,7 +398,7 @@ class Calc(object):
             elif os.path.isfile(full):
                 paths.append(full)
             else:
-                print "Warning: specified netCDF file `%s` not found" % nc
+                print("Warning: specified netCDF file `%s` not found" % nc)
         # Remove duplicate entries.
         files = list(set(paths))
         files.sort()
@@ -472,9 +475,22 @@ class Calc(object):
                 else:
                     break
             elif self.nc_dir_struc[0].lower() == 'gfdl':
-                files = self._get_nc_gfdl_dir_struct(name, start_yr,
-                                                     end_yr, n=n)
-
+                if self.read_mode[n] == 'xray':
+                    files = self._get_nc_gfdl_dir_struct(name, direc_nc, start_yr.year,
+                                                     end_yr.year, n=n)
+                else:
+                    files = self._get_nc_gfdl_dir_struct(name, direc_nc, start_yr,
+                                                         end_yr, n=n)
+            elif self.nc_dir_struc[0].lower() == 'gfdl_repo':
+                try:
+                    files = self._get_nc_gfdl_repo(name, n=n)
+                except IOError:
+                    pass
+                else:
+                    break   
+            else:
+                raise ValueError("Specified directory type not supported: %s"
+                                 % self.nc_dir_struc[n])
             if self.read_mode[n] == 'netcdf4':
                 try:
                     dmget(files)
@@ -505,16 +521,6 @@ class Calc(object):
                     raise
                 else:
                     break
-            elif self.nc_dir_struc[0].lower() == 'gfdl_repo':
-                try:
-                    files = self._get_nc_gfdl_repo(name, n=n)
-                except IOError:
-                    pass
-                else:
-                    break
-            else:
-                raise ValueError("Specified directory type not supported: %s"
-                                 % self.nc_dir_struc[n])
         else:
             raise IOError("netCDF files for variable `%s`, year range %s-%s, "
                           "in directory %s, not found" % (var, start_yr,
@@ -602,9 +608,6 @@ class Calc(object):
                               % nc.variables['time'].calendar, RuntimeWarning) 
                 nc.variables['time'].calendar = '360_day'
                 nc.variables['time'].units = 'days since 2001-01-01 00:00:00'
-                time = netCDF4.MFTime(nc.variables['time'])
-                              % nc.variables['time'].calendar, RuntimeWarning)
-                nc.variables['time'].calendar = '360_day'
                 time = netCDF4.MFTime(nc.variables['time'])
 
             t_array, t_units, t_cal = time[:], time.units, time.calendar
@@ -743,6 +746,9 @@ class Calc(object):
 
     def _compute_chunk(self, start_yr, end_yr, eddy=False):
         """Perform the calculation on the given chunk of times."""
+        if self.read_mode[0] == 'xray':
+            start_yr = start_yr.year
+            end_yr = end_yr.year
         self._print_verbose("\nComputing desired timeseries from netCDF data "
                             "for years %d-%d.", (start_yr, end_yr))
 
