@@ -1,5 +1,6 @@
 """run.py: Run class of aospy for storing attributes of a GCM run."""
 
+
 class Run(object):
     """Model run parameters."""
     def __init__(self, name='', description='', proj=False, direc_nc=False,
@@ -25,17 +26,18 @@ class Run(object):
         self.ens_mem_prefix = ens_mem_prefix
         self.ens_mem_ext = ens_mem_ext
         self.ens_mem_suffix = ens_mem_suffix
-        self._set_direc(direc_nc, ens_mem_prefix, ens_mem_ext, ens_mem_suffix)
+        self.direc_nc = self._set_direc(direc_nc, ens_mem_prefix,
+                                        ens_mem_ext, ens_mem_suffix)
 
     def __str__(self):
         return 'Run instance "%s"' % self.name
 
     __repr__ = __str__
 
-    def _set_direc(self, direc_nc, ens_mem_prefix, ens_mem_ext, ens_mem_suffix):
+    def _set_direc(self, direc_nc, ens_mem_prefix, ens_mem_ext,
+                   ens_mem_suffix):
         """Set the list of paths containing the Run's netCDF data."""
         if all((ens_mem_prefix, ens_mem_ext, ens_mem_suffix)):
-            self.direc_nc = [ens_mem_prefix + ext + ens_mem_suffix
-                             for ext in ens_mem_ext]
-        else:
-            self.direc_nc = direc_nc
+            return [ens_mem_prefix + ext + ens_mem_suffix
+                    for ext in ens_mem_ext]
+        return direc_nc
