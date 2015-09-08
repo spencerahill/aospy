@@ -300,9 +300,9 @@ class Calc(object):
                 time_obj = nc['time']
                 inds, time = _get_time_xray(
                     time_obj, self.start_analysis_year, self.end_analysis_year, 
-                    self.months, indicies=True
+                    self.months, indices=True
                     )
-                self.time = time
+                self.time =self.time
                 self.time_inds = inds
                 self.dt = self._get_dt(nc, inds)
                # print(time_obj)
@@ -560,9 +560,10 @@ class Calc(object):
                           "in directory %s, not found" % (var, start_yr,
                                                           end_yr, direc_nc))
         # Retrieve files from archive using desired system calls.
-        dmget(files)
+#        dmget(files)
         # hsmget_retcode = hsmget_nc(files)
-        return netCDF4.MFDataset(files)
+#        return netCDF4.MFDataset(files)
+
     def _get_pressure_vals(self, var, start_yr, end_yr, n=0):
         """Get pressure array, whether sigma or standard levels."""
         self._print_verbose("Getting pressure data: %s", var)
@@ -585,6 +586,9 @@ class Calc(object):
             elif var == 'dp':
                 data = dp_from_sigma(bk, pk, ps)
         return data
+
+    def _get_pressure_vals_xray(self, var, start_yr, end_yr, n=0):
+        return None
 
     def _get_data_subset(self, data, region=False, eddy=False, time=False,
                          vert=False, lat=False, lon=False, n=0):
@@ -780,29 +784,50 @@ class Calc(object):
 
     def _compute_chunk(self, start_yr, end_yr, eddy=False):
         """Perform the calculation on the given chunk of times."""
-        if self.read_mode[0] == 'xray':
-            start_yr = start_yr.year
-            end_yr = end_yr.year
-        self._print_verbose("\nComputing desired timeseries from netCDF data "
+        
+        if self.read_mode[0] == 'netcdf4':
+            self._print_verbose("\nComputing desired timeseries from netCDF data "
                             "for years %d-%d.", (start_yr, end_yr))
+        elif self.read_mode[0] == 'xray':
+            self._print_verbose("\nComputing desired timeseries from netCDF data "
+                            "for years %d-%d.", (start_yr.year, end_yr.year))
+        else:
+            pass
 
         if not self.dt_set:
             self._set_time_dt()
             self.dt_set = True
+        
+        if self.read_mode[0] == 'netcdf4':    
+            inds = _get_time(
+                self.time, self.time_units, self.calendar,
+                start_yr, end_yr, self.months, indices='only'
+                )
+            dt = self.dt[inds]
+            dt = self._reshape_time_indices(dt, start_yr, end_yr)
+            data_in = self._get_all_vars_data(start_yr, end_yr, eddy=eddy)
+            if self.dtype_out_vert == 'vert_int':
+                dp = self._get_pressure_vals('dp', start_yr, end_yr)
+            else:
+                dp = False
+            return self._local_ts(dp, dt, end_yr - start_yr + 1, *data_in)
 
-        inds = _get_time(
-            self.time, self.time_units, self.calendar,
-            start_yr, end_yr, self.months, indices='only'
-        )
-        dt = self.dt[inds]
-        dt = self._reshape_time_indices(dt, start_yr, end_yr)
-        data_in = self._get_all_vars_data(start_yr, end_yr, eddy=eddy)
-        if self.dtype_out_vert == 'vert_int':
-            dp = self._get_pressure_vals('dp', start_yr, end_yr)
+        elif self.read_mode[0] == 'xray':
+            inds = _get_time_xray(
+                self.time, start_yr, end_yr, self.months, indices='only'
+                )
+            dt = self.dt.sel(time=inds)
+            # Reshape time-indices basically makes it easier to group by year.
+            # We should be able to do that in xray style a bit more transparently.
+            dt = self.dt.groupby('time.year')
+            data_in = self._get_all_vars_data(start_yr, end_yr, eddy=eddy)
+            if self.dtype_out_vert == 'vert_int':
+                dp = self._get_pressure_vals('dp', start_yr, end_yr)
+            else:
+                dp = False
+            return self._local_ts_xray(dp, dt, start_yr, end_yr, *data_in)
         else:
-            dp = False
-        return self._local_ts(dp, dt, end_yr - start_yr + 1, *data_in)
-
+            pass
     def compute_xray(self, eddy=False):
         if all(['eddy' in do for do in self.dtype_out_time]) and eddy is False:
             self._print_verbose("Computing and saving eddy outputs.")

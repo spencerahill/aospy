@@ -158,13 +158,14 @@ def _construct_month_conditional(time, months):
         base |= (time['time.month'] == month)
     return base    
 
-def _get_time_xray(time, start_date, end_date, months, indicies=False):
+def _get_time_xray(time, start_date, end_date, months, indices=False):
     """ Assumes time is an xray DataArray."""
+    print(start_date)
     dates = time.sel(time=slice(start_date, end_date))
     inds = _construct_month_conditional(dates, months)
-    if indicies == 'only':
+    if indices == 'only':
         return inds
-    elif indicies:
+    elif indices:
         return (inds, dates.sel(time=inds))
     else:
         return dates.sel(time=inds)
