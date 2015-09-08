@@ -149,6 +149,25 @@ def _month_indices(months, iterable=True):
         st_ind = first_letter.find(months.lower()) + 1
         return range(st_ind, st_ind + len(months))
 
+def _construct_month_conditional(time, months):
+    """ Construct a compound conditional statement to be used to reference and select data in a
+    DataArray.
+    """
+    base = False
+    for month in months:
+        base |= (time['time.month'] == month)
+    return base    
+
+def _get_time_xray(time, start_date, end_date, months, indicies=False):
+    """ Assumes time is an xray DataArray."""
+    dates = time.sel(time=slice(start_date, end_date))
+    inds = _construct_month_conditional(dates, months)
+    if indicies == 'only':
+        return inds
+    elif indicies:
+        return (inds, dates.sel(time=inds))
+    else:
+        return dates.sel(time=inds)
 
 def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
     """Determine the indices of a time array falling in a specified interval.

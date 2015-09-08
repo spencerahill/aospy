@@ -16,7 +16,7 @@ import numpy as np
 from . import Constant, Var, Region
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
                  _month_indices, _yr_label, dmget, nc_name_gfdl,
-                 get_nc_direc_repo)
+                 get_nc_direc_repo, _get_time_xray)
 from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
                     dp_from_sigma, int_dp_g)
 
@@ -169,6 +169,19 @@ class CalcInterface(object):
 
         self.yr_range = yr_range
         self.start_yr, self.end_yr = self._get_yr_range()
+        
+        if self.read_mode[0] == 'xray':
+            if self.start_yr.year < 1678:
+                self.start_analysis_year = pd.to_datetime(np.datetime64(
+                        '%04d-%02d-%02d' % (self.start_yr.year + 1900, self.start_yr.month,
+                                            self.start_yr.day)))
+                self.end_analysis_year = pd.to_datetime(np.datetime64(
+                        '%04d-%02d-%02d' % (self.end_yr.year + 1900, self.end_yr.month,
+                                            self.end_yr.day)))
+            else:
+                self.start_analysis_year = self.start_yr
+                self.end_analysis_year = self.end_yr
+
         self.num_yr = self._get_num_yr()
         self.months = _month_indices(intvl_out, iterable=True)
         self.skip_time_inds = skip_time_inds
@@ -264,25 +277,37 @@ class Calc(object):
                 nc_var = var
                 break
         with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
-            try:
-                time_obj = netCDF4.MFTime(nc.variables['time'])
-            except ValueError:
-                warnings.warn('Unsupported calendar attribute provided: %s.'
-                              ' Defaulting to 360_day calendar type.'
-                              % nc.variables['time'].calendar, RuntimeWarning)
-                nc.variables['time'].calendar = '360_day'
-                nc.variables['time'].units = 'days since 2001-01-01 00:00:00'
-                time_obj = netCDF4.MFTime(nc.variables['time'])
-            inds, time = _get_time(
-                time_obj[:], time_obj.units, time_obj.calendar,
-                self.start_yr, self.end_yr, self.months, indices=True
-            )
-            self.time = time
-            self.time_units = time_obj.units
-            self.calendar = time_obj.calendar
-            self.time_inds = inds
-            self.dt = self._get_dt(nc, inds)
-
+            if self.read_mode[0] == 'netcdf4':
+                try:
+                    time_obj = netCDF4.MFTime(nc.variables['time'])
+                except ValueError:
+                    warnings.warn('Unsupported calendar attribute provided: %s.'
+                                  ' Defaulting to 360_day calendar type.'
+                                  % nc.variables['time'].calendar, RuntimeWarning)
+                    nc.variables['time'].calendar = '360_day'
+                    nc.variables['time'].units = 'days since 2001-01-01 00:00:00'
+                    time_obj = netCDF4.MFTime(nc.variables['time'])
+                inds, time = _get_time(
+                        time_obj[:], time_obj.units, time_obj.calendar,
+                        self.start_yr, self.end_yr, self.months, indices=True
+                        )
+                self.time = time
+                self.time_units = time_obj.units
+                self.calendar = time_obj.calendar
+                self.time_inds = inds
+                self.dt = self._get_dt(nc, inds)
+            elif self.read_mode[0] == 'xray':
+                time_obj = nc['time']
+                inds, time = _get_time_xray(
+                    time_obj, self.start_analysis_year, self.end_analysis_year, 
+                    self.months, indicies=True
+                    )
+                self.time = time
+                self.time_inds = inds
+                self.dt = self._get_dt(nc, inds)
+               # print(time_obj)
+            else:
+                pass
             for name in ('level', 'lev', 'plev'):
                 try:
                     self.pressure = nc.variables[name][:]
@@ -318,12 +343,20 @@ class Calc(object):
         if self.dtype_in_time == 'inst':
             return np.ones(np.shape(indices))
         for dt_name in ('average_DT',):
-            try:
-                dt = nc.variables[dt_name]
-            except KeyError:
-                pass
-            else:
-                return dt[indices]
+            if self.read_mode[0] == 'netcdf4':
+                try:
+                    dt = nc.variables[dt_name]
+                except KeyError:
+                    pass
+                else:
+                    return dt[indices]
+            elif self.read_mode[0] == 'xray':
+                try:
+                    dt = nc[dt_name]
+                except:
+                    pass
+                else:
+                    return dt.sel(time=indices)
         for name in ('time_bounds', 'time_bnds'):
             try:
                 time_bounds = nc.variables[name]
@@ -508,6 +541,7 @@ class Calc(object):
                         for v in ['time', 'average_T1', 'average_T2']:
                             test[v].attrs['units'] = 'days since 1900-01-01 00:00:00'
                         test['time'].attrs['calendar'] = 'noleap'
+                        test = xray.decode_cf(test)
                         ds.append(test)
                     return xray.concat(ds, dim='time')
                 except (RuntimeError, KeyError):
