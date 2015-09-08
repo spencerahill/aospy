@@ -702,6 +702,12 @@ class Calc(object):
             dp = False
         return self._local_ts(dp, dt, end_yr - start_yr + 1, *data_in)
 
+    def compute_xray(self, eddy=False):
+        if all(['eddy' in do for do in self.dtype_out_time]) and eddy is False:
+            self._print_verbose("Computing and saving eddy outputs.")
+            eddy = True
+            
+
     def compute(self, eddy=False):
         """Perform all desired calculations on the data and save externally."""
         # Compute the local time series for each chunk and then combine chunks.
