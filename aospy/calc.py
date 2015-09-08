@@ -1,5 +1,10 @@
 """calc.py: classes for performing specified calculations on aospy data"""
+<<<<<<< HEAD
 import pickle
+=======
+import cPickle
+import glob
+>>>>>>> 4e3dfba54da6d0e46ca0c9130b85701f0cd7988e
 import os
 import shutil
 import subprocess
@@ -13,7 +18,8 @@ import numpy as np
 
 from . import Constant, Var, Region
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
-                 _month_indices, _yr_label, dmget, nc_name_gfdl)
+                 _month_indices, _yr_label, dmget, nc_name_gfdl,
+                 get_nc_direc_repo)
 from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
                     dp_from_sigma, int_dp_g)
 
@@ -181,8 +187,9 @@ class Calc(object):
         if isinstance(calc_interface.ens_mem, int):
             self.direc_nc = self.direc_nc[calc_interface.ens_mem]
 
-        if not calc_interface.skip_time_inds:
-            self._set_time_dt()
+        # if not calc_interface.skip_time_inds:
+            # self._set_time_dt()
+        self.dt_set = False
 
         self.dir_scratch = self._dir_scratch()
         self.dir_archive = self._dir_archive()
@@ -256,7 +263,6 @@ class Calc(object):
             if isinstance(var, Var) and not var.in_nc_grid:
                 nc_var = var
                 break
-
         with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
             try:
                 time_obj = netCDF4.MFTime(nc.variables['time'])
@@ -306,7 +312,6 @@ class Calc(object):
                     break
             else:
                 self.lon = False
-
 
     def _get_dt(self, nc, indices):
         """Get durations of the desired timesteps."""
@@ -375,19 +380,34 @@ class Calc(object):
         ).replace('..', '.')
         return file_name
 
-    def _get_nc_one_dir(self, name, n=0):
+    def _get_nc_one_dir(self, name, direc_nc, n=0):
         """Get the names of netCDF files when all in same directory."""
-        try:
-            files = [self.direc_nc[n] + '/' + self.nc_files[n][name]]
-        except TypeError:
-            files = [self.direc_nc[n] + '/' + nc_file for
-                     nc_file in self.nc_files[n][name]]
+        if isinstance(self.nc_files[n][name], str):
+            nc_files = [self.nc_files[n][name]]
+        else:
+            nc_files = self.nc_files[n][name]
+        # nc_files may hold absolute or relative paths
+        paths = []
+        for nc in nc_files:
+            full = '/'.join([direc_nc, nc]).replace('//', '/')
+            if os.path.isfile(nc):
+                paths.append(nc)
+            elif os.path.isfile(full):
+                paths.append(full)
+            else:
+                print "Warning: specified netCDF file `%s` not found" % nc
         # Remove duplicate entries.
-        files = list(set(files))
+        files = list(set(paths))
         files.sort()
         return files
 
-    def _get_nc_gfdl_dir_struct(self, name, start_yr, end_yr, n=0):
+    def _get_nc_gfdl_repo(self, name, n=0):
+        """Get the names of netCDF files from a GFDL repo on /archive."""
+        return self.model[n].find_nc_direc_repo(
+            run_name=self.run[n].name, var_name=name
+        )
+
+    def _get_nc_gfdl_dir_struct(self, name, direc_nc, start_yr, end_yr, n=0):
         """
         Get the names of netCDF files stored in GFDL standard directory
         structure and names.
@@ -407,7 +427,7 @@ class Calc(object):
             dtype_lbl = dtype
         else:
             dtype = self.dtype_in_time
-        direc = (self.direc_nc[n] + '/' + domain + '/' + dtype_lbl + '/' +
+        direc = (direc_nc + '/' + domain + '/' + dtype_lbl + '/' +
                  self.intvl_in + separator + str(self.nc_dur[n]) + 'yr/')
         # files_in_dir = os.listdir(direc)
         # files_var = [nc for nc in files_in_dir if name in nc]
@@ -432,16 +452,25 @@ class Calc(object):
         Files chosen depend on the specified variables and time intvl and the
         attributes of the netCDF files.
         """
-        # Cycle through possible names.
+        if isinstance(self.direc_nc, str):
+            direc_nc = self.direc_nc
+        elif isinstance(self.direc_nc, (list, tuple)):
+            direc_nc = self.direc_nc[n]
+        else:
+            raise IOError("direc_nc must be string, list, or tuple: %s"
+                          % self.direc_nc)
+        # Cycle through possible names until the data is found.
         names = [var.name]
         if hasattr(var, 'alt_names'):
             names += list(var.alt_names)
-        # Get directory and file info from the corresponding Run.
-        # if n:
-        # Get the data.
         for name in names:
             if self.nc_dir_struc[n] == 'one_dir':
-                files = self._get_nc_one_dir(name, n=n)
+                try:
+                    files = self._get_nc_one_dir(name, direc_nc, n=n)
+                except KeyError:
+                    pass
+                else:
+                    break
             elif self.nc_dir_struc[0].lower() == 'gfdl':
                 files = self._get_nc_gfdl_dir_struct(name, start_yr,
                                                      end_yr, n=n)
@@ -469,7 +498,31 @@ class Calc(object):
                     pass
             else:
                 raise IOError("Could not find files for variable '%s'." % var)
-
+                try:
+                    files = self._get_nc_gfdl_dir_struct(name, direc_nc,
+                                                         start_yr, end_yr, n=n)
+                except:
+                    raise
+                else:
+                    break
+            elif self.nc_dir_struc[0].lower() == 'gfdl_repo':
+                try:
+                    files = self._get_nc_gfdl_repo(name, n=n)
+                except IOError:
+                    pass
+                else:
+                    break
+            else:
+                raise ValueError("Specified directory type not supported: %s"
+                                 % self.nc_dir_struc[n])
+        else:
+            raise IOError("netCDF files for variable `%s`, year range %s-%s, "
+                          "in directory %s, not found" % (var, start_yr,
+                                                          end_yr, direc_nc))
+        # Retrieve files from archive using desired system calls.
+        dmget(files)
+        # hsmget_retcode = hsmget_nc(files)
+        return netCDF4.MFDataset(files)
     def _get_pressure_vals(self, var, start_yr, end_yr, n=0):
         """Get pressure array, whether sigma or standard levels."""
         self._print_verbose("Getting pressure data: %s", var)
@@ -550,6 +603,10 @@ class Calc(object):
                 nc.variables['time'].calendar = '360_day'
                 nc.variables['time'].units = 'days since 2001-01-01 00:00:00'
                 time = netCDF4.MFTime(nc.variables['time'])
+                              % nc.variables['time'].calendar, RuntimeWarning)
+                nc.variables['time'].calendar = '360_day'
+                time = netCDF4.MFTime(nc.variables['time'])
+
             t_array, t_units, t_cal = time[:], time.units, time.calendar
             t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
                                self.months, indices='only')
@@ -613,7 +670,6 @@ class Calc(object):
         # If already averaged, pass data on.  Otherwise do time averaging.
         if 'av' in self.dtype_in_time or not self.def_time:
             return result
-        # print dp.shape, dt.shape, num_yr, result.shape
         try:
             result = result.reshape((num_yr, -1, result.shape[-3],
                                      result.shape[-2], result.shape[-1]))
@@ -689,6 +745,11 @@ class Calc(object):
         """Perform the calculation on the given chunk of times."""
         self._print_verbose("\nComputing desired timeseries from netCDF data "
                             "for years %d-%d.", (start_yr, end_yr))
+
+        if not self.dt_set:
+            self._set_time_dt()
+            self.dt_set = True
+
         inds = _get_time(
             self.time, self.time_units, self.calendar,
             start_yr, end_yr, self.months, indices='only'
