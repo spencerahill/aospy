@@ -166,7 +166,7 @@ class Model(object):
             for nc in nc_grid:
                 nc.close()
 
-    def grid_sfc_area(self, lonb, latb, gridcenter=False):
+    def grid_sfc_area(self, lon, lat, lonb, latb, gridcenter=False):
         """Calculate surface area of each grid cell in a lon-lat grid."""
 
         if self.read_mode == 'netcdf4':
@@ -204,7 +204,13 @@ class Model(object):
             
             # We will need to be clever about naming, however. For now we don't
             # use the gridbox area, so we'll leave things like this for now.
-            return dlon*dsinlat*(r_e**2) * (np.pi/180.)
+            sfc_area = dlon*dsinlat*(r_e**2) * (np.pi/180.)
+            # Rename the coordinates such that they match the actual lat / lon 
+            # (Not the bounds)
+            sfc_area = sfc_area.rename({'latb' : 'lat', 'lonb' : 'lon'})
+            sfc_area['lat'] = lat
+            sfc_area['lon'] = lon
+            return sfc_area
         else:
             pass
         
@@ -215,6 +221,7 @@ class Model(object):
         else:
             try:
                 sfc_area = self.grid_sfc_area(
+                    self.lon, self.lat,
                     self.lon_bounds, self.lat_bounds, gridcenter=False
                 )
             except AttributeError:

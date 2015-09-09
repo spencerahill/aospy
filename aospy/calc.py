@@ -804,43 +804,83 @@ class Calc(object):
     def _time_reduce(self, loc_ts):
         """Compute all desired calculations on a local time-series."""
         files = {}
-        if 'ts' in self.dtype_out_time:
-            files.update({'ts': loc_ts})
-        if 'None' in self.dtype_out_time:
-            # Some calcs (e.g. correlations) already do time reduction.
-            files.update({'av': loc_ts})
-        if 'av' in self.dtype_out_time:
-            files.update({'av': loc_ts.mean(axis=0)})
-        if 'eddy.av' in self.dtype_out_time:
-            files.update({'eddy.av': loc_ts.mean(axis=0)})
-        if 'std' in self.dtype_out_time:
-            files.update({'std': loc_ts.std(axis=0)})
-        if 'eddy.std' in self.dtype_out_time:
-            files.update({'eddy.std': loc_ts.std(axis=0)})
-        # Zonal asymmetry.
-        if any('zasym' in out_type for out_type in self.dtype_out_time):
-            # '.T'=transpose; makes numpy broadcasting syntax work.
-            znl_ts = loc_ts.mean(axis=-1)
-            zasym_ts = (loc_ts.T - znl_ts.T).T
-            if 'zasym.ts' in self.dtype_out_time:
-                files.update({'zasym.ts': zasym_ts})
-            if 'zasym.av' in self.dtype_out_time:
-                files.update({'zasym.av': zasym_ts.mean(axis=0)})
-            if 'zasym.std' in self.dtype_out_time:
-                files.update({'zasym.std': zasym_ts.std(axis=0)})
+        if self.read_mode[0] == 'netcdf4':
+            if 'ts' in self.dtype_out_time:
+                files.update({'ts': loc_ts})
+            if 'None' in self.dtype_out_time:
+                # Some calcs (e.g. correlations) already do time reduction.
+                files.update({'av': loc_ts})
+            if 'av' in self.dtype_out_time:
+                files.update({'av': loc_ts.mean(axis=0)})
+            if 'eddy.av' in self.dtype_out_time:
+                files.update({'eddy.av': loc_ts.mean(axis=0)})
+            if 'std' in self.dtype_out_time:
+                files.update({'std': loc_ts.std(axis=0)})
+            if 'eddy.std' in self.dtype_out_time:
+                files.update({'eddy.std': loc_ts.std(axis=0)})
+            # Zonal asymmetry.
+            if any('zasym' in out_type for out_type in self.dtype_out_time):
+                # '.T'=transpose; makes numpy broadcasting syntax work.
+                znl_ts = loc_ts.mean(axis=-1)
+                zasym_ts = (loc_ts.T - znl_ts.T).T
+                if 'zasym.ts' in self.dtype_out_time:
+                    files.update({'zasym.ts': zasym_ts})
+                if 'zasym.av' in self.dtype_out_time:
+                    files.update({'zasym.av': zasym_ts.mean(axis=0)})
+                if 'zasym.std' in self.dtype_out_time:
+                    files.update({'zasym.std': zasym_ts.std(axis=0)})
         # Zonal mean.
-        if any('znl' in out_type for out_type in self.dtype_out_time):
-            if 'znl.ts' in self.dtype_out_time:
-                files.update({'znl.ts': znl_ts})
-            if 'znl.av' in self.dtype_out_time:
-                files.update({'znl.av': znl_ts.mean(axis=0)})
-            if 'znl.std' in self.dtype_out_time:
-                files.update({'znl.std': znl_ts.std(axis=0)})
+            if any('znl' in out_type for out_type in self.dtype_out_time):
+                if 'znl.ts' in self.dtype_out_time:
+                    files.update({'znl.ts': znl_ts})
+                if 'znl.av' in self.dtype_out_time:
+                    files.update({'znl.av': znl_ts.mean(axis=0)})
+                if 'znl.std' in self.dtype_out_time:
+                    files.update({'znl.std': znl_ts.std(axis=0)})
+        if self.read_mode[0] == 'xray':
+            if 'ts' in self.dtype_out_time:
+                files.update({'ts': loc_ts})
+            if 'None' in self.dtype_out_time:
+                # Some calcs (e.g. correlations) already do time reduction.
+                files.update({'av': loc_ts})
+            if 'av' in self.dtype_out_time:
+                files.update({'av': loc_ts.mean('year')})
+            if 'eddy.av' in self.dtype_out_time:
+                files.update({'eddy.av': loc_ts.mean('year')})
+            if 'std' in self.dtype_out_time:
+                files.update({'std': loc_ts.std('year')})
+            if 'eddy.std' in self.dtype_out_time:
+                files.update({'eddy.std': loc_ts.std('year')})
+            # Zonal asymmetry.
+            if any('zasym' in out_type for out_type in self.dtype_out_time):
+                # '.T'=transpose; makes numpy broadcasting syntax work.
+                znl_ts = loc_ts.mean('lon')
+                zasym_ts = (loc_ts - znl_ts)
+                if 'zasym.ts' in self.dtype_out_time:
+                    files.update({'zasym.ts': zasym_ts})
+                if 'zasym.av' in self.dtype_out_time:
+                    files.update({'zasym.av': zasym_ts.mean('year')})
+                if 'zasym.std' in self.dtype_out_time:
+                    files.update({'zasym.std': zasym_ts.std('year')})
+        # Zonal mean.
+            if any('znl' in out_type for out_type in self.dtype_out_time):
+                if 'znl.ts' in self.dtype_out_time:
+                    files.update({'znl.ts': znl_ts})
+                if 'znl.av' in self.dtype_out_time:
+                    files.update({'znl.av': znl_ts.mean('year')})
+                if 'znl.std' in self.dtype_out_time:
+                    files.update({'znl.std': znl_ts.std('year')})
+            
         return files
 
     def region_calcs(self, loc_ts, eddy=False, n=0):
         """Region-averaged computations.  Execute and save to external file."""
-        calcs_reg = ('ts', 'av', 'std')
+        if self.read_mode[0] == 'netcdf4':
+            calcs_reg = ('ts', 'av', 'std')
+        elif self.read_mode[0] == 'xray':
+            calcs_reg = ('ts_xray', 'av_xray', 'std_xray')
+        else:
+            pass
         # Perform each calculation for each region.
         for calc in calcs_reg:
             calc_name = ('reg.' + calc)
@@ -849,9 +889,15 @@ class Calc(object):
             if calc_name in self.dtype_out_time:
                 reg_dat = {}
                 for reg in self.region.values():
+                    print(reg)
                     # Just pass along the data if averaged already.
                     if 'av' in self.dtype_in_time:
-                        data_out = reg.ts(loc_ts, self.model[n])
+                        if self.read_mode[0] == 'netcdf4':
+                            data_out = reg.ts(loc_ts, self.model[n])
+                        elif self.read_mode[0] == 'xray':
+                            data_out = reg.ts_xray(loc_ts, self.model[n])
+                        else:
+                            pass
                     # Otherwise perform the calculation.
                     else:
                         method = getattr(reg, calc)
@@ -1013,7 +1059,7 @@ class Calc(object):
              scratch=True, archive=False):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
-        print(self._to_DataArray(data))
+        #print(self._to_DataArray(data))
         if scratch:
             self._save_to_scratch(data, dtype_out_time,
                                   dtype_out_vert=dtype_out_vert)
