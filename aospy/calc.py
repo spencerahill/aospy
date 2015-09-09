@@ -804,8 +804,10 @@ class Calc(object):
         # If already averaged, pass data on. Otherwise do time averaging.
         if 'av' in self.dtype_in_time or not self.def_time:
             return result
+        result *= dt
         # Group by year. 
         result = result.groupby('time.year')
+        dt = dt.groupby('time.year')
         return result.sum('time') / dt.sum('time') 
         
     def _time_reduce(self, loc_ts):
@@ -946,11 +948,12 @@ class Calc(object):
             inds = _get_time_xray(
                 self.time, start_yr['xray'], end_yr['xray'], self.months, indices='only'
                 )
-            dt = self.dt.sel(time=inds)
+            dt = self.dt.sel(time=inds).astype(float)
             # Reshape time-indices basically makes it easier to group by year.
             # We should be able to do that in xray style a bit more transparently.
+            #print(dt.astype(float)*1e-9/86400.0)
             
-            dt = (self.dt.astype(float)*1e-9).groupby('time.year')
+            #dt = (self.dt.astype(float)*1e-9/86400.0).groupby('time.year')
             data_in = self._get_all_vars_data(start_yr, end_yr, eddy=eddy)
             if self.dtype_out_vert == 'vert_int':
                 dp = self._get_pressure_vals('dp', start_yr['files'], end_yr['files'])

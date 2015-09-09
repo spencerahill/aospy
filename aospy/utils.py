@@ -125,7 +125,7 @@ def level_thickness_xray(p):
     # Top level extends from halfway between top two levels to 0 hPa.
     dp.append(0.5*(p[-2] + p[-1]))
     # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
-    return xray.DataArray(dp, coords=[p], dims=['level'])
+    return xray.DataArray(dp, coords=[p/100.0], dims=['level'])
     
 def phalf_from_sigma(bk, pk, ps):
     """

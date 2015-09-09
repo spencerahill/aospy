@@ -95,7 +95,7 @@ class Region(object):
         reg_mask = self.make_mask_xray(data)
         weights = self.mask_var_xray(model.sfc_area)
         # Take the area average 
-        avg = (data*model.sfc_area).sum('lat').sum('lon') / model.sfc_area.sum('lat').sum('lon')
+        avg = (data*model.sfc_area).sum('lat').sum('lon') / weights.sum('lat').sum('lon')
         return avg 
 
     def ts(self, data, model):
