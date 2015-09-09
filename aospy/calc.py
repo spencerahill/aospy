@@ -17,7 +17,7 @@ from . import Constant, Var, Region
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
                  _month_indices, _yr_label, dmget, nc_name_gfdl,
                  get_nc_direc_repo, _get_time_xray)
-from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
+from .utils import (get_parent_attr, level_thickness, level_thickness_xray, pfull_from_sigma,
                     dp_from_sigma, int_dp_g)
 
 ps = Var(
@@ -610,8 +610,15 @@ class Calc(object):
             if var == 'p':
                 data = pressure
             elif var == 'dp':
-                data = level_thickness(pressure)
-            data = data[np.newaxis,:,np.newaxis,np.newaxis]
+                if self.read_mode[0] == 'netcdf4':
+                    data = level_thickness(pressure)
+                elif self.read_mode[0] == 'xray':
+                    data = level_thickness_xray(pressure)
+                else:
+                    pass
+            if self.read_mode[0] == 'netcdf4':
+                data = data[np.newaxis,:,np.newaxis,np.newaxis]
+            
         if self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk

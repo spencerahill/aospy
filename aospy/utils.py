@@ -1,5 +1,6 @@
 """aospy.utils: utility functions for the aospy module."""
 import numpy as np
+import xray
 
 from . import user_path
 from .constants import grav
@@ -105,7 +106,27 @@ def level_thickness(p):
     # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
     return np.array(dp)
 
+def level_thickness_xray(p):
+    """
+    Calculates the thickness, in Pa, of each pressure level.
 
+    Assumes that the pressure values given are at the center of that model
+    level, except for the lowest value (typically 1000 hPa), which is the
+    bottom boundary. The uppermost level extends to 0 hPa.
+
+    """
+    # Bottom level extends from p[0] to halfway betwen p[0]
+    # and p[1].
+    p = to_pascal(p)
+    dp = [0.5*(p[0] - p[1])]
+    # Middle levels extend from halfway between [k-1], [k] and [k], [k+1].
+    for k in range(1, p.size-1):
+        dp.append(0.5*(p[k-1] - p[k+1]))
+    # Top level extends from halfway between top two levels to 0 hPa.
+    dp.append(0.5*(p[-2] + p[-1]))
+    # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
+    return xray.DataArray(dp, coords=[p], dims=['level'])
+    
 def phalf_from_sigma(bk, pk, ps):
     """
     Compute pressure at sigma half levels from the sigma coordinate arrays and
