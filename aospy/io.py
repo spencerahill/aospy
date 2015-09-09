@@ -159,16 +159,22 @@ def _construct_month_conditional(time, months):
     return base    
 
 def _get_time_xray(time, start_date, end_date, months, indices=False):
-    """ Assumes time is an xray DataArray."""
-    print(start_date)
-    dates = time.sel(time=slice(start_date, end_date))
-    inds = _construct_month_conditional(dates, months)
+    """ Assumes time is an xray DataArray and that it can be represented
+    by numpy datetime64 objects (i.e. the year is between 1678 and 2262).
+    """
+#    print(start_date)
+#    dates = time.sel(time=slice(start_date, end_date))
+#    print(np.datetime64(end_date))
+#    print(time['time'] <= np.datetime64(end_date))
+    inds = _construct_month_conditional(time, months)
+    inds &= (time['time'] <= np.datetime64(end_date))
+    inds &= (time['time'] >= np.datetime64(start_date))
     if indices == 'only':
         return inds
     elif indices:
-        return (inds, dates.sel(time=inds))
+        return (inds, time.sel(time=inds))
     else:
-        return dates.sel(time=inds)
+        return time.sel(time=inds)
 
 def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
     """Determine the indices of a time array falling in a specified interval.
