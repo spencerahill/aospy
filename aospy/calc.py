@@ -95,15 +95,35 @@ class CalcInterface(object):
     def _make_time_chunks(self):
         """Create tuple of (start, end) pairs based on given year chunks."""
         if self.yr_chunk_len:
-            dur = self.yr_chunk_len - 1
-            st_yrs = range(self.start_yr, self.end_yr + 1, self.yr_chunk_len)
-            end_yrs = range(self.start_yr + dur, self.end_yr + dur + 1,
-                            self.yr_chunk_len)
-            if len(end_yrs) == len(st_yrs) - 1:
-                end_yrs.append(self.end_yr)
+            if self.read_mode[0] == 'netcdf4':
+                dur = self.yr_chunk_len - 1
+                st_yrs = range(self.start_yr, self.end_yr + 1, self.yr_chunk_len)
+                end_yrs = range(self.start_yr + dur, self.end_yr + dur + 1,
+                                self.yr_chunk_len)
+                if len(end_yrs) == len(st_yrs) - 1:
+                    end_yrs.append(self.end_yr)
+                else:
+                    st_yrs, end_yrs = [self.start_yr], [self.end_yr]
+
+            elif self.read_mode[0] == 'xray':
+                dur = self.yr_chunk_len - 1
+                st_yrs = list(pd.date_range(self.start_analysis_year, 
+                                       self.end_analysis_year, 
+                                       freq='%dAS-JAN' % self.yr_chunk_len))
+                offset = self.yr_chunk_len*pd.tseries.offsets.YearEnd() + pd.tseries.offsets.DateOffset(days=1)
+                end_yrs = list(pd.date_range(self.start_analysis_year + offset, 
+                                             self.end_analysis_year + offset,
+                                             freq='%dAS-JAN' % self.yr_chunk_len))
+            else:
+                pass
         else:
-            st_yrs, end_yrs = [self.start_yr], [self.end_yr]
-        return zip(st_yrs, end_yrs)
+            if self.read_mode[0] == 'netcdf4':
+                st_yrs, end_yrs = [self.start_yr], [self.end_yr]
+            elif self.read_mode[0] == 'xray':
+                st_yrs, end_yrs = [self.start_analysis_year], [self.end_analysis_year]
+            else:
+                pass
+        return zip(st_yrs, end_yrs)    
 
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  yr_range=None, region=None, intvl_in=None, intvl_out=None,
@@ -302,7 +322,7 @@ class Calc(object):
                     time_obj, self.start_analysis_year, self.end_analysis_year, 
                     self.months, indices=True
                     )
-                self.time =self.time
+                self.time = time
                 self.time_inds = inds
                 self.dt = self._get_dt(nc, inds)
                # print(time_obj)
@@ -820,7 +840,12 @@ class Calc(object):
             # Reshape time-indices basically makes it easier to group by year.
             # We should be able to do that in xray style a bit more transparently.
             dt = self.dt.groupby('time.year')
-            data_in = self._get_all_vars_data(start_yr, end_yr, eddy=eddy)
+            
+            if self.start_yr.year < 1678:
+                start_vyear = start_yr.year - 1900
+                end_vyear = end_yr.year - 1900  
+            
+            data_in = self._get_all_vars_data(start_vyear, end_vyear, eddy=eddy)
             if self.dtype_out_vert == 'vert_int':
                 dp = self._get_pressure_vals('dp', start_yr, end_yr)
             else:
