@@ -789,6 +789,18 @@ class Calc(object):
             dt = dt[:,:,:,:,0]
             return np.ma.multiply(result, dt).sum(axis=1) / dt.sum(axis=1)
 
+    def _local_ts_xray(self, dp, dt, *data_in):
+        result = self.function(*data_in)
+        # Apply spatial reduction methods.
+        if self.def_vert and self.dtype_out_vert == 'vert_int':
+            result = int_dp_g(result, dp)
+        # If already averaged, pass data on. Otherwise do time averaging.
+        if 'av' in self.dtype_in_time or not self.def_time:
+            return result
+        # Group by year. 
+        result = result.groupby('time.year')
+        return result.sum('time') / dt.sum('time') 
+        
     def _time_reduce(self, loc_ts):
         """Compute all desired calculations on a local time-series."""
         files = {}
@@ -884,13 +896,14 @@ class Calc(object):
             dt = self.dt.sel(time=inds)
             # Reshape time-indices basically makes it easier to group by year.
             # We should be able to do that in xray style a bit more transparently.
-            dt = self.dt.groupby('time.year')
+            
+            dt = (self.dt.astype(float)*1e-9).groupby('time.year')
             data_in = self._get_all_vars_data(start_yr, end_yr, eddy=eddy)
             if self.dtype_out_vert == 'vert_int':
                 dp = self._get_pressure_vals('dp', start_yr['files'], end_yr['files'])
             else:
                 dp = False
-            return self._local_ts_xray(dp, dt, start_yr, end_yr, *data_in)
+            return self._local_ts_xray(dp, dt, *data_in)
         else:
             pass
     def compute_xray(self, eddy=False):
