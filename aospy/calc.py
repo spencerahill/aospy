@@ -1006,16 +1006,35 @@ class Calc(object):
             if 'reg' in dtype_out_time:
                 # Open the existing dictionary if it exists.
                 try:
-                    reg_data = pickle.load(file_scratch)
-                except EOFError:
-                    reg_data = {}
-                # Add the new data to the dictionary.
+                    if self.read_mode[0] == 'netcdf4':
+                        reg_data = pickle.load(file_scratch)
+                    elif self.read_mode[0] == 'xray':
+                        reg_data = xray.open_dataset(path[:-2] + '.nc')
+                    else:
+                        pass
+                except (EOFError, RuntimeError):
+                    if self.read_mode[0] == 'netcdf4':
+                        reg_data = {}
+                    elif self.read_mode[0] == 'xray':
+                        reg_data = xray.Dataset() # Empty Dataset
+                    else:
+                        pass
+                # Add the new data to the dictionary or Dataset.
+                # Same method works for both.        
                 reg_data.update(data)
                 data_out = reg_data
             else:
                 data_out = data
-        with open(path, 'wb') as file_scratch:
-            pickle.dump(data_out, file_scratch, protocol=-1)
+        if self.read_mode[0] == 'netcdf4':         
+            with open(path, 'wb') as file_scratch:
+                pickle.dump(data_out, file_scratch, protocol=-1)
+        elif self.read_mode[0] == 'xray':
+            if isinstance(data_out, xray.DataArray):
+                data_out = xray.Dataset({self.name : data_out})
+            #print(data_out.encoding)
+            data_out.to_netcdf(path[:-2] + '.nc', engine='scipy')
+        else:
+            pass
 
     def _save_to_archive(self, dtype_out_time, dtype_out_vert=False):
         """Add the data to the tar file in /archive."""
