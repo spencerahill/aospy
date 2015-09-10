@@ -9,7 +9,7 @@ class Run(object):
                  nc_suffix=False, nc_files={}, default_yr_range=False,
                  ens_mem_prefix=False, ens_mem_ext=False, ens_mem_suffix=False,
                  tags=(), read_mode='netcdf4', nc_start_day=None,
-                 nc_end_day=None, default_time_range=None):
+                 nc_end_day=None, default_time_range=None, idealized=False):
         self.name = name
         self.description = description
         self.proj = proj

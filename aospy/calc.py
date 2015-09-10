@@ -51,7 +51,8 @@ class CalcInterface(object):
                      'nc_files',
                      'nc_dir_struc',
                      'default_yr_range',
-                     'read_mode'):
+                     'read_mode',
+                     'idealized'):
 
             attr_val = tuple([get_parent_attr(rn, attr, strict=False) for rn
                               in self.run])
@@ -819,6 +820,11 @@ class Calc(object):
         # If already averaged, pass data on. Otherwise do time averaging.
         if 'av' in self.dtype_in_time or not self.def_time:
             return result
+
+        if self.idealized:
+            return result
+
+        # Otherwise do time averaging over the years.
         result *= dt
         # Group by year. 
         result = result.groupby('time.year')
@@ -888,6 +894,7 @@ class Calc(object):
                     files.update({'zasym.std': zasym_ts.std('year')})
         # Zonal mean.
             if any('znl' in out_type for out_type in self.dtype_out_time):
+                znl_ts = loc_ts.mean('lon')
                 if 'znl.ts' in self.dtype_out_time:
                     files.update({'znl.ts': znl_ts})
                 if 'znl.av' in self.dtype_out_time:
