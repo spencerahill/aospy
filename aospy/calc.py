@@ -339,7 +339,6 @@ class Calc(object):
                 self.time = time
                 self.time_inds = inds
                 self.dt = self._get_dt(nc, inds)
-               # print(time_obj)
             else:
                 pass
             for name in ('level', 'lev', 'plev'):
@@ -543,7 +542,6 @@ class Calc(object):
                     break
             elif self.nc_dir_struc[0].lower() == 'gfdl':
                 if self.read_mode[n] == 'xray':
-                    print(start_yr)
                     files = self._get_nc_gfdl_dir_struct(name, direc_nc, start_yr['files'].year,
                                                      end_yr['files'].year, n=n)
                 else:
@@ -641,7 +639,6 @@ class Calc(object):
             # elif type(region) is Region:
             data = data[region.name]
         if np.any(time):
-            print(time)
             data = data[time]
             if 'av_from_' in self.dtype_in_time:
                 data = np.mean(data, axis=0)[np.newaxis,:]
@@ -898,7 +895,6 @@ class Calc(object):
             if calc_name in self.dtype_out_time:
                 reg_dat = {}
                 for reg in self.region.values():
-                    print(reg)
                     # Just pass along the data if averaged already.
                     if 'av' in self.dtype_in_time:
                         if self.read_mode[0] == 'netcdf4':

@@ -88,7 +88,13 @@ class Model(object):
                 if self.read_mode == 'netcdf4':
                     nc_obj = netCDF4.MFDataset(path)
                 elif self.read_mode == 'xray':
-                    nc_obj = xray.open_dataset(path, drop_variables=['time_bounds', 'nv'])
+                    # I'm not sure why we read in the `time` array from the model grid.
+                    # I don't think there is any harm in not decoding the CF conventions
+                    # in other words not parsing the dates. Trying to decode CF can trigger
+                    # a warning (that I don't think is necessary here), so we don't bother.
+                    nc_obj = xray.open_dataset(path, 
+                                               drop_variables=['time_bounds', 'nv'],
+                                               decode_cf=False)
                 else:
                     pass
             except RuntimeError:
@@ -108,11 +114,13 @@ class Model(object):
     def _get_nc_grid_attr_xray(self, nc_grid, attr_name):
         for nc in nc_grid:
             try:
-                print(nc[attr_name]) # Not sure why removing this breaks things.
-                return nc[attr_name]
+                # Return a copy of the DataArray, because otherwise you won't catch 
+                # the exception (it needs to look for `attr_name` here; otherwise
+                # it is lazy and waits till it's needed later)
+                return nc[attr_name].copy()
             except RuntimeError:
                 pass
-            raise RuntimeError
+        raise RuntimeError
 
     def _set_mult_nc_grid_attr(self):
         """
@@ -154,7 +162,7 @@ class Model(object):
                         elif self.read_mode == 'xray':
                             setattr(self, name_int, 
                                     self._get_nc_grid_attr_xray(nc_grid, name))
-                    except KeyError:
+                    except (KeyError, RuntimeError):
                         pass
                     else:
                         break
