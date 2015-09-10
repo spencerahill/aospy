@@ -25,6 +25,7 @@ class Run(object):
         self.tags = tags
         
         self.read_mode = read_mode
+        self.idealized = idealized
         self.nc_start_day = nc_start_day
         self.nc_end_day = nc_end_day
         self.default_time_range = default_time_range 
