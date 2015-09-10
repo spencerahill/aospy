@@ -18,7 +18,8 @@ from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
                  _month_indices, _yr_label, dmget, nc_name_gfdl,
                  get_nc_direc_repo, _get_time_xray)
 from .utils import (get_parent_attr, level_thickness, level_thickness_xray, pfull_from_sigma,
-                    dp_from_sigma, pfull_from_sigma_xray, dp_from_sigma_xray, int_dp_g)
+                    dp_from_sigma, pfull_from_sigma_xray, dp_from_sigma_xray, int_dp_g,
+                    int_dp_g_xray)
 
 ps = Var(
     name='ps',
@@ -788,7 +789,12 @@ class Calc(object):
         print('result', result.shape)
         # Apply spatial reductions methods.
         if self.def_vert and self.dtype_out_vert == 'vert_int':
-            result = int_dp_g(result, dp)[:,np.newaxis,:,:]
+            if self.read_mode[0] == 'netcdf4':
+                result = int_dp_g(result, dp)[:,np.newaxis,:,:]
+            elif self.read_mode[0] == 'xray':
+                result = int_dp_g(result, dp)
+            else:
+                pass
         # If already averaged, pass data on.  Otherwise do time averaging.
         if 'av' in self.dtype_in_time or not self.def_time:
             return result
@@ -809,7 +815,7 @@ class Calc(object):
         result = self.function(*data_in)
         # Apply spatial reduction methods.
         if self.def_vert and self.dtype_out_vert == 'vert_int':
-            result = int_dp_g(result, dp)
+            result = int_dp_g_xray(result, dp)
         # If already averaged, pass data on. Otherwise do time averaging.
         if 'av' in self.dtype_in_time or not self.def_time:
             return result
@@ -970,12 +976,7 @@ class Calc(object):
             return self._local_ts_xray(dp, dt, *data_in)
         else:
             pass
-    def compute_xray(self, eddy=False):
-        if all(['eddy' in do for do in self.dtype_out_time]) and eddy is False:
-            self._print_verbose("Computing and saving eddy outputs.")
-            eddy = True
-            
-
+    
     def compute(self, eddy=False):
         """Perform all desired calculations on the data and save externally."""
         # Compute the local time series for each chunk and then combine chunks.

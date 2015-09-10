@@ -267,7 +267,25 @@ def int_dp_g(integrand, dp, start=0., end=None, axis=-3):
     dp = to_pascal(dp)
     return integrate(integrand, dp, axis) * (1. / grav)
 
+def weight_by_delta_xray(integrand, delta):
+    """
+    In the xray world coordinates are aligned automatically (and newaxes are added if needed).
+    """
+    return integrand*delta
 
+def integrate_xray(integrand, delta, dim):
+    """
+    Integrate along the given dimension. 
+    """
+    prod = weight_by_delta_xray(integrand, delta)
+    return prod.sum(dim=dim)
+
+def int_dp_g_xray(integrand, dp):
+    """
+    Mass weighted integral.
+    """
+    return integrate(integrand, dp, vert_coord_name_xray(dp))
+ 
 def dp_from_p(p, ps):
     """Get level thickness of pressure data, incorporating surface pressure."""
     # Top layer goes to 0 hPa; bottom layer goes to 1100 hPa.
