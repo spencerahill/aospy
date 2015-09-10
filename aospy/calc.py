@@ -1091,7 +1091,10 @@ class Calc(object):
         if archive:
             self._save_to_archive(dtype_out_time,
                                   dtype_out_vert=dtype_out_vert)
-        print('\t%s' % self.path_scratch[dtype_out_time])
+        if self.read_mode[0] == 'netcdf4':    
+            print('\t%s' % self.path_scratch[dtype_out_time])
+        elif self.read_mode[0] == 'xray':
+            print('\t%s' % self.path_scratch[dtype_out_time][:-2] + '.nc')
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
