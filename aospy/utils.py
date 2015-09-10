@@ -153,6 +153,11 @@ def phalf_from_sigma(bk, pk, ps):
         ps = ps[np.newaxis,:,:]
     return np.squeeze(pk + ps*bk)
 
+def phalf_from_sigma_xray(bk, pk, ps):
+    """
+    This should work. 
+    """
+    return (ps*bk + pk)
 
 def pfull_from_phalf(phalf):
     """
@@ -168,6 +173,21 @@ def pfull_from_phalf(phalf):
     else:
         return 0.5*(phalf[1:] + phalf[:-1])
 
+def pfull_from_phalf_xray(phalf, pfull_coord):
+    """
+    Compute data at full sigma levels from the values at the half levels.
+    """
+    # We will need to be smart in how we set the coordinates so that we can
+    # add things gracefully within xray.
+    phalf_top = phalf.isel(phalf=slice(1,None))
+    phalf_top = phalf_top.rename({'phalf' : 'pfull'})
+    phalf_top['pfull'] = pfull_coord
+ 
+    phalf_bot = phalf.isel(phalf=slice(None,-1))
+    phalf_bot = phalf_bot.rename({'phalf' : 'pfull'})
+    phalf_bot['pfull'] = pfull_coord
+
+    return 0.5*(phalf_bot + phalf_top)
 
 def phalf_from_pfull(pfull, val_toa=0, val_sfc=0):
     """
@@ -183,6 +203,8 @@ def phalf_from_pfull(pfull, val_toa=0, val_sfc=0):
     phalf[1:-1] = 0.5*(pfull[:-1] + pfull[1:])
     return phalf
 
+def pfull_from_sigma_xray(bk, pk, ps, pfull_coord):
+    return pfull_from_phalf_xray(phalf_from_sigma_xray(bk, pk, ps), pfull_coord)
 
 def pfull_from_sigma(bk, pk, ps):
     """
@@ -201,11 +223,19 @@ def dp_from_phalf(phalf):
     else:
         return phalf[1:] - phalf[:-1]
 
+def dp_from_phalf_xray(phalf, pfull_coord):
+    # We need to make sure dp is on a pfull coord.
+    dp = phalf.diff(dim='phalf', n=1)
+    dp = dp.rename({'phalf' : 'pfull'})
+    dp['pfull'] = pfull_coord
+    return dp
 
 def dp_from_sigma(bk, pk, ps):
     """Compute sigma layer pressure thickness."""
     return dp_from_phalf(phalf_from_sigma(bk, pk, ps))
 
+def dp_from_sigma_xray(bk, pk, ps, pfull_coord):
+    return dp_from_phalf_xray(phalf_from_sigma_xray(bk, pk, ps), pfull_coord)
 
 def weight_by_delta(integrand, delta):
     """
@@ -258,3 +288,9 @@ def dp_from_p(p, ps):
     dp = np.where(np.sign(ps - p_edge_below) > 0, dp_interior, dp_adj_sfc)
     # Mask where ps is less than the p.
     return np.ma.masked_where(ps < p, dp)
+
+def vert_coord_name_xray(dp):
+    for name in ['level', 'pfull']:
+        if name in dp.coords:
+            return name
+    return None    

@@ -18,7 +18,7 @@ from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
                  _month_indices, _yr_label, dmget, nc_name_gfdl,
                  get_nc_direc_repo, _get_time_xray)
 from .utils import (get_parent_attr, level_thickness, level_thickness_xray, pfull_from_sigma,
-                    dp_from_sigma, int_dp_g)
+                    dp_from_sigma, pfull_from_sigma_xray, dp_from_sigma_xray, int_dp_g)
 
 ps = Var(
     name='ps',
@@ -539,7 +539,7 @@ class Calc(object):
                 except KeyError:
                     pass
                 else:
-                    break
+                    pass # Need to figure out what exception is being thrown.
             elif self.nc_dir_struc[0].lower() == 'gfdl':
                 if self.read_mode[n] == 'xray':
                     files = self._get_nc_gfdl_dir_struct(name, direc_nc, start_yr['files'].year,
@@ -557,13 +557,14 @@ class Calc(object):
             else:
                 raise ValueError("Specified directory type not supported: %s"
                                  % self.nc_dir_struc[n])
-            if self.read_mode[n] == 'netcdf4':
+            
+            if self.read_mode[0] == 'netcdf4':
                 try:
                     dmget(files)
                     return netCDF4.MFDataset(files)
                 except (RuntimeError, KeyError):
                     pass
-            elif self.read_mode[n] == 'xray':
+            elif self.read_mode[0] == 'xray':
                 try:
                     dmget(files)
                     ds = []
@@ -621,10 +622,21 @@ class Calc(object):
             bk = self.model[n].bk
             pk = self.model[n].pk
             ps = self._get_var_data(self.ps, start_yr, end_yr, eddy=False)
+            pfull_coord = self.model[n].pfull
             if var == 'p':
-                data = pfull_from_sigma(bk, pk, ps)
+                if self.read_mode[0] == 'netcdf4':
+                    data = pfull_from_sigma(bk, pk, ps)
+                elif self.read_mode[0] == 'xray':
+                    data = pfull_from_sigma_xray(bk, pk, ps, pfull_coord)
+                else:
+                    pass
             elif var == 'dp':
-                data = dp_from_sigma(bk, pk, ps)
+                if self.read_mode[0] == 'netcdf4':
+                    data = dp_from_sigma(bk, pk, ps)
+                elif self.read_mode[0] == 'xray':
+                    data = dp_from_sigma_xray(bk, pk, ps, pfull_coord)
+                else:
+                    pass
         return data
 
     def _get_pressure_vals_xray(self, var, start_yr, end_yr, n=0):
