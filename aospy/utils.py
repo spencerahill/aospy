@@ -284,7 +284,7 @@ def int_dp_g_xray(integrand, dp):
     """
     Mass weighted integral.
     """
-    return integrate(integrand, dp, vert_coord_name_xray(dp))
+    return integrate_xray(integrand, dp, vert_coord_name_xray(dp))
  
 def dp_from_p(p, ps):
     """Get level thickness of pressure data, incorporating surface pressure."""

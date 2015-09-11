@@ -868,19 +868,23 @@ class Calc(object):
                 if 'znl.std' in self.dtype_out_time:
                     files.update({'znl.std': znl_ts.std(axis=0)})
         if self.read_mode[0] == 'xray':
+            if self.idealized[0]:
+                tdim = 'time'
+            else:
+                tdim = 'year'
             if 'ts' in self.dtype_out_time:
                 files.update({'ts': loc_ts})
             if 'None' in self.dtype_out_time:
                 # Some calcs (e.g. correlations) already do time reduction.
                 files.update({'av': loc_ts})
             if 'av' in self.dtype_out_time:
-                files.update({'av': loc_ts.mean('year')})
+                files.update({'av': loc_ts.mean(tdim)})
             if 'eddy.av' in self.dtype_out_time:
-                files.update({'eddy.av': loc_ts.mean('year')})
+                files.update({'eddy.av': loc_ts.mean(tdim)})
             if 'std' in self.dtype_out_time:
-                files.update({'std': loc_ts.std('year')})
+                files.update({'std': loc_ts.std(tdim)})
             if 'eddy.std' in self.dtype_out_time:
-                files.update({'eddy.std': loc_ts.std('year')})
+                files.update({'eddy.std': loc_ts.std(tdim)})
             # Zonal asymmetry.
             if any('zasym' in out_type for out_type in self.dtype_out_time):
                 # '.T'=transpose; makes numpy broadcasting syntax work.
@@ -889,18 +893,18 @@ class Calc(object):
                 if 'zasym.ts' in self.dtype_out_time:
                     files.update({'zasym.ts': zasym_ts})
                 if 'zasym.av' in self.dtype_out_time:
-                    files.update({'zasym.av': zasym_ts.mean('year')})
+                    files.update({'zasym.av': zasym_ts.mean(tdim)})
                 if 'zasym.std' in self.dtype_out_time:
-                    files.update({'zasym.std': zasym_ts.std('year')})
+                    files.update({'zasym.std': zasym_ts.std(tdim)})
         # Zonal mean.
             if any('znl' in out_type for out_type in self.dtype_out_time):
                 znl_ts = loc_ts.mean('lon')
                 if 'znl.ts' in self.dtype_out_time:
                     files.update({'znl.ts': znl_ts})
                 if 'znl.av' in self.dtype_out_time:
-                    files.update({'znl.av': znl_ts.mean('year')})
+                    files.update({'znl.av': znl_ts.mean(tdim)})
                 if 'znl.std' in self.dtype_out_time:
-                    files.update({'znl.std': znl_ts.std('year')})
+                    files.update({'znl.std': znl_ts.std(tdim)})
             
         return files
 
