@@ -451,6 +451,24 @@ class Calc(object):
         ).replace('..', '.')
         return file_name
 
+    def _get_nc_one_dir_tar(self, name, direc_nc, n=0):
+        """Get the names of the tar files when all in the same directory."""
+        
+        # tar may hold absolute or relative paths
+        paths = []
+        for tar in nc_files:
+            full = '/'.join([direc_nc, tar]).replace('//', '/')
+            if os.path.isfile(tar):
+                paths.append(tar)
+            elif os.path.isfile(full):
+                paths.append(full)
+            else:
+                print("Warning: specified netCDF file `%s` not found" % nc)
+        # Remove duplicate entries.
+        files = list(set(paths))
+        files.sort()
+        return files
+    
     def _get_nc_one_dir(self, name, direc_nc, n=0):
         """Get the names of netCDF files when all in same directory."""
         if isinstance(self.nc_files[n][name], str):
@@ -821,7 +839,7 @@ class Calc(object):
         if 'av' in self.dtype_in_time or not self.def_time:
             return result
 
-        if self.idealized:
+        if self.idealized[0]:
             return result
 
         # Otherwise do time averaging over the years.
