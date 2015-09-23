@@ -117,7 +117,7 @@ class Model(object):
                 # Return a copy of the DataArray, because otherwise you won't catch 
                 # the exception (it needs to look for `attr_name` here; otherwise
                 # it is lazy and waits till it's needed later)
-                return nc[attr_name].copy()
+                return nc[attr_name].copy(deep=True)
             except RuntimeError:
                 pass
         raise RuntimeError

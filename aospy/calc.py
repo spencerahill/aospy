@@ -525,10 +525,17 @@ class Calc(object):
         # Assume time range is printed to
         # yr_ranges = [nc.split('.')[1] for nc in files_var]
         # files_time = [nc for nc in
-        files = [direc + nc_name_gfdl(name, domain, dtype,
+        if self.read_mode[0] == 'netcdf4':
+            files = [direc + nc_name_gfdl(name, domain, dtype,
                                       self.intvl_in, yr, self.intvl_out,
                                       self.nc_start_yr[n], self.nc_dur[n])
-                 for yr in range(start_yr, end_yr + 1)]
+                     for yr in range(start_yr, end_yr + 1)]
+        else:
+            files = [direc + nc_name_gfdl(name, domain, dtype,
+                                          self.intvl_in, yr, self.intvl_out,
+                                          self.nc_start_yr[n], self.nc_dur[n])
+                     for yr in range(start_yr, end_yr)]
+            
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
