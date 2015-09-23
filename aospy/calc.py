@@ -186,6 +186,7 @@ class CalcInterface(object):
         self.dtype_in_time = dtype_in_time
         self.dtype_in_vert = dtype_in_vert
         self.ps = ps
+        print(dtype_out_time)
         if isinstance(dtype_out_time, (list, tuple)):
             self.dtype_out_time = tuple(dtype_out_time)
         else:
@@ -599,9 +600,10 @@ class Calc(object):
                         test = xray.open_dataset(file,
                                                  decode_cf=False,
                                                  drop_variables=['time_bounds','nv'])
-                        for v in ['time', 'average_T1', 'average_T2']:
-                            test[v].attrs['units'] = 'days since 1900-01-01 00:00:00'
-                        test['time'].attrs['calendar'] = 'noleap'
+                        if start_yr['files'].year < 1678:
+                            for v in ['time', 'average_T1', 'average_T2']:
+                                test[v].attrs['units'] = 'days since 1900-01-01 00:00:00'
+                            test['time'].attrs['calendar'] = 'noleap'
                         test = xray.decode_cf(test)
                         ds.append(test)
                     return xray.concat(ds, dim='time')
@@ -1047,6 +1049,7 @@ class Calc(object):
 
     def _save_to_scratch(self, data, dtype_out_time, dtype_out_vert=False):
         """Save the data to the scratch filesystem."""
+        print(dtype_out_time)
         path = self.path_scratch[dtype_out_time]
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
