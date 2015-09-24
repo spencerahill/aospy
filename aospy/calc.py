@@ -1053,30 +1053,31 @@ class Calc(object):
         path = self.path_scratch[dtype_out_time]
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
-        with open(path, 'ab+') as file_scratch:
-            # Update, rather than overwrite, existing regional data.
-            if 'reg' in dtype_out_time:
-                # Open the existing dictionary if it exists.
-                try:
-                    if self.read_mode[0] == 'netcdf4':
+        if self.read_mode[0] == 'netcdf4':
+            with open(path, 'ab+') as file_scratch:
+                if 'reg' in dtype_out_time:
+                    try:
                         reg_data = pickle.load(file_scratch)
-                    elif self.read_mode[0] == 'xray':
-                        reg_data = xray.open_dataset(path[:-2] + '.nc')
-                    else:
-                        pass
-                except (EOFError, RuntimeError):
-                    if self.read_mode[0] == 'netcdf4':
+                    except (EOFError, RuntimeError):
                         reg_data = {}
-                    elif self.read_mode[0] == 'xray':
-                        reg_data = xray.Dataset() # Empty Dataset
-                    else:
-                        pass
+                    reg_data.update(data)
+                    data_out = reg_data
+                else:
+                    data_out = data
+        elif self.read_mode[0] == 'xray':
+            if 'reg' in dtype_out_time:
+                try:
+                    reg_data = xray.open_dataset(path[:-2] + '.nc')
+                except (EOFError, RuntimeError):
+                    reg_data = xray.Dataset() # Empty Dataset
                 # Add the new data to the dictionary or Dataset.
-                # Same method works for both.        
+                # Same method works for both.
                 reg_data.update(data)
                 data_out = reg_data
             else:
                 data_out = data
+        else:
+            pass
         if self.read_mode[0] == 'netcdf4':         
             with open(path, 'wb') as file_scratch:
                 pickle.dump(data_out, file_scratch, protocol=-1)
