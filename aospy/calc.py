@@ -1,6 +1,5 @@
 """calc.py: classes for performing specified calculations on aospy data"""
 import cPickle
-import glob
 import os
 import shutil
 import subprocess
@@ -10,11 +9,12 @@ import warnings
 
 import netCDF4
 import numpy as np
+from pandas.tseries.offsets import DateOffset
+import xray
 
-from . import Constant, Var, Region
+from . import Constant, Var
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
-                 _month_indices, _yr_label, dmget, nc_name_gfdl,
-                 get_nc_direc_repo)
+                 _month_indices, _yr_label, dmget, nc_name_gfdl)
 from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
                     dp_from_sigma, int_dp_g)
 
@@ -32,7 +32,7 @@ ps = Var(
 
 
 class CalcInterface(object):
-    """Class for executing, saving, and loading a single computation."""
+    """Interface to Calc class."""
     def _set_nc_attrs(self):
         for attr in ('nc_start_yr',
                      'nc_end_yr',
@@ -163,8 +163,6 @@ class Calc(object):
         if isinstance(calc_interface.ens_mem, int):
             self.direc_nc = self.direc_nc[calc_interface.ens_mem]
 
-        # if not calc_interface.skip_time_inds:
-            # self._set_time_dt()
         self.dt_set = False
 
         self.dir_scratch = self._dir_scratch()
@@ -188,38 +186,6 @@ class Calc(object):
         )
 
     __repr__ = __str__
-
-    # 2015-08-28: These __call__ and __add__ methods were never fully
-    # implemented, let alone tested.  Nor is their resulting functionality used
-    # at all currently.
-    # def __call__(self, dtype_out):
-    #     try:
-    #         data = self.data_out[dtype_out]
-    #     except AttributeError:
-    #         raise AttributeError("'data_out' attribute has not been set for "
-    #                              "aospy.Calc object '%s'." % self)
-    #     except KeyError:
-    #         raise KeyError("No data exists for dtype '%s' for aospy.Calc "
-    #                        "object '%s'." % (dtype_out, self))
-    #     else:
-    #         return data
-
-    # def __add__(self, other):
-    #     """Add aospy.Calc.data_out, numpy.array, int, or float to the array."""
-    #     try:
-    #         data_self = getattr(self, 'data_out')
-    #     except AttributeError:
-    #         raise AttributeError("Object '%s' lacks a 'data_out' attr" % self)
-    #     # aospy.Calc, numpy array, and int/flot objects each use a different
-    #     # named attribute to store their values
-    #     for attr in ('data_out', '__array__', 'real'):
-    #         try:
-    #             data_other = getattr(other, 'data_out')
-    #         except AttributeError:
-    #             pass
-    #         else:
-    #             break
-    #     return np.add(data_self, data_other)
 
     def _print_verbose(self, *args):
         """Print diagnostic message."""
@@ -256,6 +222,9 @@ class Calc(object):
             self.time_units = time_obj.units
             self.calendar = time_obj.calendar
             self.time_inds = inds
+            self.dates = netCDF4.date2num(self.time, self.time_units,
+                                          calendar=self.calendar)
+            self.time_inds_by_month = self._time_inds_by_month()
             self.dt = self._get_dt(nc, inds)
 
             for name in ('level', 'lev', 'plev'):
@@ -489,14 +458,14 @@ class Calc(object):
         if self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk
-            ps = self._get_var_data(self.ps, start_yr, end_yr, eddy=False)
+            ps = self._get_var_data(self.ps, start_yr, end_yr)
             if var == 'p':
                 data = pfull_from_sigma(bk, pk, ps)
             elif var == 'dp':
                 data = dp_from_sigma(bk, pk, ps)
         return data
 
-    def _get_data_subset(self, data, region=False, eddy=False, time=False,
+    def _get_data_subset(self, data, region=False, time=False,
                          vert=False, lat=False, lon=False, n=0):
         """Subset the data array to the specified time/level/lat/lon, etc."""
         if region:
@@ -508,8 +477,6 @@ class Calc(object):
             data = data[time]
             if 'av_from_' in self.dtype_in_time:
                 data = np.mean(data, axis=0)[np.newaxis,:]
-        if np.any(eddy):
-            data -= np.ma.average(data, axis=0, weights=eddy)
         if np.any(vert):
             if self.dtype_in_vert != 'sigma':
                 if np.max(self.model[n].level) > 1e4:
@@ -529,7 +496,7 @@ class Calc(object):
         return data
 
     def _get_var_data(self, var, start_yr, end_yr, n=0, region=False,
-                      eddy=False, vert=False, lat=False, lon=False):
+                      vert=False, lat=False, lon=False):
         """Get the needed data from one aospy.Var."""
         self._print_verbose("\tGetting data from netCDF files: %s", var)
         with self._get_nc(var, start_yr, end_yr, n=n) as nc:
@@ -556,12 +523,8 @@ class Calc(object):
             t_array, t_units, t_cal = time[:], time.units, time.calendar
             t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
                                self.months, indices='only')
-            if eddy:
-                eddy = self._get_dt(nc, t_inds)
-        data = self._get_data_subset(
-            data, region=region, eddy=eddy, time=t_inds,
-            vert=self.level, lat=lat, lon=lon
-        )
+        data = self._get_data_subset(data, region=region, time=t_inds,
+                                     vert=self.level, lat=lat, lon=lon)
         # Interpolate data at sigma half levels to full levels.
         if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
             data = 0.5*(data[:,:-1] + data[:,1:])
@@ -572,7 +535,7 @@ class Calc(object):
             data = data[:,np.newaxis]
         return data
 
-    def _get_all_vars_data(self, start_yr, end_yr, eddy=False):
+    def _get_all_vars_data(self, start_yr, end_yr):
         """Get the needed data from all of the vars in the calculation."""
         all_vals = []
         for n, var in enumerate(self.variables):
@@ -587,6 +550,7 @@ class Calc(object):
             elif isinstance(var, (float, int, Constant)):
                 data = var
             # aospy.Var objects remain.
+            # lat and lon maybe are Calc attributes; if not get from model
             elif var.name == 'lat':
                 if np.any(self.lat):
                     data = self.lat
@@ -597,12 +561,14 @@ class Calc(object):
                     data = self.lon
                 else:
                     data = getattr(self.model[0], var.name)
+            # Grab the time array as is.
+            elif var.name == 'time':
+                data = self.time
             # Get other grid, time, etc. arrays directly from model object
-            elif var.name in ('level', 'pk', 'bk', 'sfc_area', 'time'):
+            elif var.name in ('level', 'pk', 'bk', 'sfc_area'):
                 data = getattr(self.model[0], var.name)
             else:
-                data = self._get_var_data(var, start_yr, end_yr,
-                                          n=n, eddy=eddy)
+                data = self._get_var_data(var, start_yr, end_yr, n=n)
             all_vals.append(data)
         return all_vals
 
@@ -628,6 +594,17 @@ class Calc(object):
             dt = dt[:,:,:,:,0]
             return np.ma.multiply(result, dt).sum(axis=1) / dt.sum(axis=1)
 
+    # @staticmethod
+    # def first_last_time_inds_of_month(dates, month, year):
+    #     """Find indices and times of first and last timesteps in the month."""
+    #     month_only = [n for n, date in enumerate(dates)
+    #                   if date.month == month and date.year == year]
+    #     return month_only[0], month_only[-1]
+
+    # def month_time_tendency(self, field, dates, month, year):
+    #     ind_f, ind0 = self.first_last_time_inds_of_month(dates, month, year)
+    #     return field[ind_f] - field[ind0]
+
     def _time_reduce(self, loc_ts):
         """Compute all desired calculations on a local time-series."""
         files = {}
@@ -638,12 +615,18 @@ class Calc(object):
             files.update({'av': loc_ts})
         if 'av' in self.dtype_out_time:
             files.update({'av': loc_ts.mean(axis=0)})
-        if 'eddy.av' in self.dtype_out_time:
-            files.update({'eddy.av': loc_ts.mean(axis=0)})
-        if 'std' in self.dtype_out_time:
-            files.update({'std': loc_ts.std(axis=0)})
-        if 'eddy.std' in self.dtype_out_time:
-            files.update({'eddy.std': loc_ts.std(axis=0)})
+        # if 'time_tendency.monthly' in self.dtype_out_time:
+        #     raise NotImplementedError
+        #     # files.update({'time_tendency.monthly': self.time_tendency(loc_ts)})
+        # if 'time_tendency.av' in self.dtype_out_time:
+        #     raise NotImplementedError
+        #     # files.update({'time_tendency.av': self.time_tendency(loc_ts)})
+        # if 'eddy.av' in self.dtype_out_time:
+        #     files.update({'eddy.av': loc_ts.mean(axis=0)})
+        # if 'std' in self.dtype_out_time:
+        #     files.update({'std': loc_ts.std(axis=0)})
+        # if 'eddy.std' in self.dtype_out_time:
+        #     files.update({'eddy.std': loc_ts.std(axis=0)})
         # Zonal asymmetry.
         if any('zasym' in out_type for out_type in self.dtype_out_time):
             # '.T'=transpose; makes numpy broadcasting syntax work.
@@ -665,14 +648,12 @@ class Calc(object):
                 files.update({'znl.std': znl_ts.std(axis=0)})
         return files
 
-    def region_calcs(self, loc_ts, eddy=False, n=0):
+    def region_calcs(self, loc_ts, n=0):
         """Region-averaged computations.  Execute and save to external file."""
         calcs_reg = ('ts', 'av', 'std')
         # Perform each calculation for each region.
         for calc in calcs_reg:
             calc_name = ('reg.' + calc)
-            if eddy:
-                calc_name = '.'.join(['eddy', calc_name])
             if calc_name in self.dtype_out_time:
                 reg_dat = {}
                 for reg in self.region.itervalues():
@@ -686,41 +667,48 @@ class Calc(object):
                     reg_dat.update({reg.name: data_out})
                 self.save(reg_dat, calc_name)
 
-    def _compute_chunk(self, start_yr, end_yr, eddy=False):
+    def _compute_chunk(self, start_yr, end_yr):
         """Perform the calculation on the given chunk of times."""
         self._print_verbose("\nComputing desired timeseries from netCDF data "
                             "for years %d-%d.", (start_yr, end_yr))
-
         if not self.dt_set:
             self._set_time_dt()
             self.dt_set = True
-
         inds = _get_time(
             self.time, self.time_units, self.calendar,
             start_yr, end_yr, self.months, indices='only'
         )
         dt = self.dt[inds]
         dt = self._reshape_time_indices(dt, start_yr, end_yr)
-        data_in = self._get_all_vars_data(start_yr, end_yr, eddy=eddy)
+        data_in = self._get_all_vars_data(start_yr, end_yr)
         if self.dtype_out_vert == 'vert_int':
             dp = self._get_pressure_vals('dp', start_yr, end_yr)
         else:
             dp = False
         return self._local_ts(dp, dt, end_yr - start_yr + 1, *data_in)
 
-    def compute(self, eddy=False):
+    def compute(self):
         """Perform all desired calculations on the data and save externally."""
         # Compute the local time series for each chunk and then combine chunks.
-        if all(['eddy' in do for do in self.dtype_out_time]) and eddy is False:
-            self._print_verbose("Computing and saving eddy outputs.")
-            eddy = True
-        full_ts = [self._compute_chunk(start_yr, end_yr, eddy=eddy)
+        full_ts = [self._compute_chunk(start_yr, end_yr)
                    for start_yr, end_yr in self.chunk_ranges]
         if len(full_ts) == 1:
             full_ts = full_ts[0]
         else:
-            self._print_verbose("Combining output data from all time chunks.")
+            self._print_verbose("Combining output data from all chunks.")
             full_ts = np.ma.concatenate(full_ts, axis=0)
+        self.full_ts = full_ts
+        # Compute the time series using monthly means if needed.
+        # if any(['eddy' in do for do in self.dtype_out_time] +
+        #        ['av_from' in do for do in self.dtype_out_time]):
+        #     monthly_ts = [self._compute_chunk(start_yr, end_yr, monthly=True)
+        #                   for start_yr, end_yr in self.chunk_ranges]
+        #     if len(monthly_ts) == 1:
+        #         monthly_ts = monthly_ts[0]
+        #     else:
+        #         self._print_verbose("Combining output data from all chunks.")
+        #         monthly_ts = np.ma.concatenate(monthly_ts, axis=0)
+        #     self.monthly_ts = monthly_ts
         # Apply time reduction methods on gridded data and save.
         self._print_verbose("Applying desired time-reduction methods.")
         if self.def_time:
@@ -734,11 +722,7 @@ class Calc(object):
         # Apply time reduction methods to regional averages and save.
         if any(['reg' in do for do in self.dtype_out_time]) and self.region:
             self._print_verbose("Computing and saving regional outputs.")
-            self.region_calcs(full_ts, eddy=eddy)
-        # Perfom eddy computations.
-        if any(['eddy' in do for do in self.dtype_out_time]) and eddy is False:
-            self._print_verbose("Computing and saving eddy outputs.")
-            self.compute(eddy=True)
+            self.region_calcs(full_ts)
 
     def _save_to_scratch(self, data, dtype_out_time, dtype_out_vert=False):
         """Save the data to the scratch filesystem."""
