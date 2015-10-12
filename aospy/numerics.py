@@ -32,7 +32,8 @@ class FiniteDiff(object):
         self.vector_field = vector_field
         self.wraparound = wraparound
 
-    def cen_diff(self, array, axis=0, spacing=2):
+    @staticmethod
+    def cen_diff(array, axis=0, spacing=2):
         """Centered differencing of the array.  NOT its full derivative."""
         if spacing < 2:
             raise ValueError("Centered differencing cannot have spacing < 2")
@@ -40,7 +41,8 @@ class FiniteDiff(object):
             raise NotImplementedError("Only 0th axis supported for now.")
         return array[spacing:] - array[:-spacing]
 
-    def fwd_diff(self, array, axis=0, spacing=1):
+    @staticmethod
+    def fwd_diff(array, axis=0, spacing=1):
         """Forward differencing of the array.  NOT its full derivative."""
         if spacing < 1:
             raise ValueError("Forward and backward differencing cannot have "
@@ -49,9 +51,10 @@ class FiniteDiff(object):
             raise NotImplementedError("Only 0th axis supported for now.")
         return array[spacing:] - array[:-spacing]
 
-    def bwd_diff(self, array, axis=0, spacing=1):
+    @classmethod
+    def bwd_diff(cls, array, axis=0, spacing=1):
         """Backward differencing of the array.  Not its full derivative."""
-        return self.fwd_diff(array[::-1])[::-1]
+        return cls.fwd_diff(array[::-1])[::-1]
 
     def cen_diff_deriv(self, axis=0, order=2, fill_edges=False):
         """
