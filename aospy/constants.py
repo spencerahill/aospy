@@ -47,26 +47,19 @@ class Constant(object):
             other_value = other
         return np.ma.multiply(self.value, other_value)
 
-#    def __div__(self, other):
-#        if isinstance(other, Constant):
-#            other_value = other.value
-#        else:
-#            other_value = other
-#        return np.ma.divide(self.value, other_value)
-
     def __truediv__(self, other):
         if isinstance(other, Constant):
             other_value = other.value
         else:
             other_value = other
-        return np.ma.divide(self.value, other_value)    
+        return np.ma.divide(self.value, other_value)
 
     def __floordiv__(self, other):
         if isinstance(other, Constant):
             other_value = other.value
         else:
             other_value = other
-        return np.ma.divide(self.value, other_value)    
+        return np.ma.divide(self.value, other_value)
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -144,17 +137,17 @@ seconds_in_day = Constant(
     description='Number of seconds in a day'
 )
 Omega = Constant(
-    2.*pi / seconds_in_day,
+    2.*pi / seconds_in_day.value,
     's^{-1}',
     description='Rotation rate of Earth'
 )
 epsilon = Constant(
-    R_d / R_v,
+    R_d.value / R_v.value,
     'dimensionless',
     description='Ratio of gas constants of dry air and water vapor'
 )
 kappa = Constant(
-    R_d / c_p,
+    R_d.value / c_p.value,
     'dimensionless',
     description=('Ratio of gas constant and specific heat at constant '
                  'pressure of dry air')
@@ -213,12 +206,12 @@ E_0s = Constant(
                  'and solid water at the triple-point temperature')
 )
 s_0v = Constant(
-    E_0v / T_trip + R_v,
+    E_0v.value / T_trip.value + R_v.value,
     'J/kg/K',
     description='Specific entropy of water vapor at the triple point.'
 )
 s_0s = Constant(
-    E_0s / T_trip,
+    E_0s.value / T_trip.value,
     'J/kg/K',
     description='Specific entropy of solid water at the triple point.'
 )
