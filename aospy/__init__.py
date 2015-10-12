@@ -8,6 +8,8 @@ from . import units
 from .units import Units
 from . import numerics
 from .numerics import FiniteDiff
+from . import operator
+from .operator import Operator
 from . import spharm_interface
 from .spharm_interface import SpharmInterface
 from . import var
