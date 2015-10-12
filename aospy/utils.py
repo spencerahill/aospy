@@ -1,5 +1,6 @@
 """aospy.utils: utility functions for the aospy module."""
 import numpy as np
+import xray
 
 from . import user_path
 from .constants import grav
@@ -105,7 +106,27 @@ def level_thickness(p):
     # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
     return np.array(dp)
 
+def level_thickness_xray(p):
+    """
+    Calculates the thickness, in Pa, of each pressure level.
 
+    Assumes that the pressure values given are at the center of that model
+    level, except for the lowest value (typically 1000 hPa), which is the
+    bottom boundary. The uppermost level extends to 0 hPa.
+
+    """
+    # Bottom level extends from p[0] to halfway betwen p[0]
+    # and p[1].
+    p = to_pascal(p)
+    dp = [0.5*(p[0] - p[1])]
+    # Middle levels extend from halfway between [k-1], [k] and [k], [k+1].
+    for k in range(1, p.size-1):
+        dp.append(0.5*(p[k-1] - p[k+1]))
+    # Top level extends from halfway between top two levels to 0 hPa.
+    dp.append(0.5*(p[-2] + p[-1]))
+    # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
+    return xray.DataArray(dp, coords=[p/100.0], dims=['level'])
+    
 def phalf_from_sigma(bk, pk, ps):
     """
     Compute pressure at sigma half levels from the sigma coordinate arrays and
@@ -132,6 +153,11 @@ def phalf_from_sigma(bk, pk, ps):
         ps = ps[np.newaxis,:,:]
     return np.squeeze(pk + ps*bk)
 
+def phalf_from_sigma_xray(bk, pk, ps):
+    """
+    This should work. 
+    """
+    return (ps*bk + pk)
 
 def pfull_from_phalf(phalf):
     """
@@ -147,6 +173,21 @@ def pfull_from_phalf(phalf):
     else:
         return 0.5*(phalf[1:] + phalf[:-1])
 
+def pfull_from_phalf_xray(phalf, pfull_coord):
+    """
+    Compute data at full sigma levels from the values at the half levels.
+    """
+    # We will need to be smart in how we set the coordinates so that we can
+    # add things gracefully within xray.
+    phalf_top = phalf.isel(phalf=slice(1,None))
+    phalf_top = phalf_top.rename({'phalf' : 'pfull'})
+    phalf_top['pfull'] = pfull_coord
+ 
+    phalf_bot = phalf.isel(phalf=slice(None,-1))
+    phalf_bot = phalf_bot.rename({'phalf' : 'pfull'})
+    phalf_bot['pfull'] = pfull_coord
+
+    return 0.5*(phalf_bot + phalf_top)
 
 def phalf_from_pfull(pfull, val_toa=0, val_sfc=0):
     """
@@ -162,6 +203,8 @@ def phalf_from_pfull(pfull, val_toa=0, val_sfc=0):
     phalf[1:-1] = 0.5*(pfull[:-1] + pfull[1:])
     return phalf
 
+def pfull_from_sigma_xray(bk, pk, ps, pfull_coord):
+    return pfull_from_phalf_xray(phalf_from_sigma_xray(bk, pk, ps), pfull_coord)
 
 def pfull_from_sigma(bk, pk, ps):
     """
@@ -180,11 +223,19 @@ def dp_from_phalf(phalf):
     else:
         return phalf[1:] - phalf[:-1]
 
+def dp_from_phalf_xray(phalf, pfull_coord):
+    # We need to make sure dp is on a pfull coord.
+    dp = phalf.diff(dim='phalf', n=1)
+    dp = dp.rename({'phalf' : 'pfull'})
+    dp['pfull'] = pfull_coord
+    return dp
 
 def dp_from_sigma(bk, pk, ps):
     """Compute sigma layer pressure thickness."""
     return dp_from_phalf(phalf_from_sigma(bk, pk, ps))
 
+def dp_from_sigma_xray(bk, pk, ps, pfull_coord):
+    return dp_from_phalf_xray(phalf_from_sigma_xray(bk, pk, ps), pfull_coord)
 
 def weight_by_delta(integrand, delta):
     """
@@ -216,7 +267,25 @@ def int_dp_g(integrand, dp, start=0., end=None, axis=-3):
     dp = to_pascal(dp)
     return integrate(integrand, dp, axis) * (1. / grav)
 
+def weight_by_delta_xray(integrand, delta):
+    """
+    In the xray world coordinates are aligned automatically (and newaxes are added if needed).
+    """
+    return integrand*delta
 
+def integrate_xray(integrand, delta, dim):
+    """
+    Integrate along the given dimension. 
+    """
+    prod = weight_by_delta_xray(integrand, delta)
+    return prod.sum(dim=dim)
+
+def int_dp_g_xray(integrand, dp):
+    """
+    Mass weighted integral.
+    """
+    return integrate_xray(integrand, dp, vert_coord_name_xray(dp)) * (1. / grav.value) 
+ 
 def dp_from_p(p, ps):
     """Get level thickness of pressure data, incorporating surface pressure."""
     # Top layer goes to 0 hPa; bottom layer goes to 1100 hPa.
@@ -237,3 +306,9 @@ def dp_from_p(p, ps):
     dp = np.where(np.sign(ps - p_edge_below) > 0, dp_interior, dp_adj_sfc)
     # Mask where ps is less than the p.
     return np.ma.masked_where(ps < p, dp)
+
+def vert_coord_name_xray(dp):
+    for name in ['level', 'pfull']:
+        if name in dp.coords:
+            return name
+    return None    

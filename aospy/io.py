@@ -82,9 +82,9 @@ def _yr_label(yr_range):
     """Create label of start and end years for aospy data I/O."""
     assert yr_range is not None, "yr_range is None"
     if yr_range[0] == yr_range[1]:
-        return '{:04}'.format(yr_range[0])
+        return '{:04d}'.format(yr_range[0])
     else:
-        return '{:04}'.format(yr_range[0]) + '-' + '{:04}'.format(yr_range[1])
+        return '{:04d}'.format(yr_range[0]) + '-' + '{:04d}'.format(yr_range[1])
 
 
 def _znl_label(var):
@@ -115,7 +115,7 @@ def _time_label(intvl, return_val=True):
                   'ond':(10,11,12), 'ndj': (11,12,1), 'djf': (1,  2, 12),
                   'jjas': (6,7,8,9), 'djfm': (12, 1, 2, 3),
                   'ann': range(1,13)}
-        for lbl, vals in labels.iteritems():
+        for lbl, vals in labels.items():
             if intvl == lbl or set(intvl) == set(vals):
                 label = lbl
                 value = np.array(vals)
@@ -149,6 +149,32 @@ def _month_indices(months, iterable=True):
         st_ind = first_letter.find(months.lower()) + 1
         return range(st_ind, st_ind + len(months))
 
+def _construct_month_conditional(time, months):
+    """ Construct a compound conditional statement to be used to reference and select data in a
+    DataArray.
+    """
+    base = False
+    for month in months:
+        base |= (time['time.month'] == month)
+    return base    
+
+def _get_time_xray(time, start_date, end_date, months, indices=False):
+    """ Assumes time is an xray DataArray and that it can be represented
+    by numpy datetime64 objects (i.e. the year is between 1678 and 2262).
+    """
+#    print(start_date)
+#    dates = time.sel(time=slice(start_date, end_date))
+#    print(np.datetime64(end_date))
+#    print(time['time'] <= np.datetime64(end_date))
+    inds = _construct_month_conditional(time, months)
+    inds &= (time['time'] <= np.datetime64(end_date))
+    inds &= (time['time'] >= np.datetime64(start_date))
+    if indices == 'only':
+        return inds
+    elif indices:
+        return (inds, time.sel(time=inds))
+    else:
+        return time.sel(time=inds)
 
 def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
     """Determine the indices of a time array falling in a specified interval.
@@ -204,24 +230,24 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
     if data_type in ('ts', 'inst'):
         if intvl_type == 'annual':
             if nc_dur == 1:
-                gfdl_file = '.'.join([domain, '{:04}'.format(nc_yr),
+                gfdl_file = '.'.join([domain, '{:04d}'.format(nc_yr),
                                       name, 'nc'])
             else:
-                gfdl_file = (domain + '.{:04}'.format(nc_yr) +
-                             '-{:04}'.format(nc_yr+nc_dur-1)
+                gfdl_file = (domain + '.{:04d}'.format(nc_yr) +
+                             '-{:04d}'.format(nc_yr+nc_dur-1)
                              + '.' + name + '.nc')
         elif intvl_type == 'monthly':
-            gfdl_file = (domain + '.{:04}'.format(nc_yr) + '01-' +
-                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+            gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '01-' +
+                         '{:04d}'.format(int(nc_yr+nc_dur-1)) +
                          '12.' + name + '.nc')
         elif intvl_type == 'daily':
-            gfdl_file = (domain + '.{:04}'.format(nc_yr) + '0101-' +
-                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+            gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '0101-' +
+                         '{:04d}'.format(int(nc_yr+nc_dur-1)) +
                          '1231.' + name + '.nc')
         elif 'hr' in intvl_type:
             gfdl_file = '.'.join(
-                [domain, '{:04}'.format(nc_yr) + '010100-' +
-                 '{:04}'.format(nc_yr+nc_dur-1) + '123123', name, 'nc']
+                [domain, '{:04d}'.format(nc_yr) + '010100-' +
+                 '{:04d}'.format(nc_yr+nc_dur-1) + '123123', name, 'nc']
             )
     elif data_type == 'av':
         if intvl_type in ['annual', 'ann']:
@@ -235,14 +261,14 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
         elif intvl_type in ['monthly', 'mon']:
             label, val = _time_label(intvl)
         if nc_dur == 1:
-            gfdl_file = domain + '.{:04}'.format(nc_yr) + '.' + label + '.nc'
+            gfdl_file = domain + '.{:04d}'.format(nc_yr) + '.' + label + '.nc'
         else:
-            gfdl_file = (domain + '.{:04}'.format(nc_yr) + '-' +
-                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+            gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '-' +
+                         '{:04d}'.format(int(nc_yr+nc_dur-1)) +
                          '.' + label + '.nc')
     elif data_type == 'av_ts':
-        gfdl_file = (domain + '.{:04}'.format(nc_yr) + '-' +
-                     '{:04}'.format(int(nc_yr+nc_dur-1)) + '.01-12.nc')
+        gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '-' +
+                     '{:04d}'.format(int(nc_yr+nc_dur-1)) + '.01-12.nc')
     return gfdl_file
 
 
