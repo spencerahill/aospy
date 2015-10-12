@@ -1,11 +1,14 @@
 """calc.py: classes for performing specified calculations on aospy data"""
-import cPickle
+import pickle
+import glob
 import os
 import shutil
 import subprocess
 import tarfile
 import time
 import warnings
+import xray
+import pandas as pd
 
 import netCDF4
 import numpy as np
@@ -14,9 +17,11 @@ import xray
 
 from . import Constant, Var
 from .io import (_data_in_label, _data_out_label, _ens_label, _get_time,
-                 _month_indices, _yr_label, dmget, nc_name_gfdl)
-from .utils import (get_parent_attr, level_thickness, pfull_from_sigma,
-                    dp_from_sigma, int_dp_g)
+                 _month_indices, _yr_label, dmget, nc_name_gfdl,
+                 get_nc_direc_repo, _get_time_xray)
+from .utils import (get_parent_attr, level_thickness, level_thickness_xray,
+                    pfull_from_sigma, dp_from_sigma, pfull_from_sigma_xray,
+                    dp_from_sigma_xray, int_dp_g, int_dp_g_xray)
 
 ps = Var(
     name='ps',
@@ -40,30 +45,53 @@ class CalcInterface(object):
                      'direc_nc',
                      'nc_start_month',
                      'nc_end_month',
+                     'nc_start_day',
+                     'default_time_range',
+                     'nc_end_day',
                      'ens_mem_prefix',
                      'ens_mem_ext',
                      'nc_files',
                      'nc_dir_struc',
-                     'default_yr_range'):
+                     'default_yr_range',
+                     'read_mode',
+                     'idealized'):
+
             attr_val = tuple([get_parent_attr(rn, attr, strict=False) for rn
                               in self.run])
+
             setattr(self, attr, attr_val)
 
     def _get_yr_range(self):
         """Set the object's span of years."""
-        if self.yr_range == 'default':
-            start_yr, end_yr = get_parent_attr(self.run[0], 'default_yr_range')
-        elif self.yr_range == 'all':
-            start_yr = get_parent_attr(self.run[0], 'nc_start_yr')
-            end_yr = get_parent_attr(self.run[0], 'nc_end_yr')
+        if self.read_mode[0] == 'netcdf4':
+            if self.yr_range == 'default':
+                start_yr, end_yr = get_parent_attr(self.run[0], 'default_yr_range')
+            elif self.yr_range == 'all':
+                start_yr = get_parent_attr(self.run[0], 'nc_start_yr')
+                end_yr = get_parent_attr(self.run[0], 'nc_end_yr')
+            else:
+                start_yr, end_yr = self.yr_range
+            return start_yr, end_yr
+        elif self.read_mode[0] == 'xray':
+            if self.yr_range == 'default':
+                #print(get_parent_attr(self.run[0], 'default_time_range'))
+                start_day, end_day = get_parent_attr(self.run[0], 'default_time_range')
+            elif self.yr_range == 'all':
+                start_day = get_parent_attr(self.run[0], 'nc_start_day')
+                end_day = get_parent_attr(self.run[0], 'nc_end_day')
+            else:
+                start_day, end_day = self.yr_range
+            return start_day, end_day
         else:
-            start_yr, end_yr = self.yr_range
-        return start_yr, end_yr
+            pass
 
     def _get_num_yr(self):
         """Compute effective number of years in the input data."""
         if self.dtype_in_time in ('ts', 'inst'):
-            num_yr = self.end_yr - self.start_yr + 1
+            if self.read_mode[0] == 'xray':
+                num_yr = self.end_yr['files'].year - self.start_yr['files'].year + 1
+            else:
+                num_yr = self.end_yr - self.start_yr + 1
         else:
             num_yr = 1
         return num_yr
@@ -71,14 +99,38 @@ class CalcInterface(object):
     def _make_time_chunks(self):
         """Create tuple of (start, end) pairs based on given year chunks."""
         if self.yr_chunk_len:
-            dur = self.yr_chunk_len - 1
-            st_yrs = range(self.start_yr, self.end_yr + 1, self.yr_chunk_len)
-            end_yrs = range(self.start_yr + dur, self.end_yr + dur + 1,
-                            self.yr_chunk_len)
-            if len(end_yrs) == len(st_yrs) - 1:
-                end_yrs.append(self.end_yr)
+            if self.read_mode[0] == 'netcdf4':
+                dur = self.yr_chunk_len - 1
+                st_yrs = range(self.start_yr, self.end_yr + 1, self.yr_chunk_len)
+                end_yrs = range(self.start_yr + dur, self.end_yr + dur + 1,
+                                self.yr_chunk_len)
+                if len(end_yrs) == len(st_yrs) - 1:
+                    end_yrs.append(self.end_yr)
+                else:
+                    st_yrs, end_yrs = [self.start_yr], [self.end_yr]
+
+            elif self.read_mode[0] == 'xray':
+                # For now we will assume there are no year chunks. It won't be too hard to
+                # extend this, but we will need to make parallel ranges (one in the xray set
+                # of years and one in the files set of years). Then we will return a list of
+                # dictionary tuples.
+                dur = self.yr_chunk_len - 1
+                st_yrs = list(pd.date_range(self.start_analysis_year,
+                                       self.end_analysis_year,
+                                       freq='%dAS-JAN' % self.yr_chunk_len))
+                offset = self.yr_chunk_len*pd.tseries.offsets.YearEnd() + pd.tseries.offsets.DateOffset(days=1)
+                end_yrs = list(pd.date_range(self.start_analysis_year + offset,
+                                             self.end_analysis_year + offset,
+                                             freq='%dAS-JAN' % self.yr_chunk_len))
+            else:
+                pass
         else:
-            st_yrs, end_yrs = [self.start_yr], [self.end_yr]
+            if self.read_mode[0] == 'netcdf4':
+                st_yrs, end_yrs = [self.start_yr], [self.end_yr]
+            elif self.read_mode[0] == 'xray':
+                st_yrs, end_yrs = [self.start_yr], [self.end_yr]
+            else:
+                pass
         return zip(st_yrs, end_yrs)
 
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
@@ -136,6 +188,7 @@ class CalcInterface(object):
         self.dtype_in_time = dtype_in_time
         self.dtype_in_vert = dtype_in_vert
         self.ps = ps
+        print(dtype_out_time)
         if isinstance(dtype_out_time, (list, tuple)):
             self.dtype_out_time = tuple(dtype_out_time)
         else:
@@ -145,6 +198,29 @@ class CalcInterface(object):
 
         self.yr_range = yr_range
         self.start_yr, self.end_yr = self._get_yr_range()
+
+        if self.read_mode[0] == 'xray':
+            # If we use the xray mode then all dates will be a dictionary.
+            # One will map to the date in the filename, the other will map
+            # to the date used in analysis.
+            if self.start_yr.year < 1678:
+                offset = 1900
+            else:
+                offset = 0
+            self.start_yr = {
+                'files' : self.start_yr,
+                'xray' : pd.to_datetime(np.datetime64(
+                        '%04d-%02d-%02d' % (self.start_yr.year + offset,
+                                            self.start_yr.month,
+                                            self.start_yr.day)))
+                }
+            self.end_yr = {
+                'files' : self.end_yr,
+                'xray' :  pd.to_datetime(np.datetime64(
+                        '%04d-%02d-%02d' % (self.end_yr.year + offset,
+                                            self.end_yr.month,
+                                            self.end_yr.day)))
+                }
         self.num_yr = self._get_num_yr()
         self.months = _month_indices(intvl_out, iterable=True)
         self.skip_time_inds = skip_time_inds
@@ -193,9 +269,9 @@ class Calc(object):
             pass
         else:
             try:
-                print args[0] % args[1], '(%s)' % time.ctime()
+                print(args[0] % args[1], '(%s)' % time.ctime())
             except IndexError:
-                print args[0], '(%s)' % time.ctime()
+                print(args[0], '(%s)' % time.ctime())
 
     def _set_time_dt(self):
         """Get time and dt arrays at needed time indices."""
@@ -206,26 +282,39 @@ class Calc(object):
                 nc_var = var
                 break
         with self._get_nc(nc_var, self.start_yr, self.end_yr) as nc:
-            try:
-                time_obj = netCDF4.MFTime(nc.variables['time'])
-            except ValueError:
-                warnings.warn('Unsupported calendar attribute provided: %s.'
-                              ' Defaulting to 360_day calendar type.'
-                              % nc.variables['time'].calendar, RuntimeWarning)
-                nc.variables['time'].calendar = '360_day'
-                time_obj = netCDF4.MFTime(nc.variables['time'])
-            inds, time = _get_time(
-                time_obj[:], time_obj.units, time_obj.calendar,
-                self.start_yr, self.end_yr, self.months, indices=True
-            )
-            self.time = time
-            self.time_units = time_obj.units
-            self.calendar = time_obj.calendar
-            self.time_inds = inds
-            self.dates = netCDF4.date2num(self.time, self.time_units,
-                                          calendar=self.calendar)
-            self.time_inds_by_month = self._time_inds_by_month()
-            self.dt = self._get_dt(nc, inds)
+            if self.read_mode[0] == 'netcdf4':
+                try:
+                    time_obj = netCDF4.MFTime(nc.variables['time'])
+                except ValueError:
+                    warnings.warn(
+                        'Unsupported calendar attribute provided: %s.'
+                        ' Defaulting to 360_day calendar type.'
+                        % nc.variables['time'].calendar, RuntimeWarning
+                    )
+                    nc.variables['time'].calendar = '360_day'
+                    nc.variables['time'].units = ('days since 2001-01-01 '
+                                                  '00:00:00')
+                    time_obj = netCDF4.MFTime(nc.variables['time'])
+                inds, time = _get_time(
+                        time_obj[:], time_obj.units, time_obj.calendar,
+                        self.start_yr, self.end_yr, self.months, indices=True
+                        )
+                self.time = time
+                self.time_units = time_obj.units
+                self.calendar = time_obj.calendar
+                self.time_inds = inds
+                self.dates = netCDF4.date2num(self.time, self.time_units,
+                                              calendar=self.calendar)
+                self.dt = self._get_dt(nc, inds)
+            elif self.read_mode[0] == 'xray':
+                time_obj = nc['time']
+                inds, time = _get_time_xray(
+                    time_obj, self.start_yr['xray'], self.end_yr['xray'],
+                    self.months, indices=True
+                    )
+                self.time = time
+                self.time_inds = inds
+                self.dt = self._get_dt(nc, inds)
 
             for name in ('level', 'lev', 'plev'):
                 try:
@@ -262,12 +351,20 @@ class Calc(object):
         if self.dtype_in_time == 'inst':
             return np.ones(np.shape(indices))
         for dt_name in ('average_DT',):
-            try:
-                dt = nc.variables[dt_name]
-            except KeyError:
-                pass
-            else:
-                return dt[indices]
+            if self.read_mode[0] == 'netcdf4':
+                try:
+                    dt = nc.variables[dt_name]
+                except KeyError:
+                    pass
+                else:
+                    return dt[indices]
+            elif self.read_mode[0] == 'xray':
+                try:
+                    dt = nc[dt_name]
+                except:
+                    pass
+                else:
+                    return dt.sel(time=indices)
         for name in ('time_bounds', 'time_bnds'):
             try:
                 time_bounds = nc.variables[name]
@@ -317,12 +414,33 @@ class Calc(object):
         in_lbl = _data_in_label(self.intvl_in, self.dtype_in_time,
                                 self.dtype_in_vert)
         ens_lbl = _ens_label(self.ens_mem)
-        yr_lbl = _yr_label((self.start_yr, self.end_yr))
+        if self.read_mode[0] == 'xray':
+            yr_lbl = _yr_label((self.start_yr['files'].year, self.end_yr['files'].year))
+        else:
+            yr_lbl = _yr_label((self.start_yr, self.end_yr))
         file_name = '.'.join(
             [self.name, out_lbl, in_lbl, self.model_str, self.run_str_full,
              ens_lbl, yr_lbl, 'p']
         ).replace('..', '.')
         return file_name
+
+    def _get_nc_one_dir_tar(self, name, direc_nc, n=0):
+        """Get the names of the tar files when all in the same directory."""
+
+        # tar may hold absolute or relative paths
+        paths = []
+        for tar in nc_files:
+            full = '/'.join([direc_nc, tar]).replace('//', '/')
+            if os.path.isfile(tar):
+                paths.append(tar)
+            elif os.path.isfile(full):
+                paths.append(full)
+            else:
+                print("Warning: specified netCDF file `%s` not found" % nc)
+        # Remove duplicate entries.
+        files = list(set(paths))
+        files.sort()
+        return files
 
     def _get_nc_one_dir(self, name, direc_nc, n=0):
         """Get the names of netCDF files when all in same directory."""
@@ -339,7 +457,7 @@ class Calc(object):
             elif os.path.isfile(full):
                 paths.append(full)
             else:
-                print "Warning: specified netCDF file `%s` not found" % nc
+                print("Warning: specified netCDF file `%s` not found" % nc)
         # Remove duplicate entries.
         files = list(set(paths))
         files.sort()
@@ -380,10 +498,17 @@ class Calc(object):
         # Assume time range is printed to
         # yr_ranges = [nc.split('.')[1] for nc in files_var]
         # files_time = [nc for nc in
-        files = [direc + nc_name_gfdl(name, domain, dtype,
+        if self.read_mode[0] == 'netcdf4':
+            files = [direc + nc_name_gfdl(name, domain, dtype,
                                       self.intvl_in, yr, self.intvl_out,
                                       self.nc_start_yr[n], self.nc_dur[n])
-                 for yr in range(start_yr, end_yr + 1)]
+                     for yr in range(start_yr, end_yr + 1)]
+        else:
+            files = [direc + nc_name_gfdl(name, domain, dtype,
+                                          self.intvl_in, yr, self.intvl_out,
+                                          self.nc_start_yr[n], self.nc_dur[n])
+                     for yr in range(start_yr, end_yr)]
+
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
@@ -414,15 +539,14 @@ class Calc(object):
                 except KeyError:
                     pass
                 else:
-                    break
+                    pass # Need to figure out what exception is being thrown.
             elif self.nc_dir_struc[0].lower() == 'gfdl':
-                try:
-                    files = self._get_nc_gfdl_dir_struct(name, direc_nc,
-                                                         start_yr, end_yr, n=n)
-                except:
-                    raise
+                if self.read_mode[n] == 'xray':
+                    files = self._get_nc_gfdl_dir_struct(name, direc_nc, start_yr['files'].year,
+                                                     end_yr['files'].year, n=n)
                 else:
-                    break
+                    files = self._get_nc_gfdl_dir_struct(name, direc_nc, start_yr,
+                                                         end_yr, n=n)
             elif self.nc_dir_struc[0].lower() == 'gfdl_repo':
                 try:
                     files = self._get_nc_gfdl_repo(name, n=n)
@@ -433,14 +557,47 @@ class Calc(object):
             else:
                 raise ValueError("Specified directory type not supported: %s"
                                  % self.nc_dir_struc[n])
+
+            if self.read_mode[0] == 'netcdf4':
+                try:
+                    dmget(files)
+                    return netCDF4.MFDataset(files)
+                except (RuntimeError, KeyError):
+                    pass
+            elif self.read_mode[0] == 'xray':
+                try:
+                    dmget(files)
+                    ds = []
+                    for file in files:
+                        test = xray.open_dataset(file,
+                                                 decode_cf=False,
+                                                 drop_variables=['time_bounds','nv'])
+                        if start_yr['files'].year < 1678:
+                            for v in ['time', 'average_T1', 'average_T2']:
+                                test[v].attrs['units'] = 'days since 1900-01-01 00:00:00'
+                            test['time'].attrs['calendar'] = 'noleap'
+                        test = xray.decode_cf(test)
+                        ds.append(test)
+                    return xray.concat(ds, dim='time')
+                except (RuntimeError, KeyError):
+                    pass
+            else:
+                raise IOError("Could not find files for variable '%s'." % var)
+                try:
+                    files = self._get_nc_gfdl_dir_struct(name, direc_nc,
+                                                         start_yr, end_yr, n=n)
+                except:
+                    raise
+                else:
+                    break
         else:
             raise IOError("netCDF files for variable `%s`, year range %s-%s, "
                           "in directory %s, not found" % (var, start_yr,
                                                           end_yr, direc_nc))
         # Retrieve files from archive using desired system calls.
-        dmget(files)
+#        dmget(files)
         # hsmget_retcode = hsmget_nc(files)
-        return netCDF4.MFDataset(files)
+#        return netCDF4.MFDataset(files)
 
     def _get_pressure_vals(self, var, start_yr, end_yr, n=0):
         """Get pressure array, whether sigma or standard levels."""
@@ -453,17 +610,38 @@ class Calc(object):
             if var == 'p':
                 data = pressure
             elif var == 'dp':
-                data = level_thickness(pressure)
-            data = data[np.newaxis,:,np.newaxis,np.newaxis]
+                if self.read_mode[0] == 'netcdf4':
+                    data = level_thickness(pressure)
+                elif self.read_mode[0] == 'xray':
+                    data = level_thickness_xray(pressure)
+                else:
+                    pass
+            if self.read_mode[0] == 'netcdf4':
+                data = data[np.newaxis,:,np.newaxis,np.newaxis]
+
         if self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk
             ps = self._get_var_data(self.ps, start_yr, end_yr)
+            pfull_coord = self.model[n].pfull
             if var == 'p':
-                data = pfull_from_sigma(bk, pk, ps)
+                if self.read_mode[0] == 'netcdf4':
+                    data = pfull_from_sigma(bk, pk, ps)
+                elif self.read_mode[0] == 'xray':
+                    data = pfull_from_sigma_xray(bk, pk, ps, pfull_coord)
+                else:
+                    pass
             elif var == 'dp':
-                data = dp_from_sigma(bk, pk, ps)
+                if self.read_mode[0] == 'netcdf4':
+                    data = dp_from_sigma(bk, pk, ps)
+                elif self.read_mode[0] == 'xray':
+                    data = dp_from_sigma_xray(bk, pk, ps, pfull_coord)
+                else:
+                    pass
         return data
+
+    def _get_pressure_vals_xray(self, var, start_yr, end_yr, n=0):
+        return
 
     def _get_data_subset(self, data, region=False, time=False,
                          vert=False, lat=False, lon=False, n=0):
@@ -501,38 +679,68 @@ class Calc(object):
         self._print_verbose("\tGetting data from netCDF files: %s", var)
         with self._get_nc(var, start_yr, end_yr, n=n) as nc:
             # Variable names can differ.
-            try:
-                data = nc.variables[var.name][:]
-            except KeyError:
-                for alt_name in var.alt_names:
-                    try:
-                        data = nc.variables[alt_name][:]
-                    except KeyError:
-                        pass
-                    else:
-                        break
-            try:
-                time = netCDF4.MFTime(nc.variables['time'])
-            except ValueError:
-                warnings.warn('Unsupported calendar attribute provided: %s.'
-                              ' Defaulting to 360_day calendar type.'
-                              % nc.variables['time'].calendar, RuntimeWarning)
-                nc.variables['time'].calendar = '360_day'
+            if self.read_mode[0] == 'netcdf4':
+                try:
+                    data = nc.variables[var.name][:]
+                except KeyError:
+                    for alt_name in var.alt_names:
+                        try:
+                            data = nc.variables[alt_name][:]
+                        except KeyError:
+                            pass
+                        else:
+                            break
+                try:
+                    time = netCDF4.MFTime(nc.variables['time'])
+                except ValueError:
+                    warnings.warn('Unsupported calendar attribute provided: %s.'
+                                  ' Defaulting to 360_day calendar type.'
+                                  % nc.variables['time'].calendar, RuntimeWarning)
+                    nc.variables['time'].calendar = '360_day'
+                    nc.variables['time'].units = 'days since 2001-01-01 00:00:00'
                 time = netCDF4.MFTime(nc.variables['time'])
 
-            t_array, t_units, t_cal = time[:], time.units, time.calendar
-            t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
+                t_array, t_units, t_cal = time[:], time.units, time.calendar
+                t_inds = _get_time(t_array, t_units, t_cal, start_yr, end_yr,
                                self.months, indices='only')
-        data = self._get_data_subset(data, region=region, time=t_inds,
-                                     vert=self.level, lat=lat, lon=lon)
+            if self.read_mode[0] == 'xray':
+                try:
+                    data = nc[var.name]
+                except KeyError:
+                    for alt_name in var.alt_names:
+                        try:
+                            data = nc[alt_name]
+                        except KeyError:
+                            pass
+                        else:
+                            break
+                try:
+                    time = nc['time']
+                except:
+                    pass
+                t_inds = _get_time_xray(time, start_yr['xray'], end_yr['xray'],
+                                        self.months, indices='only')
+            data = self._get_data_subset(data, region=region, time=t_inds,
+                                         vert=self.level, lat=lat, lon=lon)
         # Interpolate data at sigma half levels to full levels.
-        if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
-            data = 0.5*(data[:,:-1] + data[:,1:])
+        if self.read_mode[0] == 'netcdf4':
+            if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
+                data = 0.5*(data[:,:-1] + data[:,1:])
+        elif self.read_mode[0] == 'xray':
+            if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
+                data = False
+                # We'll need to work on this. We just need to make sure the
+                # coordinates in pressure align to be able to add the arrays.
+                # It will just take some care.
+        else:
+            pass
         # if self.dtype_in_time == 'av':
             # data = self.mask_unphysical()
-        # To simplify broadcasting, add dim to non-vertical data.
-        if not var.def_vert:
-            data = data[:,np.newaxis]
+        # To simplify broadcasting, add dim to non-vertical data. Only need to do
+        # this if we are not working in xray environment.
+        if self.read_mode[0] == 'netcdf4':
+            if not var.def_vert:
+                data = data[:,np.newaxis]
         return data
 
     def _get_all_vars_data(self, start_yr, end_yr):
@@ -575,9 +783,15 @@ class Calc(object):
     def _local_ts(self, dp, dt, num_yr, *data_in):
         """Compute the function on the given gridded input data."""
         result = self.function(*data_in)
+        print('result', result.shape)
         # Apply spatial reductions methods.
         if self.def_vert and self.dtype_out_vert == 'vert_int':
-            result = int_dp_g(result, dp)[:,np.newaxis,:,:]
+            if self.read_mode[0] == 'netcdf4':
+                result = int_dp_g(result, dp)[:,np.newaxis,:,:]
+            elif self.read_mode[0] == 'xray':
+                result = int_dp_g(result, dp)
+            else:
+                pass
         # If already averaged, pass data on.  Otherwise do time averaging.
         if 'av' in self.dtype_in_time or not self.def_time:
             return result
@@ -594,72 +808,114 @@ class Calc(object):
             dt = dt[:,:,:,:,0]
             return np.ma.multiply(result, dt).sum(axis=1) / dt.sum(axis=1)
 
-    # @staticmethod
-    # def first_last_time_inds_of_month(dates, month, year):
-    #     """Find indices and times of first and last timesteps in the month."""
-    #     month_only = [n for n, date in enumerate(dates)
-    #                   if date.month == month and date.year == year]
-    #     return month_only[0], month_only[-1]
+    def _local_ts_xray(self, dp, dt, *data_in):
+        result = self.function(*data_in)
+        # Apply spatial reduction methods.
+        if self.def_vert and self.dtype_out_vert == 'vert_int':
+            result = int_dp_g_xray(result, dp)
+        # If already averaged, pass data on. Otherwise do time averaging.
+        if 'av' in self.dtype_in_time or not self.def_time:
+            return result
 
-    # def month_time_tendency(self, field, dates, month, year):
-    #     ind_f, ind0 = self.first_last_time_inds_of_month(dates, month, year)
-    #     return field[ind_f] - field[ind0]
+        if self.idealized[0]:
+            return result
+
+        # Otherwise do time averaging over the years.
+        result *= dt
+        # Group by year.
+        result = result.groupby('time.year')
+        dt = dt.groupby('time.year')
+        return result.sum('time') / dt.sum('time')
 
     def _time_reduce(self, loc_ts):
         """Compute all desired calculations on a local time-series."""
         files = {}
-        if 'ts' in self.dtype_out_time:
-            files.update({'ts': loc_ts})
-        if 'None' in self.dtype_out_time:
-            # Some calcs (e.g. correlations) already do time reduction.
-            files.update({'av': loc_ts})
-        if 'av' in self.dtype_out_time:
-            files.update({'av': loc_ts.mean(axis=0)})
-        # if 'time_tendency.monthly' in self.dtype_out_time:
-        #     raise NotImplementedError
-        #     # files.update({'time_tendency.monthly': self.time_tendency(loc_ts)})
-        # if 'time_tendency.av' in self.dtype_out_time:
-        #     raise NotImplementedError
-        #     # files.update({'time_tendency.av': self.time_tendency(loc_ts)})
-        # if 'eddy.av' in self.dtype_out_time:
-        #     files.update({'eddy.av': loc_ts.mean(axis=0)})
-        # if 'std' in self.dtype_out_time:
-        #     files.update({'std': loc_ts.std(axis=0)})
-        # if 'eddy.std' in self.dtype_out_time:
-        #     files.update({'eddy.std': loc_ts.std(axis=0)})
-        # Zonal asymmetry.
-        if any('zasym' in out_type for out_type in self.dtype_out_time):
-            # '.T'=transpose; makes numpy broadcasting syntax work.
-            znl_ts = loc_ts.mean(axis=-1)
-            zasym_ts = (loc_ts.T - znl_ts.T).T
-            if 'zasym.ts' in self.dtype_out_time:
-                files.update({'zasym.ts': zasym_ts})
-            if 'zasym.av' in self.dtype_out_time:
-                files.update({'zasym.av': zasym_ts.mean(axis=0)})
-            if 'zasym.std' in self.dtype_out_time:
-                files.update({'zasym.std': zasym_ts.std(axis=0)})
-        # Zonal mean.
-        if any('znl' in out_type for out_type in self.dtype_out_time):
-            if 'znl.ts' in self.dtype_out_time:
-                files.update({'znl.ts': znl_ts})
-            if 'znl.av' in self.dtype_out_time:
-                files.update({'znl.av': znl_ts.mean(axis=0)})
-            if 'znl.std' in self.dtype_out_time:
-                files.update({'znl.std': znl_ts.std(axis=0)})
+        if self.read_mode[0] == 'netcdf4':
+            if 'ts' in self.dtype_out_time:
+                files.update({'ts': loc_ts})
+            if 'None' in self.dtype_out_time:
+                # Some calcs (e.g. correlations) already do time reduction.
+                files.update({'av': loc_ts})
+            if 'av' in self.dtype_out_time:
+                files.update({'av': loc_ts.mean(axis=0)})
+            # if 'eddy.av' in self.dtype_out_time:
+                # files.update({'eddy.av': loc_ts.mean(axis=0)})
+            if 'std' in self.dtype_out_time:
+                files.update({'std': loc_ts.std(axis=0)})
+            # if 'eddy.std' in self.dtype_out_time:
+                # files.update({'eddy.std': loc_ts.std(axis=0)})
+            # Zonal asymmetry.
+            if any('zasym' in out_type for out_type in self.dtype_out_time):
+                # '.T'=transpose; makes numpy broadcasting syntax work.
+                znl_ts = loc_ts.mean(axis=-1)
+                zasym_ts = (loc_ts.T - znl_ts.T).T
+                if 'zasym.ts' in self.dtype_out_time:
+                    files.update({'zasym.ts': zasym_ts})
+                if 'zasym.av' in self.dtype_out_time:
+                    files.update({'zasym.av': zasym_ts.mean(axis=0)})
+                if 'zasym.std' in self.dtype_out_time:
+                    files.update({'zasym.std': zasym_ts.std(axis=0)})
+            # Zonal mean.
+            if any('znl' in out_type for out_type in self.dtype_out_time):
+                if 'znl.ts' in self.dtype_out_time:
+                    files.update({'znl.ts': znl_ts})
+                if 'znl.av' in self.dtype_out_time:
+                    files.update({'znl.av': znl_ts.mean(axis=0)})
+                if 'znl.std' in self.dtype_out_time:
+                    files.update({'znl.std': znl_ts.std(axis=0)})
+        elif self.read_mode[0] == 'xray':
+            if self.idealized[0]:
+                tdim = 'time'
+            else:
+                tdim = 'year'
+            if 'ts' in self.dtype_out_time:
+                files.update({'ts': loc_ts})
+            if 'None' in self.dtype_out_time:
+                # Some calcs (e.g. correlations) already do time reduction.
+                files.update({'av': loc_ts})
+            if 'av' in self.dtype_out_time:
+                files.update({'av': loc_ts.mean(tdim)})
+            if 'eddy.av' in self.dtype_out_time:
+                files.update({'eddy.av': loc_ts.mean(tdim)})
+            if 'std' in self.dtype_out_time:
+                files.update({'std': loc_ts.std(tdim)})
+            if 'eddy.std' in self.dtype_out_time:
+                files.update({'eddy.std': loc_ts.std(tdim)})
+            # Zonal asymmetry.
+            if any('zasym' in out_type for out_type in self.dtype_out_time):
+                # '.T'=transpose; makes numpy broadcasting syntax work.
+                znl_ts = loc_ts.mean('lon')
+                zasym_ts = (loc_ts - znl_ts)
+                if 'zasym.ts' in self.dtype_out_time:
+                    files.update({'zasym.ts': zasym_ts})
+                if 'zasym.av' in self.dtype_out_time:
+                    files.update({'zasym.av': zasym_ts.mean(tdim)})
+                if 'zasym.std' in self.dtype_out_time:
+                    files.update({'zasym.std': zasym_ts.std(tdim)})
         return files
 
     def region_calcs(self, loc_ts, n=0):
         """Region-averaged computations.  Execute and save to external file."""
-        calcs_reg = ('ts', 'av', 'std')
+        if self.read_mode[0] == 'netcdf4':
+            calcs_reg = ('ts', 'av', 'std')
+        elif self.read_mode[0] == 'xray':
+            calcs_reg = ('ts_xray', 'av_xray', 'std_xray')
+        else:
+            pass
         # Perform each calculation for each region.
         for calc in calcs_reg:
             calc_name = ('reg.' + calc)
             if calc_name in self.dtype_out_time:
                 reg_dat = {}
-                for reg in self.region.itervalues():
+                for reg in self.region.values():
                     # Just pass along the data if averaged already.
                     if 'av' in self.dtype_in_time:
-                        data_out = reg.ts(loc_ts, self.model[n])
+                        if self.read_mode[0] == 'netcdf4':
+                            data_out = reg.ts(loc_ts, self.model[n])
+                        elif self.read_mode[0] == 'xray':
+                            data_out = reg.ts_xray(loc_ts, self.model[n])
+                        else:
+                            pass
                     # Otherwise perform the calculation.
                     else:
                         method = getattr(reg, calc)
@@ -669,29 +925,58 @@ class Calc(object):
 
     def _compute_chunk(self, start_yr, end_yr):
         """Perform the calculation on the given chunk of times."""
-        self._print_verbose("\nComputing desired timeseries from netCDF data "
+
+        if self.read_mode[0] == 'netcdf4':
+            self._print_verbose("\nComputing desired timeseries from netCDF data "
                             "for years %d-%d.", (start_yr, end_yr))
+        elif self.read_mode[0] == 'xray':
+            self._print_verbose("\nComputing desired timeseries from netCDF data "
+                            "for years %d-%d.", (start_yr['files'].year, end_yr['files'].year))
+        else:
+            pass
+
         if not self.dt_set:
             self._set_time_dt()
             self.dt_set = True
-        inds = _get_time(
-            self.time, self.time_units, self.calendar,
-            start_yr, end_yr, self.months, indices='only'
-        )
-        dt = self.dt[inds]
-        dt = self._reshape_time_indices(dt, start_yr, end_yr)
-        data_in = self._get_all_vars_data(start_yr, end_yr)
-        if self.dtype_out_vert == 'vert_int':
-            dp = self._get_pressure_vals('dp', start_yr, end_yr)
-        else:
-            dp = False
-        return self._local_ts(dp, dt, end_yr - start_yr + 1, *data_in)
 
-    def compute(self):
+        if self.read_mode[0] == 'netcdf4':
+            inds = _get_time(
+                self.time, self.time_units, self.calendar,
+                start_yr, end_yr, self.months, indices='only'
+                )
+            dt = self.dt[inds]
+            dt = self._reshape_time_indices(dt, start_yr, end_yr)
+            data_in = self._get_all_vars_data(start_yr, end_yr, eddy=eddy)
+            if self.dtype_out_vert == 'vert_int':
+                dp = self._get_pressure_vals('dp', start_yr, end_yr)
+            else:
+                dp = False
+            return self._local_ts(dp, dt, end_yr - start_yr + 1, *data_in)
+
+        elif self.read_mode[0] == 'xray':
+            inds = _get_time_xray(
+                self.time, start_yr['xray'], end_yr['xray'], self.months, indices='only'
+                )
+            dt = self.dt.sel(time=inds).astype(float)
+            # Reshape time-indices basically makes it easier to group by year.
+            # We should be able to do that in xray style a bit more transparently.
+            #print(dt.astype(float)*1e-9/86400.0)
+
+            #dt = (self.dt.astype(float)*1e-9/86400.0).groupby('time.year')
+            data_in = self._get_all_vars_data(start_yr, end_yr, eddy=eddy)
+            if self.dtype_out_vert == 'vert_int':
+                dp = self._get_pressure_vals('dp', start_yr['files'], end_yr['files'])
+            else:
+                dp = False
+            return self._local_ts_xray(dp, dt, *data_in)
+        else:
+            pass
+
+    def compute(self, eddy=False):
         """Perform all desired calculations on the data and save externally."""
         # Compute the local time series for each chunk and then combine chunks.
-        full_ts = [self._compute_chunk(start_yr, end_yr)
-                   for start_yr, end_yr in self.chunk_ranges]
+        full_ts = [self._compute_chunk(start_yr, end_yr, eddy=eddy)
+                       for start_yr, end_yr in self.chunk_ranges]
         if len(full_ts) == 1:
             full_ts = full_ts[0]
         else:
@@ -716,7 +1001,7 @@ class Calc(object):
         else:
             reduced = {'': full_ts}
         self._print_verbose("Writing desired gridded outputs to disk.")
-        for dtype_out_time, data in reduced.iteritems():
+        for dtype_out_time, data in reduced.items():
             self.save(np.squeeze(data), dtype_out_time,
                       dtype_out_vert=self.dtype_out_vert)
         # Apply time reduction methods to regional averages and save.
@@ -726,24 +1011,45 @@ class Calc(object):
 
     def _save_to_scratch(self, data, dtype_out_time, dtype_out_vert=False):
         """Save the data to the scratch filesystem."""
+        print(dtype_out_time)
         path = self.path_scratch[dtype_out_time]
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
-        with open(path, 'a+') as file_scratch:
-            # Update, rather than overwrite, existing regional data.
+        if self.read_mode[0] == 'netcdf4':
+            with open(path, 'ab+') as file_scratch:
+                if 'reg' in dtype_out_time:
+                    try:
+                        reg_data = pickle.load(file_scratch)
+                    except (EOFError, RuntimeError):
+                        reg_data = {}
+                    reg_data.update(data)
+                    data_out = reg_data
+                else:
+                    data_out = data
+        elif self.read_mode[0] == 'xray':
             if 'reg' in dtype_out_time:
-                # Open the existing dictionary if it exists.
                 try:
-                    reg_data = cPickle.load(file_scratch)
-                except EOFError:
-                    reg_data = {}
-                # Add the new data to the dictionary.
+                    reg_data = xray.open_dataset(path[:-2] + '.nc')
+                except (EOFError, RuntimeError):
+                    reg_data = xray.Dataset() # Empty Dataset
+                # Add the new data to the dictionary or Dataset.
+                # Same method works for both.
                 reg_data.update(data)
                 data_out = reg_data
             else:
                 data_out = data
-        with open(path, 'w') as file_scratch:
-            cPickle.dump(data_out, file_scratch, protocol=-1)
+        else:
+            pass
+        if self.read_mode[0] == 'netcdf4':
+            with open(path, 'wb') as file_scratch:
+                pickle.dump(data_out, file_scratch, protocol=-1)
+        elif self.read_mode[0] == 'xray':
+            if isinstance(data_out, xray.DataArray):
+                data_out = xray.Dataset({self.name : data_out})
+            #print(data_out.encoding)
+            data_out.to_netcdf(path[:-2] + '.nc', engine='scipy')
+        else:
+            pass
 
     def _save_to_archive(self, dtype_out_time, dtype_out_vert=False):
         """Add the data to the tar file in /archive."""
@@ -793,18 +1099,22 @@ class Calc(object):
              scratch=True, archive=False):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
+        #print(self._to_DataArray(data))
         if scratch:
             self._save_to_scratch(data, dtype_out_time,
                                   dtype_out_vert=dtype_out_vert)
         if archive:
             self._save_to_archive(dtype_out_time,
                                   dtype_out_vert=dtype_out_vert)
-        print '\t%s' % self.path_scratch[dtype_out_time]
+        if self.read_mode[0] == 'netcdf4':
+            print('\t%s' % self.path_scratch[dtype_out_time])
+        elif self.read_mode[0] == 'xray':
+            print('\t%s' % self.path_scratch[dtype_out_time][:-2] + '.nc')
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
         with open(self.path_scratch[dtype_out_time], 'r') as data:
-            data_vals = cPickle.load(data)
+            data_vals = pickle.load(data)
         return data_vals
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
@@ -812,7 +1122,7 @@ class Calc(object):
         path = '/'.join([self.dir_archive, 'data.tar']).replace('//', '/')
         dmget([path])
         with tarfile.open(path, 'r') as data_tar:
-            data_vals = cPickle.load(
+            data_vals = pickle.load(
                 data_tar.extractfile(self.file_name[dtype_out_time])
             )
         return data_vals
@@ -842,3 +1152,18 @@ class Calc(object):
         if plot_units:
             data = self.var.to_plot_units(data, vert_int=dtype_out_vert)
         return data
+
+    def _to_DataArray(self, data):
+       """
+       Converts a Calc instance to an xray DataArray.  Pulls grid information
+       from instance.
+       """
+       if not self.pressure:
+           print(data.shape)
+           print(self.lat)
+           print(self.lon)
+           return xray.DataArray(data, coords=[self.lat, self.lon],
+                                 dims=['lat','lon'],
+                                 encoding={'lat' : 'f8', 'lon' : 'f8'})
+       else:
+           return None

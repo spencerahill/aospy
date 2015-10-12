@@ -63,6 +63,41 @@ class Region(object):
             np.tile(reg_mask == 0., (data.shape[0], data.shape[1], 1, 1)), data
         )
 
+    def _add_to_mask_xray(self, data, latb, lonb):
+        mask_lat = (data['lat'] > latb[0]) & (data['lat'] < latb[1])
+        mask_latlon = mask_lat & ((data['lon'] > lonb[0]) & (data['lon'] < lonb[1])) 
+        return mask_latlon
+
+    def make_mask_xray(self, data):
+        """ Construct the mask in xray fashion."""
+        # For each set of bounds add to the conditional.
+        mask = False
+        try:
+            for bounds in self.mask_bounds:
+                mask |= self._add_to_mask_xray(data, bounds[0], bounds[1])
+        except:        
+            mask |= self._add_to_mask_xray(data, self.lat_bnds, self.lon_bnds)
+
+        # No landmask for now.    
+        return mask    
+
+    def mask_var_xray(self, data):
+        """ Mask the data of the given variable outside the region."""
+        reg_mask = self.make_mask_xray(data)
+        # Return the DataArray where the region is masked. 
+        return data.where(reg_mask)
+
+    def ts_xray(self, data, model):
+        """ Create a time-series of region average-data. Assume data is a 
+        DataArray.
+        """
+        data = self.mask_var_xray(data)
+        reg_mask = self.make_mask_xray(data)
+        weights = self.mask_var_xray(model.sfc_area)
+        # Take the area average 
+        avg = (data*model.sfc_area).sum('lat').sum('lon') / weights.sum('lat').sum('lon')
+        return avg 
+
     def ts(self, data, model):
         """Create a time-series of region-average data."""
         if data.ndim == 3:
@@ -86,6 +121,14 @@ class Region(object):
             avg = float(avg)
         return avg
 
+    def av_xray(self, data, model):
+        """ Time average of region-average data."""
+        ts_ = self.ts_xray(data, model)
+        if 'year' not in ts_.coords:
+            return ts_
+        else:
+            return ts_.mean('year')
+
     def av(self, data, model):
         """Time average of region-average data."""
         ts_ = self.ts(data, model)
@@ -94,6 +137,14 @@ class Region(object):
         else:
             mean = np.ma.mean(ts_, axis=0)
             return np.squeeze(mean)
+
+    def std_xray(self, data, model):
+        """Standard deviation of time-series data"""
+        ts_ = self.ts_xray(data, model)
+        if 'year' not in ts_.coords:
+            return ts_
+        else:
+            return ts_.std('year')
 
     def std(self, data, model):
         """Standard deviation of time-series data."""
