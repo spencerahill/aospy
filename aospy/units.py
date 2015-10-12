@@ -4,7 +4,7 @@
 class Units(object):
     vert_int_str = r'kg m$^{-2}$'
 
-    def __init__(self, units='', plot_units=False, plot_units_conv=1,
+    def __init__(self, units='', plot_units=False, plot_units_conv=1.,
                  vert_int_units=False, vert_int_plot_units=False,
                  vert_int_plot_units_conv=False):
         """String representation of physical units and conversion methods."""
