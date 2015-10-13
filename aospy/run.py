@@ -1,7 +1,7 @@
 """`Run` class; for storing attributes of a model run or obs product."""
 import numpy as np
 
-from .time import TimeManager
+from .timedate import TimeManager
 
 
 class Run(object):
@@ -28,12 +28,10 @@ class Run(object):
         self.nc_dir_struc = nc_dir_struc
         self.nc_suffix = nc_suffix
         self.nc_files = nc_files
-        self.nc_start_date = TimeManager.to_datetime(nc_start_date,
-                                                     np.datetime64)
-        self.nc_end_date = TimeManager.to_datetime(nc_end_date,
-                                                   np.datetime64)
+        self.nc_start_date = TimeManager.to_datetime(nc_start_date)
+        self.nc_end_date = TimeManager.to_datetime(nc_end_date)
         try:
-            self.default_date_range = tuple([self._to_datetime(d)
+            self.default_date_range = tuple([TimeManager.to_datetime(d)
                                              for d in default_date_range])
         except:
             self.default_date_range = (self.nc_start_date, self.nc_end_date)
