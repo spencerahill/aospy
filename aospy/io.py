@@ -4,9 +4,7 @@ import string
 import subprocess
 
 import numpy as np
-import netCDF4
 
-from .time import TimeManager
 
 def to_dup_list(x, n, single_to_list=True):
     """
@@ -127,76 +125,6 @@ def _time_label(intvl, return_val=True):
         return label, value
     else:
         return label
-
-
-# S. Hill 2015-10-13: Functions like this should be replaced with ones that use
-# actual datetime-like objects.  The latter are more idiomatic and robust.
-def _month_indices(months, iterable=True):
-    """Convert string labels for months to integer indices.
-
-    :param months: String matching either 'ann' or some subset of
-                   'jfmamjjasond'.  If 'ann', use all months.  Otherwise, use
-                   the specified months.
-    :type months: str or int
-    """
-    assert type(months) in (int, str)
-    if type(months) is int:
-        if iterable:
-            return [months]
-        else:
-            return months
-    elif months.lower() == 'ann':
-        return range(1,13)
-    else:
-        first_letter = 'jfmamjjasond'*2
-        # Python native indexing starts at 0, but within aospy months are
-        # indexed starting at 1, so add 1.
-        st_ind = first_letter.find(months.lower()) + 1
-        return range(st_ind, st_ind + len(months))
-
-
-def _get_time_xray(time, start_date, end_date, months, indices=False):
-    """Determine indices/values of a time array within the specified interval.
-
-    Assumes time is an xray DataArray and that it can be represented
-    by numpy datetime64 objects (i.e. the year is between 1678 and 2262).
-    """
-    inds = TimeManager._construct_month_conditional(time, months)
-    inds &= (time['time'] <= np.datetime64(end_date))
-    inds &= (time['time'] >= np.datetime64(start_date))
-    if indices == 'only':
-        return inds
-    elif indices:
-        return (inds, time.sel(time=inds))
-    else:
-        return time.sel(time=inds)
-
-
-def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
-    """Determine the indices of a time array falling in a specified interval.
-
-    Given a start year, end year, and subset of each year, determine which of
-    the input time array's values fall within that range.
-
-    :param time: netCDF4 variable object specifying time
-    :param start_yr, end_yr: Start and end years, inclusive, of desired time
-                             range.
-    :type start_yr, end_yr: int
-    :param months: Subset of the annual cycle to sample.
-    :type months: Iterable of ints in the range (1,13), inclusive.
-    :param indices: Return an array of indices if True, otherwise return
-                    the time array itself at those time indices.
-    :type indices: bool
-    """
-    dates = netCDF4.num2date(time[:], units, calendar.lower())
-    inds = [i for i, date in enumerate(dates) if (date.month in months) and
-            (date.year in range(start_yr, end_yr+1))]
-    if indices == 'only':
-        return inds
-    elif indices:
-        return inds, time[inds]
-    else:
-        return time[inds]
 
 
 def prune_lat_lon(array, model, lats, lons):
