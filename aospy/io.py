@@ -2,8 +2,11 @@
 import os
 import string
 import subprocess
+
 import numpy as np
 import netCDF4
+
+from .time import TimeManager
 
 def to_dup_list(x, n, single_to_list=True):
     """
@@ -126,6 +129,8 @@ def _time_label(intvl, return_val=True):
         return label
 
 
+# S. Hill 2015-10-13: Functions like this should be replaced with ones that use
+# actual datetime-like objects.  The latter are more idiomatic and robust.
 def _month_indices(months, iterable=True):
     """Convert string labels for months to integer indices.
 
@@ -149,24 +154,14 @@ def _month_indices(months, iterable=True):
         st_ind = first_letter.find(months.lower()) + 1
         return range(st_ind, st_ind + len(months))
 
-def _construct_month_conditional(time, months):
-    """ Construct a compound conditional statement to be used to reference and select data in a
-    DataArray.
-    """
-    base = False
-    for month in months:
-        base |= (time['time.month'] == month)
-    return base    
 
 def _get_time_xray(time, start_date, end_date, months, indices=False):
-    """ Assumes time is an xray DataArray and that it can be represented
+    """Determine indices/values of a time array within the specified interval.
+
+    Assumes time is an xray DataArray and that it can be represented
     by numpy datetime64 objects (i.e. the year is between 1678 and 2262).
     """
-#    print(start_date)
-#    dates = time.sel(time=slice(start_date, end_date))
-#    print(np.datetime64(end_date))
-#    print(time['time'] <= np.datetime64(end_date))
-    inds = _construct_month_conditional(time, months)
+    inds = TimeManager._construct_month_conditional(time, months)
     inds &= (time['time'] <= np.datetime64(end_date))
     inds &= (time['time'] >= np.datetime64(start_date))
     if indices == 'only':
@@ -175,6 +170,7 @@ def _get_time_xray(time, start_date, end_date, months, indices=False):
         return (inds, time.sel(time=inds))
     else:
         return time.sel(time=inds)
+
 
 def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
     """Determine the indices of a time array falling in a specified interval.

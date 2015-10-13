@@ -4,6 +4,8 @@ from . import constants
 from .constants import Constant
 from . import utils
 from . import io
+from . import time
+from .time import TimeManager
 from . import units
 from .units import Units
 from . import numerics
@@ -16,7 +18,7 @@ from . import var
 from .var import Var
 from . import region
 from .region import Region
-from . import run
+from . import run               # 'run' depends on 'time'
 from .run import Run
 from . import model
 from .model import Model

@@ -1,34 +1,44 @@
-"""run.py: Run class of aospy for storing attributes of a GCM run."""
+"""`Run` class; for storing attributes of a model run or obs product."""
+import numpy as np
+
+from .time import TimeManager
 
 
 class Run(object):
     """Model run parameters."""
+    def _set_direc(self, direc_nc, ens_mem_prefix, ens_mem_ext,
+                   ens_mem_suffix):
+        """Set the list of paths containing the Run's netCDF data."""
+        if all((ens_mem_prefix, ens_mem_ext, ens_mem_suffix)):
+            return [ens_mem_prefix + ext + ens_mem_suffix
+                    for ext in ens_mem_ext]
+        return direc_nc
+
     def __init__(self, name='', description='', proj=False, direc_nc=False,
-                 nc_dur=False, nc_start_yr=False, nc_end_yr=False,
-                 nc_start_month=False, nc_end_month=False, nc_dir_struc='gfdl',
-                 nc_suffix=False, nc_files={}, default_yr_range=False,
-                 ens_mem_prefix=False, ens_mem_ext=False, ens_mem_suffix=False,
-                 tags=(), read_mode='netcdf4', nc_start_date=None,
-                 nc_end_date=None, default_time_range=None, idealized=False):
+                 nc_dur=False, nc_start_date=False, nc_end_date=False,
+                 nc_dir_struc='gfdl', nc_suffix=False, nc_files={},
+                 default_date_range=False, ens_mem_prefix=False,
+                 ens_mem_ext=False, ens_mem_suffix=False, tags=()):
+        """Instantiate a `Run` object."""
         self.name = name
         self.description = description
         self.proj = proj
+
         self.nc_dur = nc_dur
-        self.nc_start_yr = nc_start_yr
-        self.nc_end_yr = nc_end_yr
-        self.nc_start_month = nc_start_month
-        self.nc_end_month = nc_end_month
         self.nc_dir_struc = nc_dir_struc
         self.nc_suffix = nc_suffix
         self.nc_files = nc_files
-        self.default_yr_range = default_yr_range
-        self.tags = tags
+        self.nc_start_date = TimeManager.to_datetime(nc_start_date,
+                                                     np.datetime64)
+        self.nc_end_date = TimeManager.to_datetime(nc_end_date,
+                                                   np.datetime64)
+        try:
+            self.default_date_range = tuple([self._to_datetime(d)
+                                             for d in default_date_range])
+        except:
+            self.default_date_range = (self.nc_start_date, self.nc_end_date)
 
-        self.read_mode = read_mode
-        self.idealized = idealized
-        self.nc_start_date = nc_start_date
-        self.nc_end_date = nc_end_date
-        self.default_time_range = default_time_range
+        self.tags = tags
 
         self.ens_mem_prefix = ens_mem_prefix
         self.ens_mem_ext = ens_mem_ext
@@ -40,11 +50,3 @@ class Run(object):
         return 'Run instance "%s"' % self.name
 
     __repr__ = __str__
-
-    def _set_direc(self, direc_nc, ens_mem_prefix, ens_mem_ext,
-                   ens_mem_suffix):
-        """Set the list of paths containing the Run's netCDF data."""
-        if all((ens_mem_prefix, ens_mem_ext, ens_mem_suffix)):
-            return [ens_mem_prefix + ext + ens_mem_suffix
-                    for ext in ens_mem_ext]
-        return direc_nc
