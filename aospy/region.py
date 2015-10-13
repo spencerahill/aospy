@@ -1,156 +1,67 @@
 """region.py: Region class and region_inst()."""
-import numpy as np
-
-from .utils import get_parent_attr
+import xray
 
 
 class Region(object):
     """Geographical region."""
     def __init__(self):
-        pass
+        """Instantiate a Region object."""
+        self.name = ''
+        self.lon_bounds = []
+        self.lat_bounds = []
+        self.mask_bounds = []
 
     def __str__(self):
         return 'Geographical region "' + self.name + '"'
 
     __repr__ = __str__
 
-    def _add_to_mask(self, mask, latb, lonb, lat, lon):
-        """Return specified lat-lon rectangle as 2D grid."""
-        lons, lats = np.meshgrid((lon > lonb[0]) & (lon < lonb[1]),
-                                 (lat > latb[0]) & (lat < latb[1]))
-        reg = lons*lats
-        return np.where(reg, reg, mask)
-
-    def make_mask(self, model):
-        """Create region mask for the given model."""
-        # Start with empty mask.
-        lat = get_parent_attr(model, 'lat')
-        lon = get_parent_attr(model, 'lon')
-        mask = np.zeros((lat.size, lon.size))
-        # Use region bounds stored in self.mask_bounds if available.
-        try:
-            # Add to mask for each set of bounds specified.
-            for bounds in self.mask_bounds:
-                mask = self._add_to_mask(mask, bounds[0], bounds[1],
-                                         model.lat, model.lon)
-        # Otherwise use self.lat_bnds and self.lon_bnds attributes.
-        except AttributeError:
-            mask = self._add_to_mask(mask, self.lat_bnds, self.lon_bnds,
-                                     model.lat, model.lon)
-
-        # Apply land or ocean mask as needed.
-        finally:
-            if model.land_mask is None:
-                return mask
-            elif self.land_mask in [True, 'land']:
-                return mask*model.land_mask
-            elif self.land_mask == 'strict_land':
-                return mask*np.where(model.land_mask == 1., 1., 0.)
-            elif self.land_mask == 'ocean':
-                return mask*(1. - model.land_mask)
-            elif self.land_mask == 'strict_ocean':
-                return mask*np.where(model.land_mask == 0., 1., 0.)
-            else:
-                return mask
-
-    def mask_var(self, data, model):
-        """Mask the data of the given variable outside the region."""
-        # Interpolate region to model grid.
-        reg_mask = self.make_mask(model)
-        # Mask input values where region mask is zero. Assumes dimensions are
-        # (time, level, lat, lon), i.e. data.ndim=4.
-        return np.ma.masked_where(
-            np.tile(reg_mask == 0., (data.shape[0], data.shape[1], 1, 1)), data
-        )
-
-    def _add_to_mask_xray(self, data, latb, lonb):
+    def _add_to_mask(self, data, latb, lonb):
         mask_lat = (data['lat'] > latb[0]) & (data['lat'] < latb[1])
-        mask_latlon = mask_lat & ((data['lon'] > lonb[0]) & (data['lon'] < lonb[1])) 
+        mask_latlon = mask_lat & ((data['lon'] > lonb[0]) &
+                                  (data['lon'] < lonb[1]))
         return mask_latlon
 
-    def make_mask_xray(self, data):
-        """ Construct the mask in xray fashion."""
+    def make_mask(self, data):
+        """Construct the mask that defines this region."""
         # For each set of bounds add to the conditional.
         mask = False
         try:
             for bounds in self.mask_bounds:
-                mask |= self._add_to_mask_xray(data, bounds[0], bounds[1])
-        except:        
-            mask |= self._add_to_mask_xray(data, self.lat_bnds, self.lon_bnds)
+                mask |= self._add_to_mask(data, bounds[0], bounds[1])
+        except:
+            mask |= self._add_to_mask(data, self.lat_bnds, self.lon_bnds)
 
-        # No landmask for now.    
-        return mask    
+        # No landmask for now.
+        return mask
 
-    def mask_var_xray(self, data):
-        """ Mask the data of the given variable outside the region."""
-        reg_mask = self.make_mask_xray(data)
-        # Return the DataArray where the region is masked. 
-        return data.where(reg_mask)
-
-    def ts_xray(self, data, model):
-        """ Create a time-series of region average-data. Assume data is a 
-        DataArray.
-        """
-        data = self.mask_var_xray(data)
-        reg_mask = self.make_mask_xray(data)
-        weights = self.mask_var_xray(model.sfc_area)
-        # Take the area average 
-        avg = (data*model.sfc_area).sum('lat').sum('lon') / weights.sum('lat').sum('lon')
-        return avg 
+    def mask_var(self, data):
+        """Mask the data of the given variable outside the region."""
+        return data.where(self.make_mask(data))
 
     def ts(self, data, model):
-        """Create a time-series of region-average data."""
-        if data.ndim == 3:
-            data = data[:,np.newaxis,:,:]
-        # Mask the data outside the region, and flatten lat/lon into 1 dim.
-        data = self.mask_var(data, model)
-        data = data.reshape(data.shape[0], data.shape[1], -1)
-        # Get the region mask for the given model's grid.
-        reg_mask = self.make_mask(model)
-        # At gridpoints where the region is not totally masked, weight by that
-        # point's surface area and the mask value.
-        weights = np.ma.masked_where(reg_mask == 0, model.sfc_area*reg_mask)
-        # Average over the region at each timestep and at each level.
-        weights = np.tile(weights.ravel(), (data.shape[0], data.shape[1], 1))
-        avg = np.ma.average(data, weights=weights, axis=-1)
-        # # If time axis had length 1, np.squeeze removed it, so put back on.
-        # if data.shape[0] == 1:
-        #     avg = avg[np.newaxis,:]
-        # If result is singleton, then turn into float, not numpy array.
-        if isinstance(avg, np.ma.core.MaskedArray) and avg.ndim == 0:
-            avg = float(avg)
-        return avg
+        """Create time-series of region average-data."""
+        data_masked = self.mask_var(data)
+        dims = ['lat', 'lon']
+        coords = [data_masked.coords[c] for c in dims]
+        sfc_area = xray.DataArray(model.sfc_area, dims=dims, coords=coords)
+        weights = self.mask_var(sfc_area)
+        # Take the area average
+        return ((data_masked*model.sfc_area).sum('lat').sum('lon') /
+                weights.sum('lat').sum('lon'))
 
-    def av_xray(self, data, model):
+    def av(self, data, model):
         """ Time average of region-average data."""
-        ts_ = self.ts_xray(data, model)
+        ts_ = self.ts(data, model)
         if 'year' not in ts_.coords:
             return ts_
         else:
             return ts_.mean('year')
 
-    def av(self, data, model):
-        """Time average of region-average data."""
-        ts_ = self.ts(data, model)
-        if isinstance(ts_, float):
-            return ts_
-        else:
-            mean = np.ma.mean(ts_, axis=0)
-            return np.squeeze(mean)
-
-    def std_xray(self, data, model):
+    def std(self, data, model):
         """Standard deviation of time-series data"""
-        ts_ = self.ts_xray(data, model)
+        ts_ = self.ts(data, model)
         if 'year' not in ts_.coords:
             return ts_
         else:
             return ts_.std('year')
-
-    def std(self, data, model):
-        """Standard deviation of time-series data."""
-        ts_ = self.ts(data, model)
-        if isinstance(ts_, float):
-            return ts_
-        else:
-            stdev = np.ma.std(ts_, axis=0)
-            return np.squeeze(stdev)

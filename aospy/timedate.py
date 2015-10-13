@@ -1,7 +1,6 @@
 """Module for handling times, dates, etc."""
 import datetime
 
-import netCDF4
 import numpy as np
 import pandas as pd
 import xray
@@ -54,7 +53,8 @@ class TimeManager(object):
         self.end_date = self.to_datetime(end_date)
         self.months = self.month_indices(months)
 
-    def _construct_month_conditional(self, time, months):
+    @staticmethod
+    def _construct_month_conditional(time, months):
         """Create a conditional statement for selecting data in a DataArray."""
         cond = False
         for month in months:
@@ -99,7 +99,7 @@ class TimeManager(object):
                                                date.month, date.day))
 
 
-def _get_time_xray(time, start_date, end_date, months, indices=False):
+def _get_time(time, start_date, end_date, months, indices=False):
     """Determine indices/values of a time array within the specified interval.
 
     Assumes time is an xray DataArray and that it can be represented
@@ -114,30 +114,3 @@ def _get_time_xray(time, start_date, end_date, months, indices=False):
         return (inds, time.sel(time=inds))
     else:
         return time.sel(time=inds)
-
-
-def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
-    """Determine the indices of a time array falling in a specified interval.
-
-    Given a start year, end year, and subset of each year, determine which of
-    the input time array's values fall within that range.
-
-    :param time: netCDF4 variable object specifying time
-    :param start_yr, end_yr: Start and end years, inclusive, of desired time
-                             range.
-    :type start_yr, end_yr: int
-    :param months: Subset of the annual cycle to sample.
-    :type months: Iterable of ints in the range (1,13), inclusive.
-    :param indices: Return an array of indices if True, otherwise return
-                    the time array itself at those time indices.
-    :type indices: bool
-    """
-    dates = netCDF4.num2date(time[:], units, calendar.lower())
-    inds = [i for i, date in enumerate(dates) if (date.month in months) and
-            (date.year in range(start_yr, end_yr+1))]
-    if indices == 'only':
-        return inds
-    elif indices:
-        return inds, time[inds]
-    else:
-        return time[inds]
