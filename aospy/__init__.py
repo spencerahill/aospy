@@ -4,8 +4,8 @@ from . import constants
 from .constants import Constant
 from . import utils
 from . import io
-from . import time
-from .time import TimeManager
+from . import timedate
+from .timedate import TimeManager
 from . import units
 from .units import Units
 from . import numerics
