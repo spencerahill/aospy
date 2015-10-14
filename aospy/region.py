@@ -4,13 +4,15 @@ import xray
 
 class Region(object):
     """Geographical region."""
-    def __init__(self, name='', lon_bounds=[], lat_bounds=[], mask_bounds=[],
-                 land_mask=False):
+    def __init__(self, name='', description='', lon_bounds=[], lat_bounds=[],
+                 mask_bounds=[], land_mask=False):
         """Instantiate a Region object."""
         self.name = name
-        self.lon_bounds = lon_bounds
-        self.lat_bounds = lat_bounds
-        self.mask_bounds = mask_bounds
+        self.description = description
+        if lon_bounds and lat_bounds and not mask_bounds:
+            self.mask_bounds = [(lat_bounds, lon_bounds)]
+        else:
+            self.mask_bounds = mask_bounds
         self.land_mask = land_mask
 
     def __str__(self):
@@ -29,11 +31,8 @@ class Region(object):
         """Construct the mask that defines this region."""
         # For each set of bounds add to the conditional.
         mask = False
-        try:
-            for bounds in self.mask_bounds:
-                mask |= self._add_to_mask(data, bounds[0], bounds[1])
-        except AttributeError:
-            mask |= self._add_to_mask(data, self.lat_bounds, self.lon_bounds)
+        for lat_bounds, lon_bounds in self.mask_bounds:
+            mask |= self._add_to_mask(data, lat_bounds, lon_bounds)
         return mask
 
     def mask_var(self, data):
@@ -50,6 +49,9 @@ class Region(object):
         try:
             lmask = xray.DataArray(model.land_mask, dims=dims, coords=coords)
         except:
+            # S. Hill 2015-10-14: Eventually aospy will have a built-in land
+            # mask array that it can use in case the object doesn't have one
+            # of its own.  For now the object /must/ have one.
             raise
         if self.land_mask in (True, 'land'):
             return lmask
