@@ -2,8 +2,8 @@
 import os
 import string
 import subprocess
+
 import numpy as np
-import netCDF4
 
 
 def to_dup_list(x, n, single_to_list=True):
@@ -83,9 +83,9 @@ def _yr_label(yr_range):
     """Create label of start and end years for aospy data I/O."""
     assert yr_range is not None, "yr_range is None"
     if yr_range[0] == yr_range[1]:
-        return '{:04}'.format(yr_range[0])
+        return '{:04d}'.format(yr_range[0])
     else:
-        return '{:04}'.format(yr_range[0]) + '-' + '{:04}'.format(yr_range[1])
+        return '{:04d}'.format(yr_range[0]) + '-' + '{:04d}'.format(yr_range[1])
 
 
 def _znl_label(var):
@@ -116,7 +116,7 @@ def _time_label(intvl, return_val=True):
                   'ond':(10,11,12), 'ndj': (11,12,1), 'djf': (1,  2, 12),
                   'jjas': (6,7,8,9), 'djfm': (12, 1, 2, 3),
                   'ann': range(1,13)}
-        for lbl, vals in labels.iteritems():
+        for lbl, vals in labels.items():
             if intvl == lbl or set(intvl) == set(vals):
                 label = lbl
                 value = np.array(vals)
@@ -125,57 +125,6 @@ def _time_label(intvl, return_val=True):
         return label, value
     else:
         return label
-
-
-def _month_indices(months, iterable=True):
-    """Convert string labels for months to integer indices.
-
-    :param months: String matching either 'ann' or some subset of
-                   'jfmamjjasond'.  If 'ann', use all months.  Otherwise, use
-                   the specified months.
-    :type months: str or int
-    """
-    assert type(months) in (int, str)
-    if type(months) is int:
-        if iterable:
-            return [months]
-        else:
-            return months
-    elif months.lower() == 'ann':
-        return range(1,13)
-    else:
-        first_letter = 'jfmamjjasond'*2
-        # Python native indexing starts at 0, but within aospy months are
-        # indexed starting at 1, so add 1.
-        st_ind = first_letter.find(months.lower()) + 1
-        return range(st_ind, st_ind + len(months))
-
-
-def _get_time(time, units, calendar, start_yr, end_yr, months, indices=False):
-    """Determine the indices of a time array falling in a specified interval.
-
-    Given a start year, end year, and subset of each year, determine which of
-    the input time array's values fall within that range.
-
-    :param time: netCDF4 variable object specifying time
-    :param start_yr, end_yr: Start and end years, inclusive, of desired time
-                             range.
-    :type start_yr, end_yr: int
-    :param months: Subset of the annual cycle to sample.
-    :type months: Iterable of ints in the range (1,13), inclusive.
-    :param indices: Return an array of indices if True, otherwise return
-                    the time array itself at those time indices.
-    :type indices: bool
-    """
-    dates = netCDF4.num2date(time[:], units, calendar.lower())
-    inds = [i for i, date in enumerate(dates) if (date.month in months) and
-            (date.year in range(start_yr, end_yr+1))]
-    if indices == 'only':
-        return inds
-    elif indices:
-        return inds, time[inds]
-    else:
-        return time[inds]
 
 
 def prune_lat_lon(array, model, lats, lons):
@@ -205,24 +154,24 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
     if data_type in ('ts', 'inst'):
         if intvl_type == 'annual':
             if nc_dur == 1:
-                gfdl_file = '.'.join([domain, '{:04}'.format(nc_yr),
+                gfdl_file = '.'.join([domain, '{:04d}'.format(nc_yr),
                                       name, 'nc'])
             else:
-                gfdl_file = (domain + '.{:04}'.format(nc_yr) +
-                             '-{:04}'.format(nc_yr+nc_dur-1)
+                gfdl_file = (domain + '.{:04d}'.format(nc_yr) +
+                             '-{:04d}'.format(nc_yr+nc_dur-1)
                              + '.' + name + '.nc')
         elif intvl_type == 'monthly':
-            gfdl_file = (domain + '.{:04}'.format(nc_yr) + '01-' +
-                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+            gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '01-' +
+                         '{:04d}'.format(int(nc_yr+nc_dur-1)) +
                          '12.' + name + '.nc')
         elif intvl_type == 'daily':
-            gfdl_file = (domain + '.{:04}'.format(nc_yr) + '0101-' +
-                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+            gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '0101-' +
+                         '{:04d}'.format(int(nc_yr+nc_dur-1)) +
                          '1231.' + name + '.nc')
         elif 'hr' in intvl_type:
             gfdl_file = '.'.join(
-                [domain, '{:04}'.format(nc_yr) + '010100-' +
-                 '{:04}'.format(nc_yr+nc_dur-1) + '123123', name, 'nc']
+                [domain, '{:04d}'.format(nc_yr) + '010100-' +
+                 '{:04d}'.format(nc_yr+nc_dur-1) + '123123', name, 'nc']
             )
     elif data_type == 'av':
         if intvl_type in ['annual', 'ann']:
@@ -236,14 +185,14 @@ def nc_name_gfdl(name, domain, data_type, intvl_type, data_yr,
         elif intvl_type in ['monthly', 'mon']:
             label, val = _time_label(intvl)
         if nc_dur == 1:
-            gfdl_file = domain + '.{:04}'.format(nc_yr) + '.' + label + '.nc'
+            gfdl_file = domain + '.{:04d}'.format(nc_yr) + '.' + label + '.nc'
         else:
-            gfdl_file = (domain + '.{:04}'.format(nc_yr) + '-' +
-                         '{:04}'.format(int(nc_yr+nc_dur-1)) +
+            gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '-' +
+                         '{:04d}'.format(int(nc_yr+nc_dur-1)) +
                          '.' + label + '.nc')
     elif data_type == 'av_ts':
-        gfdl_file = (domain + '.{:04}'.format(nc_yr) + '-' +
-                     '{:04}'.format(int(nc_yr+nc_dur-1)) + '.01-12.nc')
+        gfdl_file = (domain + '.{:04d}'.format(nc_yr) + '-' +
+                     '{:04d}'.format(int(nc_yr+nc_dur-1)) + '.01-12.nc')
     return gfdl_file
 
 
@@ -268,35 +217,19 @@ def hsmget_nc(files_list):
     return retcode
 
 
-def _get_time_avg_var(proj, model_name, run_name, var):
-    """Get the desired Var object and designate its parent Run oject."""
-    try:
-        var = proj.vars[var.name]
-    except KeyError:
-        for alt_name in alt_names:
-            try:
-                var = proj.vars[alt_name]
-            except KeyError:
-                pass
-            else:
-
-                break
-    except AttributeError:
-        var = proj.vars[var]
-    var.proj = proj
-    try:
-        var.model = proj.models[model_name]
-    except KeyError:
-        var.model = model_name
-    # try/except TypeError clause is hack solution to deal with plotting
-    # functions inputting a list of run names rather than a single run name
-    # string.
-    try:
-        var.run = var.model.runs[run_name]
-    except KeyError:
-        var.run = run_name
-    except TypeError:
-        var.run = var.model.runs[run_name[-1]]
-    return var
-
-
+def get_nc_direc_repo(nc_direc, var_name, version=-1):
+    """Determine the directory containing the needed netCDF files."""
+    dir_prefix = os.path.realpath(nc_direc)
+    dirs_after = [os.path.join(dir_prefix, name)
+                  for name in os.listdir(dir_prefix) if
+                  (os.path.isdir(os.path.join(dir_prefix, name)) and
+                   name[0] == 'v')]
+    dirs_after.sort()
+    # We assume that the directories are all of the format "v#[###...]",
+    # the numbers typically specifiying a date YYYYMMDD, but occasionally
+    # just a single number, e.g. 'v1' instead.  We assume we want the
+    # latest/most recent version, which after sorting will be the last
+    # entry in the list.  Or the version can be specified using the
+    # 'version' kwarg.
+    # Then append the run's direc_nc specification.
+    return os.path.join(dir_prefix, dirs_after[version], var_name)
