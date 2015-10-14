@@ -4,23 +4,26 @@ import xray
 
 class Region(object):
     """Geographical region."""
-    def __init__(self):
+    def __init__(self, name='', lon_bounds=[], lat_bounds=[], mask_bounds=[],
+                 land_mask=False):
         """Instantiate a Region object."""
-        self.name = ''
-        self.lon_bounds = []
-        self.lat_bounds = []
-        self.mask_bounds = []
+        self.name = name
+        self.lon_bounds = lon_bounds
+        self.lat_bounds = lat_bounds
+        self.mask_bounds = mask_bounds
+        self.land_mask = land_mask
 
     def __str__(self):
         return 'Geographical region "' + self.name + '"'
 
     __repr__ = __str__
 
-    def _add_to_mask(self, data, latb, lonb):
-        mask_lat = (data['lat'] > latb[0]) & (data['lat'] < latb[1])
-        mask_latlon = mask_lat & ((data['lon'] > lonb[0]) &
-                                  (data['lon'] < lonb[1]))
-        return mask_latlon
+    def _add_to_mask(self, data, lat_bounds, lon_bounds):
+        """Add mask spanning given lat-lon rectangle."""
+        mask_lat = ((data['lat'] > lat_bounds[0]) &
+                    (data['lat'] < lat_bounds[1]))
+        return mask_lat & ((data['lon'] > lon_bounds[0]) &
+                           (data['lon'] < lon_bounds[1]))
 
     def make_mask(self, data):
         """Construct the mask that defines this region."""
@@ -29,39 +32,56 @@ class Region(object):
         try:
             for bounds in self.mask_bounds:
                 mask |= self._add_to_mask(data, bounds[0], bounds[1])
-        except:
-            mask |= self._add_to_mask(data, self.lat_bnds, self.lon_bnds)
-
-        # No landmask for now.
+        except AttributeError:
+            mask |= self._add_to_mask(data, self.lat_bounds, self.lon_bounds)
         return mask
 
     def mask_var(self, data):
         """Mask the data of the given variable outside the region."""
         return data.where(self.make_mask(data))
 
+    def _get_sfc_area(self, model, dims, coords):
+        try:
+            return xray.DataArray(model.sfc_area, dims=dims, coords=coords)
+        except:
+            raise
+
+    def _get_land_mask(self, model, dims, coords):
+        try:
+            lmask = xray.DataArray(model.land_mask, dims=dims, coords=coords)
+        except:
+            raise
+        if self.land_mask in (True, 'land'):
+            return lmask
+        if self.land_mask == 'ocean':
+            return 1. - lmask
+        if self.land_mask in ('strict_land', 'strict_ocean'):
+            raise NotImplementedError
+        return 1
+
     def ts(self, data, model):
-        """Create time-series of region average-data."""
+        """Create time-series of region-average data."""
         data_masked = self.mask_var(data)
+
         dims = ['lat', 'lon']
         coords = [data_masked.coords[c] for c in dims]
-        sfc_area = xray.DataArray(model.sfc_area, dims=dims, coords=coords)
-        weights = self.mask_var(sfc_area)
-        # Take the area average
-        return ((data_masked*model.sfc_area).sum('lat').sum('lon') /
-                weights.sum('lat').sum('lon'))
+
+        sfc_area = self._get_sfc_area(model, dims, coords)
+        land_mask = self._get_land_mask(model, dims, coords)
+        weights = self.mask_var(sfc_area).sum('lat').sum('lon')
+
+        return(data_masked*sfc_area*land_mask).sum('lat').sum('lon') / weights
 
     def av(self, data, model):
-        """ Time average of region-average data."""
+        """Time average of region-average time-series."""
         ts_ = self.ts(data, model)
         if 'year' not in ts_.coords:
             return ts_
-        else:
-            return ts_.mean('year')
+        return ts_.mean('year')
 
     def std(self, data, model):
-        """Standard deviation of time-series data"""
+        """Standard deviation of region-average time-series."""
         ts_ = self.ts(data, model)
         if 'year' not in ts_.coords:
             return ts_
-        else:
-            return ts_.std('year')
+        return ts_.std('year')
