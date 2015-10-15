@@ -79,7 +79,6 @@ class Model(object):
 
         return glob.glob(os.path.join(direc_full, var_name + '_*.nc'))
 
-
     def _get_nc_grid(self):
         """Get the nc_grid of an aospy object."""
         nc_objs = []
@@ -99,6 +98,10 @@ class Model(object):
                     pass
             except RuntimeError:
                 nc_obj = netCDF4.MFDataset([path])
+            except IOError:
+                # Somee files don't have an unlimited (time) dimension,
+                # which triggers an IOError from MFDataset.
+                nc_obj = netCDF4.Dataset(path)
             nc_objs.append(nc_obj)
         return tuple(nc_objs)
 

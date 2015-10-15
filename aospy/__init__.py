@@ -4,17 +4,21 @@ from . import constants
 from .constants import Constant
 from . import utils
 from . import io
+from . import timedate
+from .timedate import TimeManager
 from . import units
 from .units import Units
 from . import numerics
 from .numerics import FiniteDiff
+from . import operator
+from .operator import Operator
 #from . import spharm_interface # On hold in python3
 #from .spharm_interface import SpharmInterface
 from . import var
 from .var import Var
 from . import region
 from .region import Region
-from . import run
+from . import run               # 'run' depends on 'time'
 from .run import Run
 from . import model
 from .model import Model

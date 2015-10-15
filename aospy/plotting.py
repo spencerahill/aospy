@@ -7,6 +7,7 @@ import mpl_toolkits.basemap
 from .__config__ import default_colormap
 from .calc import Calc, CalcInterface
 from .io import to_dup_list
+from .operator import Operator
 from .utils import to_hpa
 
 fig_specs = (
@@ -15,48 +16,39 @@ fig_specs = (
     'cbar_ticklabels', 'cbar_label', 'verbose'
 )
 ax_specs = (
-    'n_plot', 'ax_title', 'do_ax_label', 'ax_left_label', 'ax_right_label',
-    'map_proj', 'map_corners', 'map_res', 'shiftgrid_start',
-    'shiftgrid_cyclic', 'do_legend', 'legend_labels', 'legend_loc', 'x_dim',
-    'x_lim', 'x_ticks', 'x_ticklabels', 'x_label', 'y_dim', 'y_lim', 'y_ticks',
-    'y_ticklabels', 'y_label', 'lat_lim', 'lat_ticks', 'lat_ticklabels',
-    'lat_label', 'lon_lim', 'lon_ticks', 'lon_ticklabels', 'lon_label',
-    'p_lim', 'p_ticks', 'p_ticklabels', 'p_label', 'sigma_lim', 'sigma_ticks',
-    'sigma_ticklabels', 'sigma_label', 'time_lim', 'time_ticks',
-    'time_ticklabels', 'time_label', 'do_mark_x0', 'do_mark_y0'
+    'n_plot', 'ax_title', 'do_ax_label',
+    'ax_left_label', 'ax_left_label_coords', 'ax_left_label_kwargs',
+    'ax_right_label', 'ax_right_label_coords', 'ax_right_label_kwargs',
+    'map_proj', 'map_corners',
+    'map_res', 'shiftgrid_start', 'shiftgrid_cyclic', 'do_legend',
+    'legend_labels', 'legend_loc', 'x_dim', 'x_lim', 'x_ticks', 'x_ticklabels',
+    'x_label', 'y_dim', 'y_lim', 'y_ticks', 'y_ticklabels', 'y_label',
+    'lat_lim', 'lat_ticks', 'lat_ticklabels', 'lat_label', 'lon_lim',
+    'lon_ticks', 'lon_ticklabels', 'lon_label', 'p_lim', 'p_ticks',
+    'p_ticklabels', 'p_label', 'sigma_lim', 'sigma_ticks', 'sigma_ticklabels',
+    'sigma_label', 'time_lim', 'time_ticks', 'time_ticklabels', 'time_label',
+    'do_mark_x0', 'do_mark_y0'
 )
 plot_specs = (
     'plot_type', 'do_best_fit_line', 'print_best_fit_slope',
     'print_corr_coeff', 'cntr_lvls', 'colormap', 'min_cntr', 'max_cntr',
     'num_cntr', 'contours_extend', 'latlon_rect', 'do_mask_oceans',
-    'contour_labels', 'contour_kwargs', 'plot_kwargs', 'quiver_kwargs',
-    'quiver_n_lon', 'quiver_n_lat', 'do_quiverkey', 'quiverkey_args',
-    'quiverkey_kwargs', 'scatter_kwargs'
+    'contour_labels', 'contour_kwargs', 'contourf_kwargs', 'plot_kwargs',
+    'quiver_kwargs', 'quiver_n_lon', 'quiver_n_lat', 'do_quiverkey',
+    'quiverkey_args', 'quiverkey_kwargs', 'scatter_kwargs'
 )
 data_specs = (
-    'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'yr_range',
+    'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'date_range',
     'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert',
     'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean'
 )
 specs = fig_specs + ax_specs + plot_specs + data_specs
 
 
-class Operator(object):
-    def __init__(self, operator, objects):
-        self.operator = operator
-        self.objects = objects
-
-    def __str__(self):
-        return ("Operator object with operator '%s' and objects '%s'"
-                % (self.operator, self.objects))
-
-    __repr__ = __str__
-
-
 class Fig(object):
     """Class for producing figures with one or more panels."""
     def __init__(self, fig_params, n_ax=1, n_plot=1, n_data=1, n_row=1,
-                 n_col=1, yr_range=None, intvl_in=None, intvl_out=None,
+                 n_col=1, date_range=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
                  dtype_out_vert=None, level=None, **kwargs):
         self.__dict__ = vars(fig_params)
@@ -68,7 +60,7 @@ class Fig(object):
         self.n_col = n_col
         self._set_n_ax_plot_data()
 
-        self.yr_range = yr_range
+        self.date_range = date_range
         self.intvl_in = intvl_in
         self.intvl_out = intvl_out
         self.dtype_in_time = dtype_in_time
@@ -343,21 +335,16 @@ class Ax(object):
             # if self.ax_left_label_rot == 'horizontal':
                 # horiz_frac = -0.17
             # else:
-            horiz_frac = -0.05
-            vert_frac = 0.5
             self.ax.text(
-                horiz_frac, vert_frac, self.ax_left_label,
-                verticalalignment='center', horizontalalignment='left',
-                rotation='vertical', fontsize='small',
-                transform=self.ax.transAxes
+                self.ax_left_label_coords[0], self.ax_left_label_coords[1],
+                self.ax_left_label, transform=self.ax.transAxes,
+                **self.ax_left_label_kwargs
             )
         if self.ax_right_label:
-            horiz_frac = 1.02
-            vert_frac = 0.5
             self.ax.text(
-                horiz_frac, vert_frac, self.ax_right_label,
-                verticalalignment='center', rotation='vertical',
-                fontsize='small', transform=self.ax.transAxes
+                self.ax_right_label_coords[0], self.ax_right_label_coords[1],
+                self.ax_right_label, transform=self.ax.transAxes,
+                **self.ax_right_label_kwargs
             )
 
     def _make_plot_objs(self):
@@ -438,9 +425,9 @@ class Plot(object):
             self.n_data = len(self.var)
 
         self.calc = self._make_calc_obj()
-
         # Pass the calcs to the _load_data method.
-        self.data = [self._load_data(calc) for calc in self.calc]
+        self.data = [self._load_data(calc, n)
+                     for n, calc in enumerate(self.calc)]
         # Strip extra dimensions as necessary.
         data_shape = np.shape(self.data)
         if data_shape[0] == 1:
@@ -475,26 +462,26 @@ class Plot(object):
                     proj=self.proj[i], model=self.model[i],
                     run=run,
                     ens_mem=self.ens_mem[i], var=self.var[i],
-                    yr_range=self.yr_range[i], region=self.region[i],
+                    date_range=self.date_range[i], region=self.region[i],
                     intvl_in=self.intvl_in[i], intvl_out=self.intvl_out[i],
                     dtype_in_time=self.dtype_in_time[i],
                     dtype_in_vert=self.dtype_in_vert[i],
                     dtype_out_time=self.dtype_out_time[i],
                     dtype_out_vert=self.dtype_out_vert[i], level=self.level[i],
-                    verbose=self.fig.verbose, skip_time_inds=True
+                    verbose=self.fig.verbose
                 )) for run in self.run[i].objects]
                 calc_obj.append(Operator(self.run[i].operator, calcs))
             else:
                 calc_obj.append(Calc(CalcInterface(
                     proj=self.proj[i], model=self.model[i], run=self.run[i],
                     ens_mem=self.ens_mem[i], var=self.var[i],
-                    yr_range=self.yr_range[i], region=self.region[i],
+                    date_range=self.date_range[i], region=self.region[i],
                     intvl_in=self.intvl_in[i], intvl_out=self.intvl_out[i],
                     dtype_in_time=self.dtype_in_time[i],
                     dtype_in_vert=self.dtype_in_vert[i],
                     dtype_out_time=self.dtype_out_time[i],
                     dtype_out_vert=self.dtype_out_vert[i], level=self.level[i],
-                    verbose=self.fig.verbose, skip_time_inds=True
+                    verbose=self.fig.verbose
                 )))
         return calc_obj
 
@@ -547,12 +534,12 @@ class Plot(object):
             urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat
         )
 
-    def _load_data(self, calc):
+    def _load_data(self, calc, n):
         if isinstance(calc, Operator):
             data = tuple(
-                [cl.load(self.dtype_out_time[0],
-                         dtype_out_vert=self.dtype_out_vert[0],
-                         region=self.region[0], time=False, vert=self.level[0],
+                [cl.load(self.dtype_out_time[n],
+                         dtype_out_vert=self.dtype_out_vert[n],
+                         region=self.region[n], time=False, vert=self.level[n],
                          lat=False, lon=False, plot_units=True,
                          mask_unphysical=True)
                  for cl in calc.objects]
@@ -568,9 +555,9 @@ class Plot(object):
 
         # elif isinstance(calc, dict):
         #     data = tuple(
-        #         [cl.load(self.dtype_out_time[0],
-        #                  dtype_out_vert=self.dtype_out_vert[0],
-        #                  region=self.region[0], time=False, vert=self.level[0],
+        #         [cl.load(self.dtype_out_time[n],
+        #                  dtype_out_vert=self.dtype_out_vert[n],
+        #                  region=self.region[n], time=False, vert=self.level[n],
         #                  lat=False, lon=False, plot_units=True,
         #                  mask_unphysical=True)
         #          for cl in calc]
@@ -593,10 +580,10 @@ class Plot(object):
                  )]
             )
         else:
-            return calc.load(self.dtype_out_time[0],
-                             dtype_out_vert=self.dtype_out_vert[0],
-                             region=self.region[0], time=False,
-                             vert=self.level[0],
+            return calc.load(self.dtype_out_time[n],
+                             dtype_out_vert=self.dtype_out_vert[n],
+                             region=self.region[n], time=False,
+                             vert=self.level[n],
                              lat=False,
                              lon=False,
                              plot_units=True,
@@ -675,7 +662,10 @@ class Plot(object):
 
     def best_fit_line(self, print_slope=True, print_y0=True):
         """Plot the best fit line to the data."""
-        best_fit = np.polyfit(self.x_data, self.y_data, 1)
+        # Enforce a dtype of float to ensure data plays nice with np.polyfit
+        x_data = np.array(self.x_data).astype('float64')
+        y_data = np.array(self.y_data).astype('float64')
+        best_fit = np.polyfit(x_data, y_data, 1)
         x_lin_fit = [-1e3, 1e3]
 
         def lin_fit(m, x, b):
@@ -688,6 +678,7 @@ class Plot(object):
         if print_y0:
             self.ax.ax.text(0.3, 0.05, r'y0 = %0.2f' % best_fit[1],
                             transform=self.ax.ax.transAxes, fontsize='x-small')
+        return best_fit
 
 
 class Contour(Plot):
@@ -695,6 +686,7 @@ class Contour(Plot):
         """Contour plot."""
         Plot.__init__(self, plot_interface)
         self.plot_func = self.backend.contour
+        self.plot_func_kwargs = self.contour_kwargs
         self.cntr_lvls = np.linspace(self.min_cntr, self.max_cntr,
                                      self.num_cntr + 1)
 
@@ -707,7 +699,7 @@ class Contour(Plot):
     def plot(self):
         self._prep_data()
         self.handle = self.plot_func(self.x_data, self.y_data, self.plot_data,
-                                     self.cntr_lvls, **self.contour_kwargs)
+                                     self.cntr_lvls, **self.plot_func_kwargs)
         if self.contour_labels:
             plt.gca().clabel(self.handle, fontsize=7, fmt='%1d')
         if self.colormap:
@@ -721,12 +713,7 @@ class Contourf(Contour):
         """Filled contour ('contourf') plot."""
         Contour.__init__(self, plot_interface)
         self.plot_func = self.backend.contourf
-        # Remove contour-only kwargs.
-        for key in ('linewidths', 'linestyles'):
-            try:
-                self.contour_kwargs.pop(key)
-            except KeyError:
-                pass
+        self.plot_func_kwargs = self.contourf_kwargs
 
 
 class Line(Plot):

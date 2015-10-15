@@ -15,6 +15,9 @@ class Var(object):
         self.name = name
         if alt_names:
             self.alt_names = alt_names
+            self.names = tuple([name] + list(alt_names))
+        else:
+            self.names = tuple([name])
 
         if not func:
             self.func = lambda x: x
