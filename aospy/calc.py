@@ -365,13 +365,19 @@ class Calc(object):
         # instead of this logic of making individual datasets and then
         # calling xray.concat?  Or does the year<1678 logic make this not
         # possible?
+
+        # 2015-10-16 19:06:00 S. Clark: The year<1678 logic is independent of using
+        # xray.open_mfdataset. The main reason I held off on using it here 
+        # was that it opens a can of worms with regard to performance; we'd
+        # need to add some logic to make sure the data were chunked in a
+        # reasonable (and logic to change the chunking if need be). 
         for file_ in paths:
             test = xray.open_dataset(file_, decode_cf=False,
                                      drop_variables=['time_bounds', 'nv',
                                                      'average_T1',
                                                      'average_T2'])
             if start_date.year < 1678:
-                for v in ['time', 'average_T1', 'average_T2']:
+                for v in ['time']:
                     test[v].attrs['units'] = ('days since 1900-01-01 '
                                               '00:00:00')
                 test['time'].attrs['calendar'] = 'noleap'
@@ -561,16 +567,17 @@ class Calc(object):
     def compute(self):
         """Perform all desired calculations on the data and save externally."""
         # Get results at each desired timestep and spatial point.
-        full_ts, dt = self._compute(self.start_date_xray, self.end_date_xray)
+        full_ts, dt = self._compute(self.start_date, self.end_date) # TROUBLE
         # Average within each year if time-defined.
+        # (If we don't want to group by year def_time_cond = True)
         def_time_cond = ('av' in self.dtype_in_time or not self.def_time or
                          self.idealized[0])
         if not def_time_cond:
             full_ts = self._to_yearly_ts(full_ts, dt)
         # Vertically integrate if vertically defined and specified.
         if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
-            dp = self._get_pressure_vals('dp', self.start_date_xray,
-                                         self.end_date_xray)
+            dp = self._get_pressure_vals('dp', self.start_date,
+                                         self.end_date) # TROUBLE
             full_ts = self._vert_int(full_ts, dp)
         # Apply time reduction methods and save.
         if self.def_time:
