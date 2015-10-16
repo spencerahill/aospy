@@ -370,7 +370,7 @@ class Calc(object):
         # xray.open_mfdataset. The main reason I held off on using it here 
         # was that it opens a can of worms with regard to performance; we'd
         # need to add some logic to make sure the data were chunked in a
-        # reasonable (and logic to change the chunking if need be). 
+        # reasonable way (and logic to change the chunking if need be). 
         for file_ in paths:
             test = xray.open_dataset(file_, decode_cf=False,
                                      drop_variables=['time_bounds', 'nv',
