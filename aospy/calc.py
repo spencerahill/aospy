@@ -14,8 +14,8 @@ from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  nc_name_gfdl)
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, level_thickness,
-                    pfull_from_sigma, dp_from_sigma, int_dp_g,
-                    int_dp_g)
+                    pfull_from_sigma, dp_from_sigma, int_dp_g)
+
 
 ps = Var(
     name='ps',
@@ -62,10 +62,6 @@ class CalcInterface(object):
     #     else:
     #         start_date, end_date = self.date_range
     #     return start_date, end_date
-
-    # S. Hill 2015-10-12: Since xray has its own chunking capability via dask,
-    # we don't need to implement chunking ourselves also.  So I removed the
-    # all chunk-related methods.
 
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
@@ -140,13 +136,13 @@ class CalcInterface(object):
 
         self.start_date_xray = tm.apply_year_offset(self.start_date)
         self.end_date_xray = tm.apply_year_offset(self.end_date)
-        # print(self.date_range)
-        # print(self.start_date, self.end_date)
-        # print(self.start_date_xray, self.end_date_xray)
 
 
 class Calc(object):
     """Class for executing, saving, and loading a single computation."""
+
+    ARR_XRAY_NAME = 'aospy_result'
+
     def __str__(self):
         """String representation of the object."""
         return "Calc object: " + ', '.join(
@@ -160,7 +156,7 @@ class Calc(object):
         ens_label = _ens_label(self.ens_mem)
         return os.path.join('/work', os.getenv('USER'), self.proj_str,
                             self.model_str, self.run_str, ens_label,
-                            self.var.name)
+                            self.name)
 
     def _dir_archive(self):
         """Create string of the data directory on the archive filesystem."""
@@ -219,110 +215,28 @@ class Calc(object):
 
         self.data_out = {}
 
-    def _get_first_nc_var(self):
-        """Get the first variable that is stored as netCDF."""
-        for var in self.variables:
-            if isinstance(var, Var) and not var.in_nc_grid:
-                return var
-
-    def _set_time_dt(self):
-        """Get time and dt arrays at needed time indices."""
-        # Use the first var in the list that is an aospy.Var object.
-        nc_var = self._get_first_nc_var()
-        with self._get_nc(nc_var, self.start_date, self.end_date) as nc:
-            time_obj = nc['time']
-            inds, time = _get_time(
-                time_obj, self.start_date_xray, self.end_date_xray,
-                self.months, indices=True
-                )
-            self.time = time
-            self.time_inds = inds
-            self.dt = self._get_dt(nc, inds)
-
-            for name in ('level', 'lev', 'plev'):
-                try:
-                    self.pressure = nc.variables[name][:]
-                except KeyError:
-                    pass
-                else:
-                    break
-            else:
-                self.pressure = False
-
-            for name in ('lat', 'latitude', 'LATITUDE', 'y', 'yto'):
-                try:
-                    self.lat = nc.variables[name][:]
-                except KeyError:
-                    pass
-                else:
-                    break
-            else:
-                self.lat = False
-
-            for name in ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'):
-                try:
-                    self.lon = nc.variables[name][:]
-                except KeyError:
-                    pass
-                else:
-                    break
-            else:
-                self.lon = False
-
-    def _get_dt(self, nc, indices):
-        """Get durations of the desired timesteps."""
-        if self.dtype_in_time == 'inst':
-            return np.ones(np.shape(indices))
+    def _get_dt(self, ds):
+        """Get time-duration array at needed time indices."""
         for dt_name in ('average_DT',):
             try:
-                dt = nc[dt_name]
+                dt = ds[dt_name]
             except:
                 pass
             else:
-                return dt.sel(time=indices)
+                return dt  # .sel(time=indices)
         for name in ('time_bounds', 'time_bnds'):
             try:
-                time_bounds = nc.variables[name]
+                time_bounds = ds[name]
             except KeyError:
                 pass
             else:
                 assert time_bounds.ndim == 2
                 assert time_bounds.dimensions[1] == 'bnds'
-                dt = time_bounds[:,1] - time_bounds[:,0]
-                return dt[indices]
+                dt = time_bounds[:, 1] - time_bounds[:, 0]
+                return dt  # [indices]
         raise ValueError("dt array could not be created.")
 
-    # def _reshape_time_indices(self, array, start_date, end_date):
-    #     """Reshape time array to have year- and within-year axes.
-
-    #     2015-04-23: This might not work for sub-monthly data spanning leap
-    #     years or other calendar idiosyncracies.  For example, suppose using
-    #     3 hourly data for DJF spanning a leap year and non leap-year.  The
-    #     leap year February will have 4 more timesteps than the non-leap year.
-    #     """
-
-    #     reshaped = np.reshape(array, (end_date - start_date + 1, -1))
-    #     return reshaped[:,:,np.newaxis,np.newaxis,np.newaxis]
-
-    # def _get_nc_one_dir_tar(self, name, direc_nc, n=0):
-    #     """Get the names of the tar files when all in the same directory."""
-
-    #     # tar may hold absolute or relative paths
-    #     paths = []
-    #     for tar in nc_files:
-    #         full = '/'.join([direc_nc, tar]).replace('//', '/')
-    #         if os.path.isfile(tar):
-    #             paths.append(tar)
-    #         elif os.path.isfile(full):
-    #             paths.append(full)
-    #         else:
-    #             print("Warning: specified netCDF file `%s` not found" % nc)
-    #     # Remove duplicate entries.
-    #     files = list(set(paths))
-    #     files.sort()
-    #     return files
-
-    def _get_nc_one_dir(self, name, direc_nc, n=0):
+    def _get_input_data_paths_one_dir(self, name, direc_nc, n=0):
         """Get the names of netCDF files when all in same directory."""
         if isinstance(self.nc_files[n][name], str):
             nc_files = [self.nc_files[n][name]]
@@ -343,14 +257,14 @@ class Calc(object):
         files.sort()
         return files
 
-    def _get_nc_gfdl_repo(self, name, n=0):
+    def _get_input_data_paths_gfdl_repo(self, name, n=0):
         """Get the names of netCDF files from a GFDL repo on /archive."""
         return self.model[n].find_nc_direc_repo(
             run_name=self.run[n].name, var_name=name
         )
 
-    def _get_nc_gfdl_dir_struct(self, name, direc_nc,
-                                start_year, end_year, n=0):
+    def _get_input_data_paths_gfdl_dir_struct(self, name, direc_nc,
+                                              start_year, end_year, n=0):
         """Get paths to netCDF files save in GFDL standard output format."""
         domain = self.domain
         dtype_lbl = self.dtype_in_time
@@ -385,26 +299,27 @@ class Calc(object):
         raise IOError("direc_nc must be string, list, or tuple: "
                       "{}".format(self.direc_nc))
 
-    def _get_nc(self, var, start_date=False, end_date=False, n=0):
-        """
-        Create xray.DataArray of the variable from its netCDF files on disk.
+    def _get_input_data_paths(self, var, start_date=False,
+                              end_date=False, n=0):
+        """Create xray.DataArray of the variable from its netCDF files on disk.
 
-        Files chosen depend on the specified variables and time intvl and the
-        attributes of the netCDF files.
+        Files chosen depend on the specified variables and time interval and
+        the attributes of the netCDF files.
         """
         direc_nc = self._get_direc_nc(n)
         # Cycle through possible names until the data is found.
         for name in var.names:
             if self.nc_dir_struc[n] == 'one_dir':
                 try:
-                    files = self._get_nc_one_dir(name, direc_nc, n=n)
+                    files = self._get_input_data_paths_one_dir(name, direc_nc,
+                                                               n=n)
                 except KeyError:
                     pass
                 else:
                     break
             elif self.nc_dir_struc[n].lower() == 'gfdl':
                 try:
-                    files = self._get_nc_gfdl_dir_struct(
+                    files = self._get_input_data_paths_gfdl_dir_struct(
                         name, direc_nc, start_date.year,
                         end_date.year, n=n
                     )
@@ -414,7 +329,7 @@ class Calc(object):
                     break
             elif self.nc_dir_struc[n].lower() == 'gfdl_repo':
                 try:
-                    files = self._get_nc_gfdl_repo(name, n=n)
+                    files = self._get_input_data_paths_gfdl_repo(name, n=n)
                 except IOError:
                     pass
                 else:
@@ -426,23 +341,71 @@ class Calc(object):
             raise IOError("netCDF files for variable `%s`, year range %s-%s, "
                           "in directory %s, not found" % (var, start_date,
                                                           end_date, direc_nc))
-        dmget(files)
-        ds = []
-        print start_date
-        print end_date
-        for file_ in files:
-            print file_
+#        dmget(files)
+#        ds = []
+#        print start_date
+#        print end_date
+#        for file_ in files:
+#            print file_
+        paths = list(set(files))
+        paths.sort()
+        return paths
+
+    def _create_input_data_obj(self, var, start_date=False,
+                               end_date=False, n=0, set_dt=False):
+        """Create xray.DataArray for the Var from files on disk."""
+        paths = self._get_input_data_paths(var, start_date, end_date, n)
+        # 2015-10-15 S. Hill: This `dmget` call, which is unique to the
+        # filesystem at the NOAA GFDL computing cluster, should be factored out
+        # of this function.  A config setting or some other user input should
+        # specify what method to call to access the files on the filesystem.
+        dmget(paths)
+        ds_chunks = []
+        # 2015-10-16 S. Hill: Can we use the xray.open_mfdataset function here
+        # instead of this logic of making individual datasets and then
+        # calling xray.concat?  Or does the year<1678 logic make this not
+        # possible?
+        for file_ in paths:
             test = xray.open_dataset(file_, decode_cf=False,
-                                     drop_variables=['time_bounds', 'nv'])
+                                     drop_variables=['time_bounds', 'nv',
+                                                     'average_T1',
+                                                     'average_T2'])
             if start_date.year < 1678:
                 for v in ['time', 'average_T1', 'average_T2']:
                     test[v].attrs['units'] = ('days since 1900-01-01 '
                                               '00:00:00')
                 test['time'].attrs['calendar'] = 'noleap'
             test = xray.decode_cf(test)
-            ds.append(test)
-        return xray.concat(ds, dim='time')
+            ds_chunks.append(test)
+        ds = xray.concat(ds_chunks, dim='time')
+        # 2015-10-16 S. Hill: Passing in each variable as a Dataset is causing
+        # lots of problems in my functions, even ones as simple as just adding
+        # the two variables together.  I think it makes most sense to just grab
+        # the DataArray of the desired data from the Dataset.
+        for name in var.names:
+            try:
+                arr = ds[name]
+            except KeyError:
+                pass
+            else:
+                break
+        else:
+            raise KeyError('Variable not found: {}'.format(var))
+        # At least one variable has to get us the dt array also.
+        if set_dt:
+            for name in ['average_DT']:
+                try:
+                    dt = ds[name]
+                except KeyError:
+                    pass
+                else:
+                    self.dt = self._to_desired_dates(dt)
+                    break
+        return arr
 
+    def _phalf_to_pfull(self, arr):
+        """Interpolate data at sigma half levels to full levels."""
+        raise NotImplementedError
 
     def _get_pressure_vals(self, var, start_date, end_date, n=0):
         """Get pressure array, whether sigma or standard levels."""
@@ -460,7 +423,7 @@ class Calc(object):
         if self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk
-            ps = self._get_var_data(self.ps, start_date, end_date)
+            ps = self._create_input_data_obj(self.ps, start_date, end_date)
             pfull_coord = self.model[n].pfull
             if var == 'p':
                 data = pfull_from_sigma(bk, pk, ps, pfull_coord)
@@ -468,135 +431,88 @@ class Calc(object):
                 data = dp_from_sigma(bk, pk, ps, pfull_coord)
         return data
 
-    def _get_pressure_vals_xray(self, var, start_date, end_date, n=0):
-        return
+    def _to_desired_dates(self, arr):
+        """Restrict the xray DataArray or Dataset to the desired months."""
+        times = _get_time(arr['time'], self.start_date_xray,
+                          self.end_date_xray, self.months, indices=False)
+        return arr.sel(time=times)
 
-    def _get_data_subset(self, data, region=False, time=False,
-                         vert=False, lat=False, lon=False, n=0):
-        """Subset the data array to the specified time/level/lat/lon, etc."""
-        if region:
-            # if type(region) is str:
-                # data = data[region]
-            # elif type(region) is Region:
-            data = data[region.name]
-        if np.any(time):
-            data = data[time]
-            if 'av_from_' in self.dtype_in_time:
-                data = np.mean(data, axis=0)[np.newaxis,:]
-        if np.any(vert):
-            if self.dtype_in_vert != 'sigma':
-                if np.max(self.model[n].level) > 1e4:
-                    # Convert from Pa to hPa.
-                    lev_hpa = self.model[n].level*1e-2
-                else:
-                    lev_hpa = self.model[n].level
-                level_index = np.where(lev_hpa == self.level)
-                if 'ts' in self.dtype_out_time:
-                    data = np.squeeze(data[:,level_index])
-                else:
-                    data = np.squeeze(data[level_index])
-        if np.any(lat):
-            pass
-        if np.any(lon):
-            pass
-        return data
-
-    def _get_var_data(self, var, start_date, end_date, n=0, region=False,
-                      vert=False, lat=False, lon=False):
-        """Get the needed data from one aospy.Var."""
-        self._print_verbose("\tGetting data from netCDF files: %s", var)
-        with self._get_nc(var, start_date, end_date, n=n) as nc:
-            # Variable names can differ.
-            try:
-                data = nc[var.name]
-            except KeyError:
-                for alt_name in var.alt_names:
-                    try:
-                        data = nc[alt_name]
-                    except KeyError:
-                        pass
-                    else:
-                        break
-            try:
-                time = nc['time']
-            except:
-                pass
-            t_inds = _get_time(time, self.start_date_xray,
-                                    self.end_date_xray,
-                                    self.months, indices='only')
-            data = self._get_data_subset(data, region=region, time=t_inds,
-                                         vert=self.level, lat=lat, lon=lon)
-        # Interpolate data at sigma half levels to full levels.
+    def _get_input_data(self, var, start_date, end_date, n):
+        # If only 1 run, use it to load all data.
+        # Otherwise assume that # runs == # vars to load.
+        if len(self.run) == 1:
+            n = 0
+        # Pressure handled specially due to complications from sigma vs. p.
+        if var in ('p', 'dp'):
+            data = self._get_pressure_vals(var, start_date, end_date)
+        # Pass numerical constants as is.
+        elif isinstance(var, (float, int, Constant)):
+            data = var
+        # aospy.Var objects remain.
+        # Get grid, time, etc. arrays directly from model object
+        elif var.name in ('lat', 'lon', 'time', 'level',
+                          'pk', 'bk', 'sfc_area'):
+            data = getattr(self.model[n], var.name)
+        else:
+            set_dt = True if not hasattr(self, 'dt') else False
+            data = self._create_input_data_obj(var, start_date, end_date, n=n,
+                                               set_dt=set_dt)
+        # Force all data to be at full pressure levels, not half levels.
         if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
-            data = False
-            # We'll need to work on this. We just need to make sure the
-            # coordinates in pressure align to be able to add the arrays.
-            # It will just take some care.
-        return data
+            data = self._phalf_to_pfull(data)
+        # Restrict to the desired dates within each year.
+        return self._to_desired_dates(data)
 
-    def _get_all_vars_data(self, start_date, end_date):
+    def _get_all_data(self, start_date, end_date):
         """Get the needed data from all of the vars in the calculation."""
-        all_vals = []
-        for n, var in enumerate(self.variables):
-            # If only 1 run, use it to load all data.
-            # Otherwise assume that # runs == # vars to load.
-            if len(self.run) == 1:
-                n = 0
-            # Pressure handled specially due to complications from sigma vs. p.
-            if var in ('p', 'dp'):
-                data = self._get_pressure_vals(var, start_date, end_date)
-            # Pass numerical constants as is.
-            elif isinstance(var, (float, int, Constant)):
-                data = var
-            # aospy.Var objects remain.
-            # lat and lon maybe are Calc attributes; if not get from model
-            elif var.name == 'lat':
-                if np.any(self.lat):
-                    data = self.lat
-                else:
-                    data = getattr(self.model[0], var.name)
-            elif var.name == 'lon':
-                if np.any(self.lon):
-                    data = self.lon
-                else:
-                    data = getattr(self.model[0], var.name)
-            # Grab the time array as is.
-            elif var.name == 'time':
-                data = self.time
-            # Get other grid, time, etc. arrays directly from model object
-            elif var.name in ('level', 'pk', 'bk', 'sfc_area'):
-                data = getattr(self.model[0], var.name)
-            else:
-                data = self._get_var_data(var, start_date, end_date, n=n)
-            all_vals.append(data)
-        return all_vals
+        return [self._get_input_data(v, start_date, end_date, n)
+                for n, v in enumerate(self.variables)]
 
-    def _local_ts(self, dp, dt, *data_in):
-        result = self.function(*data_in)
-        # Apply spatial reduction methods.
-        if self.def_vert and self.dtype_out_vert == 'vert_int':
-            result = int_dp_g(result, dp)
-        # If already averaged, pass data on. Otherwise do time averaging.
-        if 'av' in self.dtype_in_time or not self.def_time:
-            return result
+    def _local_ts(self, *data_in):
+        """Create yearly timeseries of the variable at each gridpoint."""
+        arr = self.function(*data_in)
+        arr.name = self.name
+        return arr
 
-        if self.idealized[0]:
-            return result
+    def _compute(self, start_date, end_date):
+        """Perform the calculation."""
+        self._print_verbose("\nComputing desired timeseries for years %d-%d.",
+                            (start_date.year, end_date.year))
+        data_in = self._get_all_data(start_date, end_date)
+        # 2015-10-16 S. Hill: At this step, maybe we want to combine the
+        # Dataset objects, where there's one per variable, into a single one,
+        # retaining the shared coordinate etc. arrays.  Then we can support
+        # functions that accept a single dataset with all the data.  We could
+        # also separate it out into individual DataArrays if the function takes
+        # separate DataArrays, or into numpy arrays using .values if the
+        # function requires numpy arrays.  However, this isn't implemented yet.
+        # Right now, the Datasets for each Var are just combined into a single
+        # list.
+        local_ts = self._local_ts(*data_in)
+        if self.dtype_in_time == 'inst':
+            dt = 1
+        else:
+            # dt = self._get_dt(local_ts)
+            dt = self.dt
+        return local_ts, dt
 
-        # Otherwise do time averaging over the years.
-        result *= dt
-        # Group by year.
-        result = result.groupby('time.year')
-        dt = dt.groupby('time.year')
-        return result.sum('time') / dt.sum('time')
+    def _to_yearly_ts(self, arr, dt):
+        """Average a sub-yearly time-series over each year."""
+        if isinstance(dt, int):
+            dt_by_year = len(arr.groupby('time.year'))
+        else:
+            dt_by_year = dt.groupby('time.year').sum('time')
+        arr = arr*dt
+        return arr.groupby('time.year').sum('time') / dt_by_year
+
+    def _vert_int(self, arr, dp):
+        """Vertical integral"""
+        return int_dp_g(arr, dp)
 
     def _time_reduce(self, loc_ts):
         """Compute all desired calculations on a local time-series."""
+        tdim = 'time' if self.idealized[0] else 'year'
         files = {}
-        if self.idealized[0]:
-            tdim = 'time'
-        else:
-            tdim = 'year'
         if 'ts' in self.dtype_out_time:
             files.update({'ts': loc_ts})
         if 'None' in self.dtype_out_time:
@@ -642,34 +558,20 @@ class Calc(object):
                     reg_dat.update({reg.name: data_out})
                 self.save(reg_dat, calc_name)
 
-    def _compute_chunk(self, start_date, end_date):
-        """Perform the calculation on the given chunk of times."""
-        self._print_verbose("\nComputing desired timeseries from netCDF data "
-                            "for years %d-%d.",
-                            (start_date.year, end_date.year))
-        if not self.dt_set:
-            self._set_time_dt()
-            self.dt_set = True
-
-        inds = _get_time(
-            self.time, start_date, end_date,
-            self.months, indices='only'
-            )
-        dt = self.dt.sel(time=inds).astype(float)
-        # Reshape time-indices basically makes it easier to group by year.
-        # We should be able to do that in xray style a bit more transparently.
-        data_in = self._get_all_vars_data(start_date, end_date)
-        if self.dtype_out_vert == 'vert_int':
-            dp = self._get_pressure_vals('dp', start_date, end_date)
-        else:
-            dp = False
-        return self._local_ts(dp, dt, *data_in)
-
     def compute(self):
         """Perform all desired calculations on the data and save externally."""
-        # Compute the local time series for each chunk and then combine chunks.
-        full_ts = self._compute_chunk(self.start_date_xray,
-                                      self.end_date_xray)
+        # Get results at each desired timestep and spatial point.
+        full_ts, dt = self._compute(self.start_date_xray, self.end_date_xray)
+        # Average within each year if time-defined.
+        def_time_cond = ('av' in self.dtype_in_time or not self.def_time or
+                         self.idealized[0])
+        if not def_time_cond:
+            full_ts = self._to_yearly_ts(full_ts, dt)
+        # Vertically integrate if vertically defined and specified.
+        if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
+            dp = self._get_pressure_vals('dp', self.start_date_xray,
+                                         self.end_date_xray)
+            full_ts = self._vert_int(full_ts, dp)
         # Apply time reduction methods and save.
         if self.def_time:
             self._print_verbose("Applying desired time-reduction methods.")
@@ -678,8 +580,7 @@ class Calc(object):
             reduced = {'': full_ts}
         self._print_verbose("Writing desired gridded outputs to disk.")
         for dtype_out_time, data in reduced.items():
-            self.save(np.squeeze(data), dtype_out_time,
-                      dtype_out_vert=self.dtype_out_vert)
+            self.save(data, dtype_out_time, dtype_out_vert=self.dtype_out_vert)
         # Apply time reduction methods to regional averages and save.
         if any(['reg' in do for do in self.dtype_out_time]) and self.region:
             self._print_verbose("Computing and saving regional outputs.")
@@ -749,12 +650,10 @@ class Calc(object):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
         if scratch:
-            self._save_to_scratch(data, dtype_out_time,
-                                  dtype_out_vert=dtype_out_vert)
+            self._save_to_scratch(data, dtype_out_time)
         if archive:
-            self._save_to_archive(dtype_out_time,
-                                  dtype_out_vert=dtype_out_vert)
-        print('\t%s' % self.path_scratch[dtype_out_time][:-2] + '.nc')
+            self._save_to_archive(dtype_out_time)
+        print('\t{}'.format(self.path_scratch[dtype_out_time]))
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
@@ -771,6 +670,36 @@ class Calc(object):
                 data_tar.extractfile(self.file_name[dtype_out_time])
             )
         return data_vals
+
+    def _get_data_subset(self, data, region=False, time=False,
+                         vert=False, lat=False, lon=False, n=0):
+        """Subset the data array to the specified time/level/lat/lon, etc."""
+        if region:
+            # if type(region) is str:
+                # data = data[region]
+            # elif type(region) is Region:
+            data = data[region.name]
+        if np.any(time):
+            data = data[time]
+            if 'av_from_' in self.dtype_in_time:
+                data = np.mean(data, axis=0)[np.newaxis, :]
+        if np.any(vert):
+            if self.dtype_in_vert != 'sigma':
+                if np.max(self.model[n].level) > 1e4:
+                    # Convert from Pa to hPa.
+                    lev_hpa = self.model[n].level*1e-2
+                else:
+                    lev_hpa = self.model[n].level
+                level_index = np.where(lev_hpa == self.level)
+                if 'ts' in self.dtype_out_time:
+                    data = np.squeeze(data[:, level_index])
+                else:
+                    data = np.squeeze(data[level_index])
+        if np.any(lat):
+            raise NotImplementedError
+        if np.any(lon):
+            raise NotImplementedError
+        return data
 
     def load(self, dtype_out_time, dtype_out_vert=False, region=False,
              time=False, vert=False, lat=False, lon=False, plot_units=False,
@@ -797,14 +726,3 @@ class Calc(object):
         if plot_units:
             data = self.var.to_plot_units(data, vert_int=dtype_out_vert)
         return data
-
-    def _to_DataArray(self, data):
-        """Convert a Calc instance to an xray DataArray.
-
-        Pulls grid information from instance.
-        """
-        if not self.pressure:
-            return xray.DataArray(data, coords=[self.lat, self.lon],
-                                  dims=['lat', 'lon'],
-                                  encoding={'lat': 'f8', 'lon': 'f8'})
-        return
