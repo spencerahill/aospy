@@ -132,7 +132,7 @@ class CalcInterface(object):
         self.start_date = TimeManager.str_to_datetime(date_range[0])
         self.end_date = TimeManager.str_to_datetime(date_range[-1])
         tm = TimeManager(self.start_date, self.end_date, intvl_out)
-        self.date_range = tm.create_time_array() # What is this line for?
+        self.date_range = tm.create_time_array()
 
         self.start_date_xray = tm.apply_year_offset(self.start_date)
         self.end_date_xray = tm.apply_year_offset(self.end_date)
@@ -567,7 +567,8 @@ class Calc(object):
     def compute(self):
         """Perform all desired calculations on the data and save externally."""
         # Get results at each desired timestep and spatial point.
-        full_ts, dt = self._compute(self.start_date, self.end_date) # TROUBLE
+        # Here we need to provide file read-in dates (NOT xray dates)
+        full_ts, dt = self._compute(self.start_date, self.end_date)
         # Average within each year if time-defined.
         # (If we don't want to group by year def_time_cond = True)
         def_time_cond = ('av' in self.dtype_in_time or not self.def_time or
@@ -576,8 +577,9 @@ class Calc(object):
             full_ts = self._to_yearly_ts(full_ts, dt)
         # Vertically integrate if vertically defined and specified.
         if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
+            # Here we need file read-in dates (NOT xray dates)
             dp = self._get_pressure_vals('dp', self.start_date,
-                                         self.end_date) # TROUBLE
+                                         self.end_date)
             full_ts = self._vert_int(full_ts, dp)
         # Apply time reduction methods and save.
         if self.def_time:
