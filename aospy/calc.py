@@ -136,7 +136,7 @@ class CalcInterface(object):
         self.start_date = TimeManager.str_to_datetime(date_range[0])
         self.end_date = TimeManager.str_to_datetime(date_range[-1])
         tm = TimeManager(self.start_date, self.end_date, intvl_out)
-        self.date_range = tm.create_time_array()
+        self.date_range = tm.create_time_array() # What is this line for?
 
         self.start_date_xray = tm.apply_year_offset(self.start_date)
         self.end_date_xray = tm.apply_year_offset(self.end_date)
@@ -428,7 +428,10 @@ class Calc(object):
                                                           end_date, direc_nc))
         dmget(files)
         ds = []
+        print start_date
+        print end_date
         for file_ in files:
+            print file_
             test = xray.open_dataset(file_, decode_cf=False,
                                      drop_variables=['time_bounds', 'nv'])
             if start_date.year < 1678:

@@ -18,7 +18,7 @@ class Run(object):
                  nc_dur=False, nc_start_date=False, nc_end_date=False,
                  nc_dir_struc='gfdl', nc_suffix=False, nc_files={},
                  default_date_range=False, ens_mem_prefix=False,
-                 ens_mem_ext=False, ens_mem_suffix=False, tags=()):
+                 ens_mem_ext=False, ens_mem_suffix=False, tags=(), idealized=False):
         """Instantiate a `Run` object."""
         self.name = name
         self.description = description
@@ -37,7 +37,7 @@ class Run(object):
             self.default_date_range = (self.nc_start_date, self.nc_end_date)
 
         self.tags = tags
-
+        self.idealized = idealized
         self.ens_mem_prefix = ens_mem_prefix
         self.ens_mem_ext = ens_mem_ext
         self.ens_mem_suffix = ens_mem_suffix
