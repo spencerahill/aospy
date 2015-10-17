@@ -47,22 +47,6 @@ class CalcInterface(object):
                               for rn in self.run])
             setattr(self, attr, attr_val)
 
-    # S. Hill 2015-10-12: This should be factored out of the Calc class and its
-    # interface.  The determining of the 'default' or 'all' values should be
-    # handled before.  Calc and/or CalcInterface should accept only datetime
-    # objects for all time-related variables.
-    # def _get_date_range(self):
-    #     """Get the object's span of dates."""
-    #     if self.date_range == 'default':
-    #         start_date, end_date = get_parent_attr(self.run[0],
-    #                                                'default_date_range')
-    #     elif self.date_range == 'all':
-    #         start_date = get_parent_attr(self.run[0], 'nc_start_date')
-    #         end_date = get_parent_attr(self.run[0], 'nc_end_date')
-    #     else:
-    #         start_date, end_date = self.date_range
-    #     return start_date, end_date
-
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
@@ -70,8 +54,8 @@ class CalcInterface(object):
                  verbose=True):
         """Create the CalcInterface object with the given parameters."""
         if run not in model.runs.values():
-            raise AttributeError("Model '%s' has no run '%s'.  Calc object "
-                                 "will not be generated." % (model, run))
+            raise AttributeError("Model '{}' has no run '{}'.  Calc object "
+                                 "will not be generated.".format(model, run))
         # 2015-10-13 S. Hill: This tuple-izing is for support of calculations
         # where variables come from different runs.  However, this is a very
         # fragile way of implementing that functionality.  Eventually it will
@@ -191,13 +175,15 @@ class Calc(object):
             pass
         else:
             try:
-                print(args[0] % args[1], '(%s)' % time.ctime())
+                print('{} {}'.format(args[0], args[1]),
+                      '({})'.format(time.ctime()))
             except IndexError:
-                print(args[0], '(%s)' % time.ctime())
+                print('{}'.format(args[0]), '({})'.format(time.ctime()))
 
     def __init__(self, calc_interface):
         self.__dict__ = vars(calc_interface)
-        self._print_verbose("\nInitializing Calc instance: %s", self.__str__())
+        print()
+        self._print_verbose('Initializing Calc instance:', self.__str__())
 
         [mod.set_grid_data() for mod in self.model]
 
@@ -251,7 +237,8 @@ class Calc(object):
             elif os.path.isfile(full):
                 paths.append(full)
             else:
-                print("Warning: specified netCDF file `%s` not found" % nc)
+                print("Warning: specified netCDF file `{}` "
+                      "not found".format(nc))
         # Remove duplicate entries.
         files = list(set(paths))
         files.sort()
@@ -335,12 +322,13 @@ class Calc(object):
                 else:
                     break
             else:
-                raise ValueError("Specified directory type not supported: %s"
-                                 % self.nc_dir_struc[n])
+                raise ValueError("Specified directory type not supported"
+                                 ": {}".format(self.nc_dir_struc[n]))
         else:
-            raise IOError("netCDF files for variable `%s`, year range %s-%s, "
-                          "in directory %s, not found" % (var, start_date,
-                                                          end_date, direc_nc))
+            raise IOError("netCDF files for variable `{}`, year range {}-{}, "
+                          "in directory {}, not found".format(var, start_date,
+                                                              end_date,
+                                                              direc_nc))
         paths = list(set(files))
         paths.sort()
         return paths
@@ -403,7 +391,7 @@ class Calc(object):
 
     def _get_pressure_vals(self, var, start_date, end_date, n=0):
         """Get pressure array, whether sigma or standard levels."""
-        self._print_verbose("Getting pressure data: %s", var)
+        self._print_verbose("Getting pressure data:", var)
         if self.dtype_in_vert == 'pressure':
             if np.any(self.pressure):
                 pressure = self.pressure
@@ -470,8 +458,8 @@ class Calc(object):
 
     def _compute(self, start_date, end_date):
         """Perform the calculation."""
-        self._print_verbose("\nComputing desired timeseries for years %d-%d.",
-                            (start_date.year, end_date.year))
+        self._print_verbose('\n', 'Computing desired timeseries for years '
+                            '{}-{}.'.format(start_date.year, end_date.year))
         data_in = self._get_all_data(start_date, end_date)
         # 2015-10-16 S. Hill: At this step, maybe we want to combine the
         # Dataset objects, where there's one per variable, into a single one,
@@ -625,7 +613,7 @@ class Calc(object):
                 # directories, so can't use os.remove or os.rmdir.
                 shutil.rmtree(old_data_path)
                 subprocess.call([
-                    "tar", "--delete", "--file=%s" % self.path_archive,
+                    "tar", "--delete", "--file={}".format(self.path_archive),
                     self.file_name[dtype_out_time]
                 ])
         with tarfile.open(self.path_archive, 'a') as tar:
@@ -647,7 +635,7 @@ class Calc(object):
             self._save_to_scratch(data, dtype_out_time)
         if archive:
             self._save_to_archive(dtype_out_time)
-        print('\t{}'.format(self.path_scratch[dtype_out_time]))
+        print('\t', '{}'.format(self.path_scratch[dtype_out_time]))
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
