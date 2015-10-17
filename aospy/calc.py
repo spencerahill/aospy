@@ -507,11 +507,9 @@ class Calc(object):
         if isinstance(dt, int):
             dt_by_year = len(arr.groupby('time.year'))
         else:
-            dt_by_year = dt.groupby('time.year').sum('time')
             # Convert from ns to days (prevent overflow)
-            dt_by_year.values = dt_by_year.values.astype('timedelta64[D]').astype('float')
-        # Convert from ns to days (prevent overflow)    
-        dt.values = dt.values.astype('timedelta64[D]').astype('float')    
+            dt.values = dt.values.astype('timedelta64[D]').astype('float')
+            dt_by_year = dt.groupby('time.year').sum('time')
         arr = arr*dt
         return arr.groupby('time.year').sum('time') / dt_by_year
 
