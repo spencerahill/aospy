@@ -11,7 +11,7 @@ import xray
 
 from . import Constant, Var
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
-                 nc_name_gfdl)
+                 data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, level_thickness,
                     pfull_from_sigma, dp_from_sigma, int_dp_g)
@@ -32,14 +32,14 @@ ps = Var(
 
 class CalcInterface(object):
     """Interface to Calc class."""
-    def _set_nc_attrs(self):
-        for attr in ('nc_start_date',
-                     'nc_end_date',
+    def _set_data_in_attrs(self):
+        for attr in ('data_in_start_date',
+                     'data_in_end_date',
                      'default_date_range',
-                     'nc_dur',
-                     'direc_nc',
-                     'nc_files',
-                     'nc_dir_struc',
+                     'data_in_dur',
+                     'data_in_direc',
+                     'data_in_files',
+                     'data_in_dir_struc',
                      'ens_mem_prefix',
                      'ens_mem_ext',
                      'idealized'):
@@ -74,7 +74,7 @@ class CalcInterface(object):
         self.model = model
         self.run = run
 
-        self._set_nc_attrs()
+        self._set_data_in_attrs()
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
         self.model_str = '_'.join(set([m.name for m in self.model]))
@@ -188,7 +188,7 @@ class Calc(object):
         [mod.set_grid_data() for mod in self.model]
 
         if isinstance(calc_interface.ens_mem, int):
-            self.direc_nc = self.direc_nc[calc_interface.ens_mem]
+            self.data_in_direc = self.data_in_direc[calc_interface.ens_mem]
 
         self.dt_set = False
 
@@ -200,18 +200,17 @@ class Calc(object):
         self.path_archive = self._path_archive()
 
         self.data_out = {}
-        raise ValueError("dt array could not be created.")
 
-    def _get_input_data_paths_one_dir(self, name, direc_nc, n=0):
+    def _get_input_data_paths_one_dir(self, name, data_in_direc, n=0):
         """Get the names of netCDF files when all in same directory."""
-        if isinstance(self.nc_files[n][name], str):
-            nc_files = [self.nc_files[n][name]]
+        if isinstance(self.data_in_files[n][name], str):
+            data_in_files = [self.data_in_files[n][name]]
         else:
-            nc_files = self.nc_files[n][name]
-        # nc_files may hold absolute or relative paths
+            data_in_files = self.data_in_files[n][name]
+        # data_in_files may hold absolute or relative paths
         paths = []
-        for nc in nc_files:
-            full = '/'.join([direc_nc, nc]).replace('//', '/')
+        for nc in data_in_files:
+            full = '/'.join([data_in_direc, nc]).replace('//', '/')
             if os.path.isfile(nc):
                 paths.append(nc)
             elif os.path.isfile(full):
@@ -226,11 +225,11 @@ class Calc(object):
 
     def _get_input_data_paths_gfdl_repo(self, name, n=0):
         """Get the names of netCDF files from a GFDL repo on /archive."""
-        return self.model[n].find_nc_direc_repo(
+        return self.model[n].find_data_in_direc_repo(
             run_name=self.run[n].name, var_name=name
         )
 
-    def _get_input_data_paths_gfdl_dir_struct(self, name, direc_nc,
+    def _get_input_data_paths_gfdl_dir_struct(self, name, data_in_direc,
                                               start_year, end_year, n=0):
         """Get paths to netCDF files save in GFDL standard output format."""
         domain = self.domain
@@ -245,26 +244,26 @@ class Calc(object):
             dtype_lbl = dtype
         else:
             dtype = self.dtype_in_time
-        direc = os.path.join(direc_nc, domain, dtype_lbl, self.intvl_in,
-                             str(self.nc_dur[n]) + 'yr')
-        files = [os.path.join(direc, nc_name_gfdl(name, domain, dtype,
+        direc = os.path.join(data_in_direc, domain, dtype_lbl, self.intvl_in,
+                             str(self.data_in_dur[n]) + 'yr')
+        files = [os.path.join(direc, data_in_name_gfdl(name, domain, dtype,
                                                   self.intvl_in, year,
                                                   self.intvl_out,
-                                                  self.nc_start_date[n].year,
-                                                  self.nc_dur[n]))
+                                                  self.data_in_start_date[n].year,
+                                                  self.data_in_dur[n]))
                  for year in range(start_year, end_year + 1)]
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
         return files
 
-    def _get_direc_nc(self, n):
-        if isinstance(self.direc_nc, str):
-            return self.direc_nc
-        if isinstance(self.direc_nc, (list, tuple)):
-            return self.direc_nc[n]
-        raise IOError("direc_nc must be string, list, or tuple: "
-                      "{}".format(self.direc_nc))
+    def _get_data_in_direc(self, n):
+        if isinstance(self.data_in_direc, str):
+            return self.data_in_direc
+        if isinstance(self.data_in_direc, (list, tuple)):
+            return self.data_in_direc[n]
+        raise IOError("data_in_direc must be string, list, or tuple: "
+                      "{}".format(self.data_in_direc))
 
     def _get_input_data_paths(self, var, start_date=False,
                               end_date=False, n=0):
@@ -273,28 +272,29 @@ class Calc(object):
         Files chosen depend on the specified variables and time interval and
         the attributes of the netCDF files.
         """
-        direc_nc = self._get_direc_nc(n)
+        data_in_direc = self._get_data_in_direc(n)
         # Cycle through possible names until the data is found.
         for name in var.names:
-            if self.nc_dir_struc[n] == 'one_dir':
+            if self.data_in_dir_struc[n] == 'one_dir':
                 try:
-                    files = self._get_input_data_paths_one_dir(name, direc_nc,
-                                                               n=n)
+                    files = self._get_input_data_paths_one_dir(
+                        name, data_in_direc, n=n
+                    )
                 except KeyError:
                     pass
                 else:
                     break
-            elif self.nc_dir_struc[n].lower() == 'gfdl':
+            elif self.data_in_dir_struc[n].lower() == 'gfdl':
                 try:
                     files = self._get_input_data_paths_gfdl_dir_struct(
-                        name, direc_nc, start_date.year,
+                        name, data_in_direc, start_date.year,
                         end_date.year, n=n
                     )
                 except:
                     raise
                 else:
                     break
-            elif self.nc_dir_struc[n].lower() == 'gfdl_repo':
+            elif self.data_in_dir_struc[n].lower() == 'gfdl_repo':
                 try:
                     files = self._get_input_data_paths_gfdl_repo(name, n=n)
                 except IOError:
@@ -303,12 +303,12 @@ class Calc(object):
                     break
             else:
                 raise ValueError("Specified directory type not supported"
-                                 ": {}".format(self.nc_dir_struc[n]))
+                                 ": {}".format(self.data_in_dir_struc[n]))
         else:
             raise IOError("netCDF files for variable `{}`, year range {}-{}, "
                           "in directory {}, not found".format(var, start_date,
                                                               end_date,
-                                                              direc_nc))
+                                                              data_in_direc))
         paths = list(set(files))
         paths.sort()
         return paths
@@ -327,13 +327,19 @@ class Calc(object):
         # instead of this logic of making individual datasets and then
         # calling xray.concat?  Or does the year<1678 logic make this not
         # possible?
+
+        # 2015-10-16 19:06:00 S. Clark: The year<1678 logic is independent of using
+        # xray.open_mfdataset. The main reason I held off on using it here
+        # was that it opens a can of worms with regard to performance; we'd
+        # need to add some logic to make sure the data were chunked in a
+        # reasonable way (and logic to change the chunking if need be).
         for file_ in paths:
             test = xray.open_dataset(file_, decode_cf=False,
                                      drop_variables=['time_bounds', 'nv',
                                                      'average_T1',
                                                      'average_T2'])
             if start_date.year < 1678:
-                for v in ['time', 'average_T1', 'average_T2']:
+                for v in ['time']:
                     test[v].attrs['units'] = ('days since 1900-01-01 '
                                               '00:00:00')
                 test['time'].attrs['calendar'] = 'noleap'
@@ -463,6 +469,8 @@ class Calc(object):
         if isinstance(dt, int):
             dt_by_year = len(arr.groupby('time.year'))
         else:
+            # Convert from ns to days (prevent overflow)
+            dt.values = dt.values.astype('timedelta64[D]').astype('float')
             dt_by_year = dt.groupby('time.year').sum('time')
         arr = arr*dt
         return arr.groupby('time.year').sum('time') / dt_by_year
@@ -523,16 +531,19 @@ class Calc(object):
     def compute(self):
         """Perform all desired calculations on the data and save externally."""
         # Get results at each desired timestep and spatial point.
-        full_ts, dt = self._compute(self.start_date_xray, self.end_date_xray)
+        # Here we need to provide file read-in dates (NOT xray dates)
+        full_ts, dt = self._compute(self.start_date, self.end_date)
         # Average within each year if time-defined.
+        # (If we don't want to group by year def_time_cond = True)
         def_time_cond = ('av' in self.dtype_in_time or not self.def_time or
                          self.idealized[0])
         if not def_time_cond:
             full_ts = self._to_yearly_ts(full_ts, dt)
         # Vertically integrate if vertically defined and specified.
         if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
-            dp = self._get_pressure_vals('dp', self.start_date_xray,
-                                         self.end_date_xray)
+            # Here we need file read-in dates (NOT xray dates)
+            dp = self._get_pressure_vals('dp', self.start_date,
+                                         self.end_date)
             full_ts = self._vert_int(full_ts, dp)
         # Apply time reduction methods and save.
         if self.def_time:

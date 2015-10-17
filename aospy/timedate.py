@@ -63,8 +63,8 @@ class TimeManager(object):
 
     def create_time_array(self):
         """Create an xray.DataArray comprising the desired months."""
-        all_months = pd.date_range(start=self.start_date,
-                                   end=self.end_date, freq='M')
+        all_months = pd.date_range(start=self.apply_year_offset(self.start_date),
+                                   end=self.apply_year_offset(self.end_date), freq='M')
         time = xray.DataArray(all_months, dims=['time'])
         month_cond = self._construct_month_conditional(time, self.months)
         return time[month_cond]
