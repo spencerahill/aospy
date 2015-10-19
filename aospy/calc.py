@@ -1,4 +1,5 @@
 """calc.py: classes for performing specified calculations on aospy data"""
+from __future__ import print_function
 import os
 import pickle
 import shutil
