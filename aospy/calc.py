@@ -426,9 +426,14 @@ class Calc(object):
             data = self._create_input_data_obj(var, start_date, end_date, n=n,
                                                set_dt=set_dt)
         # Force all data to be at full pressure levels, not half levels.
-        if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
-            data = self._phalf_to_pfull(data)
+        phalf_bool = (self.dtype_in_vert == 'sigma' and not
+                      isinstance(var, (Constant, str)) and
+                      var.def_vert == 'phalf')
+        if phalf_bool:
+                data = self._phalf_to_pfull(data)
         # Restrict to the desired dates within each year.
+        if isinstance(var, Constant):
+            return data
         return self._to_desired_dates(data)
 
     def _get_all_data(self, start_date, end_date):
