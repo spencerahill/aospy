@@ -112,8 +112,8 @@ class Model(object):
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
-            # 'phalf':       ('phalf',),
-            # 'pfull':       ('pfull',),
+            'phalf':       ('phalf',),
+            'pfull':       ('pfull',),
             # 'nrecords':    ('nrecords',),
             # 'idim':        ('idim',),
             # 'fill_value':  ('fill_value')
