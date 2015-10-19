@@ -1,4 +1,5 @@
 """Classes and objects pertaining to physical constants."""
+from __future__ import division
 import numpy as np
 
 

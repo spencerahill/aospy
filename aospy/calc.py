@@ -1,4 +1,5 @@
 """calc.py: classes for performing specified calculations on aospy data"""
+from __future__ import print_function
 import os
 import pickle
 import shutil
@@ -11,7 +12,7 @@ import xray
 
 from . import Constant, Var
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
-                 nc_name_gfdl)
+                 data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, level_thickness,
                     pfull_from_sigma, dp_from_sigma, int_dp_g)
@@ -32,36 +33,20 @@ ps = Var(
 
 class CalcInterface(object):
     """Interface to Calc class."""
-    def _set_nc_attrs(self):
-        for attr in ('nc_start_date',
-                     'nc_end_date',
+    def _set_data_in_attrs(self):
+        for attr in ('data_in_start_date',
+                     'data_in_end_date',
                      'default_date_range',
-                     'nc_dur',
-                     'direc_nc',
-                     'nc_files',
-                     'nc_dir_struc',
+                     'data_in_dur',
+                     'data_in_direc',
+                     'data_in_files',
+                     'data_in_dir_struc',
                      'ens_mem_prefix',
                      'ens_mem_ext',
                      'idealized'):
             attr_val = tuple([get_parent_attr(rn, attr, strict=False)
                               for rn in self.run])
             setattr(self, attr, attr_val)
-
-    # S. Hill 2015-10-12: This should be factored out of the Calc class and its
-    # interface.  The determining of the 'default' or 'all' values should be
-    # handled before.  Calc and/or CalcInterface should accept only datetime
-    # objects for all time-related variables.
-    # def _get_date_range(self):
-    #     """Get the object's span of dates."""
-    #     if self.date_range == 'default':
-    #         start_date, end_date = get_parent_attr(self.run[0],
-    #                                                'default_date_range')
-    #     elif self.date_range == 'all':
-    #         start_date = get_parent_attr(self.run[0], 'nc_start_date')
-    #         end_date = get_parent_attr(self.run[0], 'nc_end_date')
-    #     else:
-    #         start_date, end_date = self.date_range
-    #     return start_date, end_date
 
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
@@ -70,8 +55,8 @@ class CalcInterface(object):
                  verbose=True):
         """Create the CalcInterface object with the given parameters."""
         if run not in model.runs.values():
-            raise AttributeError("Model '%s' has no run '%s'.  Calc object "
-                                 "will not be generated." % (model, run))
+            raise AttributeError("Model '{}' has no run '{}'.  Calc object "
+                                 "will not be generated.".format(model, run))
         # 2015-10-13 S. Hill: This tuple-izing is for support of calculations
         # where variables come from different runs.  However, this is a very
         # fragile way of implementing that functionality.  Eventually it will
@@ -90,7 +75,7 @@ class CalcInterface(object):
         self.model = model
         self.run = run
 
-        self._set_nc_attrs()
+        self._set_data_in_attrs()
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
         self.model_str = '_'.join(set([m.name for m in self.model]))
@@ -191,18 +176,20 @@ class Calc(object):
             pass
         else:
             try:
-                print(args[0] % args[1], '(%s)' % time.ctime())
+                print('{} {}'.format(args[0], args[1]),
+                      '({})'.format(time.ctime()))
             except IndexError:
-                print(args[0], '(%s)' % time.ctime())
+                print('{}'.format(args[0]), '({})'.format(time.ctime()))
 
     def __init__(self, calc_interface):
         self.__dict__ = vars(calc_interface)
-        self._print_verbose("\nInitializing Calc instance: %s", self.__str__())
+        print()
+        self._print_verbose('Initializing Calc instance:', self.__str__())
 
         [mod.set_grid_data() for mod in self.model]
 
         if isinstance(calc_interface.ens_mem, int):
-            self.direc_nc = self.direc_nc[calc_interface.ens_mem]
+            self.data_in_direc = self.data_in_direc[calc_interface.ens_mem]
 
         self.dt_set = False
 
@@ -215,43 +202,23 @@ class Calc(object):
 
         self.data_out = {}
 
-    def _get_dt(self, ds):
-        """Get time-duration array at needed time indices."""
-        for dt_name in ('average_DT',):
-            try:
-                dt = ds[dt_name]
-            except:
-                pass
-            else:
-                return dt  # .sel(time=indices)
-        for name in ('time_bounds', 'time_bnds'):
-            try:
-                time_bounds = ds[name]
-            except KeyError:
-                pass
-            else:
-                assert time_bounds.ndim == 2
-                assert time_bounds.dimensions[1] == 'bnds'
-                dt = time_bounds[:, 1] - time_bounds[:, 0]
-                return dt  # [indices]
-        raise ValueError("dt array could not be created.")
-
-    def _get_input_data_paths_one_dir(self, name, direc_nc, n=0):
+    def _get_input_data_paths_one_dir(self, name, data_in_direc, n=0):
         """Get the names of netCDF files when all in same directory."""
-        if isinstance(self.nc_files[n][name], str):
-            nc_files = [self.nc_files[n][name]]
+        if isinstance(self.data_in_files[n][name], str):
+            data_in_files = [self.data_in_files[n][name]]
         else:
-            nc_files = self.nc_files[n][name]
-        # nc_files may hold absolute or relative paths
+            data_in_files = self.data_in_files[n][name]
+        # data_in_files may hold absolute or relative paths
         paths = []
-        for nc in nc_files:
-            full = '/'.join([direc_nc, nc]).replace('//', '/')
+        for nc in data_in_files:
+            full = '/'.join([data_in_direc, nc]).replace('//', '/')
             if os.path.isfile(nc):
                 paths.append(nc)
             elif os.path.isfile(full):
                 paths.append(full)
             else:
-                print("Warning: specified netCDF file `%s` not found" % nc)
+                print("Warning: specified netCDF file `{}` "
+                      "not found".format(nc))
         # Remove duplicate entries.
         files = list(set(paths))
         files.sort()
@@ -259,11 +226,11 @@ class Calc(object):
 
     def _get_input_data_paths_gfdl_repo(self, name, n=0):
         """Get the names of netCDF files from a GFDL repo on /archive."""
-        return self.model[n].find_nc_direc_repo(
+        return self.model[n].find_data_in_direc_repo(
             run_name=self.run[n].name, var_name=name
         )
 
-    def _get_input_data_paths_gfdl_dir_struct(self, name, direc_nc,
+    def _get_input_data_paths_gfdl_dir_struct(self, name, data_in_direc,
                                               start_year, end_year, n=0):
         """Get paths to netCDF files save in GFDL standard output format."""
         domain = self.domain
@@ -278,26 +245,26 @@ class Calc(object):
             dtype_lbl = dtype
         else:
             dtype = self.dtype_in_time
-        direc = os.path.join(direc_nc, domain, dtype_lbl, self.intvl_in,
-                             str(self.nc_dur[n]) + 'yr')
-        files = [os.path.join(direc, nc_name_gfdl(name, domain, dtype,
+        direc = os.path.join(data_in_direc, domain, dtype_lbl, self.intvl_in,
+                             str(self.data_in_dur[n]) + 'yr')
+        files = [os.path.join(direc, data_in_name_gfdl(name, domain, dtype,
                                                   self.intvl_in, year,
                                                   self.intvl_out,
-                                                  self.nc_start_date[n].year,
-                                                  self.nc_dur[n]))
+                                                  self.data_in_start_date[n].year,
+                                                  self.data_in_dur[n]))
                  for year in range(start_year, end_year + 1)]
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
         return files
 
-    def _get_direc_nc(self, n):
-        if isinstance(self.direc_nc, str):
-            return self.direc_nc
-        if isinstance(self.direc_nc, (list, tuple)):
-            return self.direc_nc[n]
-        raise IOError("direc_nc must be string, list, or tuple: "
-                      "{}".format(self.direc_nc))
+    def _get_data_in_direc(self, n):
+        if isinstance(self.data_in_direc, str):
+            return self.data_in_direc
+        if isinstance(self.data_in_direc, (list, tuple)):
+            return self.data_in_direc[n]
+        raise IOError("data_in_direc must be string, list, or tuple: "
+                      "{}".format(self.data_in_direc))
 
     def _get_input_data_paths(self, var, start_date=False,
                               end_date=False, n=0):
@@ -306,28 +273,29 @@ class Calc(object):
         Files chosen depend on the specified variables and time interval and
         the attributes of the netCDF files.
         """
-        direc_nc = self._get_direc_nc(n)
+        data_in_direc = self._get_data_in_direc(n)
         # Cycle through possible names until the data is found.
         for name in var.names:
-            if self.nc_dir_struc[n] == 'one_dir':
+            if self.data_in_dir_struc[n] == 'one_dir':
                 try:
-                    files = self._get_input_data_paths_one_dir(name, direc_nc,
-                                                               n=n)
+                    files = self._get_input_data_paths_one_dir(
+                        name, data_in_direc, n=n
+                    )
                 except KeyError:
                     pass
                 else:
                     break
-            elif self.nc_dir_struc[n].lower() == 'gfdl':
+            elif self.data_in_dir_struc[n].lower() == 'gfdl':
                 try:
                     files = self._get_input_data_paths_gfdl_dir_struct(
-                        name, direc_nc, start_date.year,
+                        name, data_in_direc, start_date.year,
                         end_date.year, n=n
                     )
                 except:
                     raise
                 else:
                     break
-            elif self.nc_dir_struc[n].lower() == 'gfdl_repo':
+            elif self.data_in_dir_struc[n].lower() == 'gfdl_repo':
                 try:
                     files = self._get_input_data_paths_gfdl_repo(name, n=n)
                 except IOError:
@@ -335,18 +303,13 @@ class Calc(object):
                 else:
                     break
             else:
-                raise ValueError("Specified directory type not supported: %s"
-                                 % self.nc_dir_struc[n])
+                raise ValueError("Specified directory type not supported"
+                                 ": {}".format(self.data_in_dir_struc[n]))
         else:
-            raise IOError("netCDF files for variable `%s`, year range %s-%s, "
-                          "in directory %s, not found" % (var, start_date,
-                                                          end_date, direc_nc))
-#        dmget(files)
-#        ds = []
-#        print start_date
-#        print end_date
-#        for file_ in files:
-#            print file_
+            raise IOError("netCDF files for variable `{}`, year range {}-{}, "
+                          "in directory {}, not found".format(var, start_date,
+                                                              end_date,
+                                                              data_in_direc))
         paths = list(set(files))
         paths.sort()
         return paths
@@ -367,10 +330,10 @@ class Calc(object):
         # possible?
 
         # 2015-10-16 19:06:00 S. Clark: The year<1678 logic is independent of using
-        # xray.open_mfdataset. The main reason I held off on using it here 
+        # xray.open_mfdataset. The main reason I held off on using it here
         # was that it opens a can of worms with regard to performance; we'd
         # need to add some logic to make sure the data were chunked in a
-        # reasonable way (and logic to change the chunking if need be). 
+        # reasonable way (and logic to change the chunking if need be).
         for file_ in paths:
             test = xray.open_dataset(file_, decode_cf=False,
                                      drop_variables=['time_bounds', 'nv',
@@ -415,7 +378,7 @@ class Calc(object):
 
     def _get_pressure_vals(self, var, start_date, end_date, n=0):
         """Get pressure array, whether sigma or standard levels."""
-        self._print_verbose("Getting pressure data: %s", var)
+        self._print_verbose("Getting pressure data:", var)
         if self.dtype_in_vert == 'pressure':
             if np.any(self.pressure):
                 pressure = self.pressure
@@ -452,8 +415,10 @@ class Calc(object):
         if var in ('p', 'dp'):
             data = self._get_pressure_vals(var, start_date, end_date)
         # Pass numerical constants as is.
-        elif isinstance(var, (float, int, Constant)):
+        elif isinstance(var, (float, int)):
             data = var
+        elif isinstance(var, Constant):
+            data = var.values
         # aospy.Var objects remain.
         # Get grid, time, etc. arrays directly from model object
         elif var.name in ('lat', 'lon', 'time', 'level',
@@ -464,9 +429,14 @@ class Calc(object):
             data = self._create_input_data_obj(var, start_date, end_date, n=n,
                                                set_dt=set_dt)
         # Force all data to be at full pressure levels, not half levels.
-        if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
-            data = self._phalf_to_pfull(data)
+        phalf_bool = (self.dtype_in_vert == 'sigma' and not
+                      isinstance(var, (Constant, str)) and
+                      var.def_vert == 'phalf')
+        if phalf_bool:
+                data = self._phalf_to_pfull(data)
         # Restrict to the desired dates within each year.
+        if isinstance(var, Constant):
+            return data
         return self._to_desired_dates(data)
 
     def _get_all_data(self, start_date, end_date):
@@ -474,17 +444,43 @@ class Calc(object):
         return [self._get_input_data(v, start_date, end_date, n)
                 for n, v in enumerate(self.variables)]
 
+    def _prep_data(self, data, func_input_dtype):
+        """Convert data to type needed by the given function.
+
+        :param data: List of xray.DataArray objects.
+        :param func_input_dtype: One of (None, 'DataArray', 'Dataset',
+                                 'numpy'). Specifies which datatype to convert
+                                 to.
+        """
+        if func_input_dtype is None:
+            return data
+        if func_input_dtype == 'DataArray':
+            return data
+        if func_input_dtype == 'Dataset':
+            # S. Hill 2015-10-19: This should be filled in with logic that
+            # creates a single Dataset comprising all of the DataArray objects
+            # in `data`.
+            return NotImplementedError
+        if func_input_dtype == 'numpy':
+            self.coords = data[0].coords
+            return [d.values for d in data]
+        raise ValueError("Unknown func_input_dtype "
+                         "'{}'.".format(func_input_dtype))
+
     def _local_ts(self, *data_in):
         """Create yearly timeseries of the variable at each gridpoint."""
         arr = self.function(*data_in)
+        if self.var.func_input_dtype == 'numpy':
+            arr = xray.DataArray(arr, coords=self.coords)
         arr.name = self.name
         return arr
 
     def _compute(self, start_date, end_date):
         """Perform the calculation."""
-        self._print_verbose("\nComputing desired timeseries for years %d-%d.",
-                            (start_date.year, end_date.year))
-        data_in = self._get_all_data(start_date, end_date)
+        self._print_verbose('\n', 'Computing desired timeseries for years '
+                            '{}-{}.'.format(start_date.year, end_date.year))
+        data_in = self._prep_data(self._get_all_data(start_date, end_date),
+                                  self.var.func_input_dtype)
         # 2015-10-16 S. Hill: At this step, maybe we want to combine the
         # Dataset objects, where there's one per variable, into a single one,
         # retaining the shared coordinate etc. arrays.  Then we can support
@@ -642,7 +638,7 @@ class Calc(object):
                 # directories, so can't use os.remove or os.rmdir.
                 shutil.rmtree(old_data_path)
                 subprocess.call([
-                    "tar", "--delete", "--file=%s" % self.path_archive,
+                    "tar", "--delete", "--file={}".format(self.path_archive),
                     self.file_name[dtype_out_time]
                 ])
         with tarfile.open(self.path_archive, 'a') as tar:
@@ -664,7 +660,7 @@ class Calc(object):
             self._save_to_scratch(data, dtype_out_time)
         if archive:
             self._save_to_archive(dtype_out_time)
-        print('\t{}'.format(self.path_scratch[dtype_out_time]))
+        print('\t', '{}'.format(self.path_scratch[dtype_out_time]))
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
