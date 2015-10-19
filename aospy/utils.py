@@ -145,6 +145,7 @@ def phalf_from_pfull(pfull, val_toa=0, val_sfc=0):
     phalf[1:-1] = 0.5*(pfull[:-1] + pfull[1:])
     return phalf
 
+
 def pfull_from_sigma(bk, pk, ps, pfull_coord):
     return pfull_from_phalf(phalf_from_sigma(bk, pk, ps), pfull_coord)
 
@@ -162,11 +163,7 @@ def dp_from_sigma(bk, pk, ps, pfull_coord):
 
 
 def weight_by_delta(integrand, delta):
-    """Multiply an xray.DataArray by some weights.
-
-    In the xray world coordinates are aligned automatically (and newaxes are
-    added if needed).
-    """
+    """Multiply an xray.DataArray by some weights."""
     return integrand*delta
 
 
