@@ -415,8 +415,10 @@ class Calc(object):
         if var in ('p', 'dp'):
             data = self._get_pressure_vals(var, start_date, end_date)
         # Pass numerical constants as is.
-        elif isinstance(var, (float, int, Constant)):
+        elif isinstance(var, (float, int)):
             data = var
+        elif isinstance(var, Constant):
+            data = var.values
         # aospy.Var objects remain.
         # Get grid, time, etc. arrays directly from model object
         elif var.name in ('lat', 'lon', 'time', 'level',
@@ -442,9 +444,34 @@ class Calc(object):
         return [self._get_input_data(v, start_date, end_date, n)
                 for n, v in enumerate(self.variables)]
 
+    def _prep_data(self, data, func_input_dtype):
+        """Convert data to type needed by the given function.
+
+        :param data: List of xray.DataArray objects.
+        :param func_input_dtype: One of (None, 'DataArray', 'Dataset',
+                                 'numpy'). Specifies which datatype to convert
+                                 to.
+        """
+        if func_input_dtype is None:
+            return data
+        if func_input_dtype == 'DataArray':
+            return data
+        if func_input_dtype == 'Dataset':
+            # S. Hill 2015-10-19: This should be filled in with logic that
+            # creates a single Dataset comprising all of the DataArray objects
+            # in `data`.
+            return NotImplementedError
+        if func_input_dtype == 'numpy':
+            self.coords = data[0].coords
+            return [d.values for d in data]
+        raise ValueError("Unknown func_input_dtype "
+                         "'{}'.".format(func_input_dtype))
+
     def _local_ts(self, *data_in):
         """Create yearly timeseries of the variable at each gridpoint."""
         arr = self.function(*data_in)
+        if self.var.func_input_dtype == 'numpy':
+            arr = xray.DataArray(arr, coords=self.coords)
         arr.name = self.name
         return arr
 
@@ -452,7 +479,8 @@ class Calc(object):
         """Perform the calculation."""
         self._print_verbose('\n', 'Computing desired timeseries for years '
                             '{}-{}.'.format(start_date.year, end_date.year))
-        data_in = self._get_all_data(start_date, end_date)
+        data_in = self._prep_data(self._get_all_data(start_date, end_date),
+                                  self.var.func_input_dtype)
         # 2015-10-16 S. Hill: At this step, maybe we want to combine the
         # Dataset objects, where there's one per variable, into a single one,
         # retaining the shared coordinate etc. arrays.  Then we can support
