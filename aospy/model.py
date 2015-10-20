@@ -94,9 +94,9 @@ class Model(object):
         Set multiple attrs from grid file given their names in the grid file.
         """
         grid_attrs = {
-            # 'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
             # 'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
-            # 'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
             # 'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
             'level':       ('level', 'lev', 'plev'),
             # 'time':        ('time', 'TIME'),
