@@ -3,6 +3,7 @@ import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
+import xray
 
 from .__config__ import default_colormap
 from .calc import Calc, CalcInterface
@@ -613,7 +614,11 @@ class Plot(object):
 
         self.plot_data = []
 
-        for data in self.data:
+        if isinstance(self.data, xray.Dataset):
+            loop_data = [self.data]
+        else:
+            loop_data = self.data
+        for data in loop_data:
             pd, self.plot_lons = mpl_toolkits.basemap.shiftgrid(
                 lon0, data, self.x_data,
                 start=self.ax.shiftgrid_start, cyclic=self.ax.shiftgrid_cyclic

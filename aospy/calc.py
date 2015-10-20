@@ -661,16 +661,18 @@ class Calc(object):
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
-        return xray.open_dataset(self.path_scratch[dtype_out_time])
+        ds = xray.open_dataset(self.path_scratch[dtype_out_time])
+        return ds[self.name]
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
         """Load data save in tarball on archive file system."""
         path = os.path.join(self.dir_archive, 'data.tar')
         dmget([path])
         with tarfile.open(path, 'r') as data_tar:
-            return xray.open_dataset(
+            ds= xray.open_dataset(
                 data_tar.extractfile(self.file_name[dtype_out_time])
             )
+            return ds[self.name]
 
     def _get_data_subset(self, data, region=False, time=False,
                          vert=False, lat=False, lon=False, n=0):
