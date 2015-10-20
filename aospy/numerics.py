@@ -80,8 +80,23 @@ class FiniteDiff(object):
         :out: Array containing the df/dx approximation, with length in the 0th
               axis one less than that of the input array.
         """
-        return (cls.fwd_diff(arr, dim, is_coord=False) /
-                cls.fwd_diff(arr[dim], dim, is_coord=True))
+        return (cls.fwd_diff1(arr, dim, is_coord=False) /
+                cls.fwd_diff1(arr[dim], dim, is_coord=True))
+
+    @classmethod
+    def bwd_diff_deriv(cls, arr, dim):
+        """1st order accurate backward differencing approx of derivative.
+
+        :param arr: Field to take derivative of.
+        :param str dim: Values of dimension over which derivative is taken.  If
+                        a singleton, assumed to be the uniform spacing.  If an
+                        array, assumed to be the values themselves, not the
+                        spacing, and must be the same length as `arr`.
+        :out: Array containing the df/dx approximation, with length in the 0th
+              axis one less than that of the input array.
+        """
+        return (cls.bwd_diff1(arr, dim, is_coord=False) /
+                cls.bwd_diff1(arr[dim], dim, is_coord=True))
 
     @classmethod
     def cen_diff_deriv(cls, arr, dim, order=2, do_edges_one_sided=False):
@@ -105,18 +120,13 @@ class FiniteDiff(object):
         if order != 2:
             raise NotImplementedError("Centered differencing of df/dx only "
                                       "supported for 2nd order currently")
-        numer = cls.cen_diff(arr, dim, spacing=1, is_coord=False)
-        denom = cls.cen_diff(arr[dim], dim, spacing=1, is_coord=True)
-        print('numer', numer, '\n')
-        print('denom', denom, '\n')
-        deriv = numer / denom
+        deriv = (cls.cen_diff(arr, dim, spacing=1, is_coord=False) /
+                 cls.cen_diff(arr[dim], dim, spacing=1, is_coord=True))
         if do_edges_one_sided:
             left = arr.isel(**{dim: slice(0, 2)})
-            deriv_left = (cls.fwd_diff1(left, dim, is_coord=False) /
-                          cls.fwd_diff1(left[dim], dim, is_coord=True))
             right = arr.isel(**{dim: slice(-2, None)})
-            deriv_right = (cls.bwd_diff1(right, dim, is_coord=False) /
-                           cls.bwd_diff1(right[dim], dim, is_coord=True))
+            deriv_left = cls.fwd_diff_deriv(left, dim)
+            deriv_right = cls.bwd_diff_deriv(right, dim)
             deriv = xray.concat([deriv_left, deriv, deriv_right], dim=dim)
         return deriv
 
