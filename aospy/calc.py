@@ -1,7 +1,6 @@
 """calc.py: classes for performing specified calculations on aospy data"""
 from __future__ import print_function
 import os
-import pickle
 import shutil
 import subprocess
 import tarfile
@@ -624,11 +623,9 @@ class Calc(object):
         with tarfile.open(self.path_archive, 'a') as tar:
             pass
         with tarfile.open(self.path_archive, 'r') as tar:
+            old_data_path = os.path.join(self.dir_archive,
+                                         self.file_name[dtype_out_time])
             try:
-                old_data_path = '/'.join(
-                    [self.dir_archive, self.file_name[dtype_out_time]]
-                ).replace('//', '/')
-
                 tar.extract(self.file_name[dtype_out_time],
                             path=old_data_path)
             except KeyError:
@@ -664,19 +661,16 @@ class Calc(object):
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
-        with open(self.path_scratch[dtype_out_time], 'r') as data:
-            data_vals = pickle.load(data)
-        return data_vals
+        return xray.open_dataset(self.path_scratch[dtype_out_time])
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
         """Load data save in tarball on archive file system."""
         path = os.path.join(self.dir_archive, 'data.tar')
         dmget([path])
         with tarfile.open(path, 'r') as data_tar:
-            data_vals = pickle.load(
+            return xray.open_dataset(
                 data_tar.extractfile(self.file_name[dtype_out_time])
             )
-        return data_vals
 
     def _get_data_subset(self, data, region=False, time=False,
                          vert=False, lat=False, lon=False, n=0):
