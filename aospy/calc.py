@@ -314,6 +314,12 @@ class Calc(object):
         paths.sort()
         return paths
 
+    def _to_desired_dates(self, arr):
+        """Restrict the xray DataArray or Dataset to the desired months."""
+        times = _get_time(arr['time'], self.start_date_xray,
+                          self.end_date_xray, self.months, indices=False)
+        return arr.sel(time=times)
+
     def _create_input_data_obj(self, var, start_date=False,
                                end_date=False, n=0, set_dt=False):
         """Create xray.DataArray for the Var from files on disk."""
@@ -329,10 +335,10 @@ class Calc(object):
         # calling xray.concat?  Or does the year<1678 logic make this not
         # possible?
 
-        # 2015-10-16 19:06:00 S. Clark: The year<1678 logic is independent of using
-        # xray.open_mfdataset. The main reason I held off on using it here
-        # was that it opens a can of worms with regard to performance; we'd
-        # need to add some logic to make sure the data were chunked in a
+        # 2015-10-16 19:06:00 S. Clark: The year<1678 logic is independent of
+        # using xray.open_mfdataset. The main reason I held off on using it
+        # here was that it opens a can of worms with regard to performance;
+        # we'd need to add some logic to make sure the data were chunked in a
         # reasonable way (and logic to change the chunking if need be).
         for file_ in paths:
             test = xray.open_dataset(file_, decode_cf=False,
@@ -368,7 +374,9 @@ class Calc(object):
                 except KeyError:
                     pass
                 else:
-                    self.dt = self._to_desired_dates(dt)
+                    # Convert from nanoseconds to seconds (prevent overflow)
+                    self.dt = (self._to_desired_dates(dt) /
+                               np.timedelta64(1, 's'))
                     break
         return arr
 
@@ -399,12 +407,6 @@ class Calc(object):
             elif var == 'dp':
                 data = dp_from_sigma(bk, pk, ps, pfull_coord)
         return data
-
-    def _to_desired_dates(self, arr):
-        """Restrict the xray DataArray or Dataset to the desired months."""
-        times = _get_time(arr['time'], self.start_date_xray,
-                          self.end_date_xray, self.months, indices=False)
-        return arr.sel(time=times)
 
     def _get_input_data(self, var, start_date, end_date, n):
         # If only 1 run, use it to load all data.
@@ -500,8 +502,6 @@ class Calc(object):
 
     def _to_yearly_ts(self, arr, dt):
         """Average a sub-yearly time-series over each year."""
-        # Convert from ns to seconds (prevent overflow)
-        dt = dt / np.timedelta64(1, 's')
         return ((arr*dt).groupby('time.year').sum('time') /
                 dt.groupby('time.year').sum('time'))
 
