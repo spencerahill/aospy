@@ -500,8 +500,8 @@ class Calc(object):
 
     def _to_yearly_ts(self, arr, dt):
         """Average a sub-yearly time-series over each year."""
-        # Convert from ns to days (prevent overflow)
-        dt.values = dt.values.astype('timedelta64[D]').astype('float')
+        # Convert from ns to seconds (prevent overflow)
+        dt = dt / np.timedelta64(1, 's')
         return ((arr*dt).groupby('time.year').sum('time') /
                 dt.groupby('time.year').sum('time'))
 
