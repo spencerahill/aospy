@@ -16,6 +16,7 @@ from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, level_thickness,
                     pfull_from_sigma, dp_from_sigma, int_dp_g)
 
+TIME_STR = 'time'
 
 ps = Var(
     name='ps',
@@ -467,7 +468,7 @@ class Calc(object):
                          "'{}'.".format(func_input_dtype))
 
     def _local_ts(self, *data_in):
-        """Create yearly timeseries of the variable at each gridpoint."""
+        """Perform the computation at each gridpoint and time index."""
         arr = self.function(*data_in)
         if self.var.func_input_dtype == 'numpy':
             arr = xray.DataArray(arr, coords=self.coords)
@@ -491,22 +492,18 @@ class Calc(object):
         # list.
         local_ts = self._local_ts(*data_in)
         if self.dtype_in_time == 'inst':
-            dt = 1
+            dt = xray.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
+                                dims=[TIME_STR], coords=[local_ts[TIME_STR]])
         else:
-            # dt = self._get_dt(local_ts)
             dt = self.dt
         return local_ts, dt
 
     def _to_yearly_ts(self, arr, dt):
         """Average a sub-yearly time-series over each year."""
-        if isinstance(dt, int):
-            dt_by_year = len(arr.groupby('time.year'))
-        else:
-            # Convert from ns to days (prevent overflow)
-            dt.values = dt.values.astype('timedelta64[D]').astype('float')
-            dt_by_year = dt.groupby('time.year').sum('time')
-        arr = arr*dt
-        return arr.groupby('time.year').sum('time') / dt_by_year
+        # Convert from ns to days (prevent overflow)
+        dt.values = dt.values.astype('timedelta64[D]').astype('float')
+        return ((arr*dt).groupby('time.year').sum('time') /
+                dt.groupby('time.year').sum('time'))
 
     def _vert_int(self, arr, dp):
         """Vertical integral"""
@@ -567,10 +564,10 @@ class Calc(object):
         # Here we need to provide file read-in dates (NOT xray dates)
         full_ts, dt = self._compute(self.start_date, self.end_date)
         # Average within each year if time-defined.
-        # (If we don't want to group by year def_time_cond = True)
-        def_time_cond = ('av' in self.dtype_in_time or not self.def_time or
-                         self.idealized[0])
-        if not def_time_cond:
+        # (If we don't want to group by year not_def_time = True)
+        not_def_time = ('av' in self.dtype_in_time or not self.def_time or
+                        self.idealized[0])
+        if not not_def_time:
             full_ts = self._to_yearly_ts(full_ts, dt)
         # Vertically integrate if vertically defined and specified.
         if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
@@ -661,7 +658,8 @@ class Calc(object):
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
         """Load aospy data saved on scratch file system."""
-        ds = xray.open_dataset(self.path_scratch[dtype_out_time])
+        ds = xray.open_dataset(self.path_scratch[dtype_out_time],
+                               engine='scipy')
         return ds[self.name]
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
@@ -669,8 +667,9 @@ class Calc(object):
         path = os.path.join(self.dir_archive, 'data.tar')
         dmget([path])
         with tarfile.open(path, 'r') as data_tar:
-            ds= xray.open_dataset(
-                data_tar.extractfile(self.file_name[dtype_out_time])
+            ds = xray.open_dataset(
+                data_tar.extractfile(self.file_name[dtype_out_time]),
+                engine='scipy'
             )
             return ds[self.name]
 
