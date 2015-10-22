@@ -14,7 +14,8 @@ from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, level_thickness, apply_time_offset,
-                    monthly_mean_ts, pfull_from_sigma, dp_from_sigma, int_dp_g)
+                    monthly_mean_ts, monthly_mean_at_each_ind,
+                    pfull_from_sigma, dp_from_sigma, int_dp_g)
 
 LON_STR = 'lon'
 TIME_STR = 'time'
@@ -185,7 +186,6 @@ class Calc(object):
 
     def __init__(self, calc_interface):
         self.__dict__ = vars(calc_interface)
-        print()
         self._print_verbose('Initializing Calc instance:', self.__str__())
 
         [mod.set_grid_data() for mod in self.model]
@@ -242,8 +242,8 @@ class Calc(object):
         if self.dtype_in_time == 'inst':
             domain += '_inst'
             dtype_lbl = 'ts'
-        if 'av_from_' in self.dtype_in_time:
-            dtype = self.dtype_in_time.replace('av_from_', '')
+        if 'monthly_from_' in self.dtype_in_time:
+            dtype = self.dtype_in_time.replace('monthly_from_', '')
             dtype_lbl = dtype
         else:
             dtype = self.dtype_in_time
@@ -411,6 +411,12 @@ class Calc(object):
         return data
 
     def _get_input_data(self, var, start_date, end_date, n):
+        """Get the data for a single variable over the desired date range."""
+        # Pass numerical constants as is.
+        if isinstance(var, (float, int)):
+            return var
+        elif isinstance(var, Constant):
+            return var.value
         # If only 1 run, use it to load all data.
         # Otherwise assume that # runs == # vars to load.
         if len(self.run) == 1:
@@ -418,29 +424,19 @@ class Calc(object):
         # Pressure handled specially due to complications from sigma vs. p.
         if var in ('p', 'dp'):
             data = self._get_pressure_vals(var, start_date, end_date)
-        # Pass numerical constants as is.
-        elif isinstance(var, (float, int)):
-            data = var
-        elif isinstance(var, Constant):
-            data = var.value
-        # aospy.Var objects remain.
         # Get grid, time, etc. arrays directly from model object
         elif var.name in ('lat', 'lon', 'time', 'level',
                           'pk', 'bk', 'sfc_area'):
             data = getattr(self.model[n], var.name)
+        # aospy.Var objects remain.
         else:
             set_dt = True if not hasattr(self, 'dt') else False
             data = self._create_input_data_obj(var, start_date, end_date, n=n,
                                                set_dt=set_dt)
         # Force all data to be at full pressure levels, not half levels.
-        phalf_bool = (self.dtype_in_vert == 'sigma' and not
-                      isinstance(var, (Constant, str)) and
-                      var.def_vert == 'phalf')
-        if phalf_bool:
-                data = self._phalf_to_pfull(data)
+        if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
+            data = self._phalf_to_pfull(data)
         # Restrict to the desired dates within each year.
-        if isinstance(var, Constant):
-            return data
         return self._to_desired_dates(data)
 
     def _get_all_data(self, start_date, end_date):
@@ -481,8 +477,6 @@ class Calc(object):
 
     def _compute(self, start_date, end_date, monthly_mean=False):
         """Perform the calculation."""
-        self._print_verbose('\n', 'Computing desired timeseries for years '
-                            '{}-{}.'.format(start_date.year, end_date.year))
         data_in = self._prep_data(self._get_all_data(start_date, end_date),
                                   self.var.func_input_dtype)
         if monthly_mean:
@@ -497,14 +491,41 @@ class Calc(object):
             dt = monthly_mean_ts(dt)
         return local_ts, dt
 
-    def _to_yearly_ts(self, arr, dt):
+    def _vert_int(self, arr, dp):
+        """Vertical integral"""
+        return int_dp_g(arr, dp)
+
+    def _compute_full_ts(self, monthly_mean=False, zonal_asym=False):
+        """Perform calculation and create yearly timeseries at each point."""
+        # Get results at each desired timestep and spatial point.
+        # Here we need to provide file read-in dates (NOT xray dates)
+        if monthly_mean:
+            full_ts, dt = self._compute(self.start_date, self.end_date,
+                                        monthly_mean=True)
+        else:
+            full_ts, dt = self._compute(self.start_date, self.end_date)
+        if zonal_asym:
+            full_ts = full_ts - full_ts.mean(LON_STR)
+        # Vertically integrate.
+        if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
+            # Here we need file read-in dates (NOT xray dates)
+            full_ts = self._vert_int(full_ts, self._get_pressure_vals(
+                'dp', self.start_date, self.end_date
+            ))
+        return full_ts, dt
+
+    def _avg_by_year(self, arr, dt):
         """Average a sub-yearly time-series over each year."""
         return ((arr*dt).groupby('time.year').sum('time') /
                 dt.groupby('time.year').sum('time'))
 
-    def _vert_int(self, arr, dp):
-        """Vertical integral"""
-        return int_dp_g(arr, dp)
+    def _full_to_yearly_ts(self, arr, dt):
+        """Average the full timeseries within each year."""
+        time_defined = self.def_time and not ('av' in self.dtype_in_time or
+                                              self.idealized[0])
+        if time_defined:
+            arr = self._avg_by_year(arr, dt)
+        return arr
 
     def _time_reduce(self, arr, reduction):
         """Perform the specified time reduction on a local time-series."""
@@ -514,16 +535,12 @@ class Calc(object):
             'ts': lambda xarr: xarr,
             'av': lambda xarr: xarr.mean(tdim),
             'std': lambda xarr: xarr.std(tdim),
-            'eddy.ts': lambda xarr: xarr,
-            'eddy.av': lambda xarr: xarr.mean(tdim),
-            'eddy.std': lambda xarr: xarr.std(tdim),
-            # 2015-10-21 S. Hill: This should be refactored. Zonal
-            # mean/asymmetry is a spatial operation, not a time one.
-            'zasym.ts': lambda xarr: xarr,
-            'zasym.av': lambda xarr: xarr.mean(tdim),
-            'zasym.std': lambda xarr: xarr.std(tdim)
             }
-        return reductions[reduction](arr)
+        try:
+            return reductions[reduction](arr)
+        except KeyError:
+            raise ValueError("Specified time-reduction method '{}' is not "
+                             "supported".format(reduction))
 
     def region_calcs(self, loc_ts, n=0):
         """Region-averaged computations.  Execute and save to external file."""
@@ -544,43 +561,55 @@ class Calc(object):
                     reg_dat.update({reg.name: data_out})
                 self.save(reg_dat, calc_name)
 
-    def compute(self, eddy=False, zonal_asym=False):
+    def compute(self):
         """Perform all desired calculations on the data and save externally."""
-        # Get results at each desired timestep and spatial point.
-        # Here we need to provide file read-in dates (NOT xray dates)
-        full_ts, dt = self._compute(self.start_date, self.end_date)
-        if eddy:
-            monthly_ts, _ = self._compute(self.start_date, self.end_date,
-                                          monthly_mean=True)
-            full_ts = full_ts - monthly_ts
-        if zonal_asym: # any(['zasym' in r for r in self.dtype_out_time]):
-            full_ts = full_ts - full_ts.mean(LON_STR)
-        # Vertically integrate.
-        if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
-            # Here we need file read-in dates (NOT xray dates)
-            full_ts = self._vert_int(full_ts, self._get_pressure_vals(
-                'dp', self.start_date, self.end_date
-            ))
+        # Compute only the needed timeseries.
+        self._print_verbose('\n', 'Computing desired timeseries for '
+                            '{} -- {}.'.format(self.start_date, self.end_date))
+        bool_monthly = ['monthly_from' in self.dtype_in_time]
+        bool_eddy = ['eddy' in dout for dout in self.dtype_out_time]
+        if not all(bool_monthly):
+            full_ts, full_dt = self._compute_full_ts(monthly_mean=False)
+        else:
+            full_ts = False
+        if any(bool_eddy) or any(bool_monthly):
+            monthly_ts, monthly_dt = self._compute_full_ts(monthly_mean=True)
+        else:
+            monthly_ts = False
+        if any(bool_eddy):
+            eddy_ts = full_ts - monthly_mean_at_each_ind(monthly_ts, full_ts)
+        else:
+            eddy_ts = False
+
         # Average within each year.
-        time_defined = not ('av' in self.dtype_in_time or not self.def_time or
-                            self.idealized[0])
-        if time_defined:
-            full_ts = self._to_yearly_ts(full_ts, dt)
-        # Apply time reduction methods
+        if not all(bool_monthly):
+            full_ts = self._full_to_yearly_ts(full_ts, full_dt)
+        if any(bool_monthly):
+            monthly_ts = self._full_to_yearly_ts(monthly_ts, monthly_dt)
+        if any(bool_eddy):
+            eddy_ts = self._full_to_yearly_ts(eddy_ts, full_dt)
+
+        # Apply time reduction methods.
         if self.def_time:
             self._print_verbose("Applying desired time-reduction methods.")
-            red_non_reg = [red for red in self.dtype_out_time
-                           if 'reg.' not in red]
-            reduced = {reduction: self._time_reduce(full_ts, reduction)
-                       for reduction in red_non_reg}
+            # Determine which are regional, which are eddy.
+            reduc_specs = [r.split('.') for r in self.dtype_out_time]
+            reduced = {}
+            for reduc, specs in zip(self.dtype_out_time, reduc_specs):
+                func = specs[-1]
+                data = eddy_ts if 'eddy' in specs else full_ts
+                if 'reg' not in specs:
+                    reduced.update({reduc: self._time_reduce(data, func)})
         else:
             reduced = {'': full_ts}
+
         # Save to disk.
         self._print_verbose("Writing desired gridded outputs to disk.")
         for dtype_out_time, data in reduced.items():
             self.save(data, dtype_out_time, dtype_out_vert=self.dtype_out_vert)
-        # Apply time reduction methods to regional averages and save.
-        if any(['reg' in do for do in self.dtype_out_time]) and self.region:
+
+        # Regional methods: perform and save.
+        if any(['reg' in dot for dot in self.dtype_out_time]) and self.region:
             self._print_verbose("Computing and saving regional outputs.")
             self.region_calcs(full_ts)
 
@@ -678,7 +707,7 @@ class Calc(object):
             data = data[region.name]
         if np.any(time):
             data = data[time]
-            if 'av_from_' in self.dtype_in_time:
+            if 'monthly_from_' in self.dtype_in_time:
                 data = np.mean(data, axis=0)[np.newaxis, :]
         if np.any(vert):
             if self.dtype_in_vert != 'sigma':
