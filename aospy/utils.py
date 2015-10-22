@@ -1,9 +1,54 @@
 """aospy.utils: utility functions for the aospy module."""
 import numpy as np
+import pandas as pd
 import xray
 
 from . import user_path
 from .constants import grav
+
+TIME_STR = 'time'
+
+
+def coord_to_new_dataarray(arr, dim):
+    """Create a DataArray comprising the coord for the specified dim.
+
+    Useful, for example, when wanting to resample in time, because at least
+    for xray 0.6.0 and prior, the `resample` method doesn't work when applied
+    to coords.  The DataArray returned by this method lacks that limitation.
+    """
+    return xray.DataArray(arr[dim].values, coords=[arr[dim].values],
+                          dims=[dim])
+
+
+def apply_time_offset(time, months=0, days=0, hours=0):
+    """Apply the given offset to the given time array.
+
+    This is useful for GFDL model output of instantaneous values.  For example,
+    3 hourly data postprocessed to netCDF files spanning 1 year each will
+    actually have time values that are offset by 3 hours, such that the first
+    value is for 1 Jan 03:00 and the last value is 1 Jan 00:00 of the
+    subsequent year.  This causes problems in xray, e.g. when trying to group
+    by month.  It is resolved by manually subtracting off those three hours,
+    such that the dates span from 1 Jan 00:00 to 31 Dec 21:00 as desired.
+    """
+    return (pd.to_datetime(time.values) +
+            pd.tseries.offsets.DateOffset(months=months, days=days,
+                                          hours=hours))
+
+
+def monthly_mean_ts(arr):
+    """Convert a sub-monthly time-series into one of monthly means."""
+    return arr.resample('1M', TIME_STR, how='mean')
+
+
+def monthly_mean_at_each_ind(arr_mon, arr_sub):
+    """Copy monthly mean over each time index in that month."""
+    time = arr_mon[TIME_STR]
+    start = time.indexes[TIME_STR][0].replace(day=1, hour=0)
+    end = time.indexes[TIME_STR][-1]
+    new_indices = pd.DatetimeIndex(start=start, end=end, freq='MS')
+    arr_new = arr_mon.reindex(time=new_indices, method='backfill')
+    return arr_new.reindex_like(arr_sub, method='pad')
 
 
 def load_user_data(name):
