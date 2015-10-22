@@ -542,24 +542,19 @@ class Calc(object):
             raise ValueError("Specified time-reduction method '{}' is not "
                              "supported".format(reduction))
 
-    def region_calcs(self, loc_ts, n=0):
-        """Region-averaged computations.  Execute and save to external file."""
-        calcs_reg = ('ts', 'av', 'std')
-        # Perform each calculation for each region.
-        for calc in calcs_reg:
-            calc_name = ('reg.' + calc)
-            if calc_name in self.dtype_out_time:
-                reg_dat = {}
-                for reg in self.region.values():
-                    # Just pass along the data if averaged already.
-                    if 'av' in self.dtype_in_time:
-                        data_out = reg.ts(loc_ts, self.model[n])
-                    # Otherwise perform the calculation.
-                    else:
-                        method = getattr(reg, calc)
-                        data_out = method(loc_ts, self.model[n])
-                    reg_dat.update({reg.name: data_out})
-                self.save(reg_dat, calc_name)
+    def region_calcs(self, arr, func, n=0):
+        """Perform a calculation for all regions."""
+        reg_dat = {}
+        for reg in self.region.values():
+            # Just pass along the data if averaged already.
+            if 'av' in self.dtype_in_time:
+                data_out = reg.ts(arr, self.model[n])
+            # Otherwise perform the calculation.
+            else:
+                method = getattr(reg, func)
+                data_out = method(arr, self.model[n])
+            reg_dat.update({reg.name: data_out})
+        return reg_dat
 
     def compute(self):
         """Perform all desired calculations on the data and save externally."""
@@ -598,20 +593,17 @@ class Calc(object):
             for reduc, specs in zip(self.dtype_out_time, reduc_specs):
                 func = specs[-1]
                 data = eddy_ts if 'eddy' in specs else full_ts
-                if 'reg' not in specs:
+                if 'reg' in specs:
+                    reduced.update({reduc: self.region_calcs(data, func)})
+                else:
                     reduced.update({reduc: self._time_reduce(data, func)})
         else:
             reduced = {'': full_ts}
 
         # Save to disk.
         self._print_verbose("Writing desired gridded outputs to disk.")
-        for dtype_out_time, data in reduced.items():
-            self.save(data, dtype_out_time, dtype_out_vert=self.dtype_out_vert)
-
-        # Regional methods: perform and save.
-        if any(['reg' in dot for dot in self.dtype_out_time]) and self.region:
-            self._print_verbose("Computing and saving regional outputs.")
-            self.region_calcs(full_ts)
+        for dtype_time, data in reduced.items():
+            self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert)
 
     def _save_to_scratch(self, data, dtype_out_time):
         """Save the data to the scratch filesystem."""
