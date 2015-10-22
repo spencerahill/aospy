@@ -20,7 +20,7 @@ def coord_to_new_dataarray(arr, dim):
                           dims=[dim])
 
 
-def apply_time_offset(time, hours):
+def apply_time_offset(time, months=0, days=0, hours=0):
     """Apply the given offset to the given time array.
 
     This is useful for GFDL model output of instantaneous values.  For example,
@@ -32,12 +32,23 @@ def apply_time_offset(time, hours):
     such that the dates span from 1 Jan 00:00 to 31 Dec 21:00 as desired.
     """
     return (pd.to_datetime(time.values) +
-            pd.tseries.offsets.DateOffset(hours=hours))
+            pd.tseries.offsets.DateOffset(months=months, days=days,
+                                          hours=hours))
 
 
 def monthly_mean_ts(arr):
     """Convert a sub-monthly time-series into one of monthly means."""
     return arr.resample('1M', TIME_STR, how='mean')
+
+
+def monthly_mean_at_each_ind(arr_mon, arr_sub):
+    """Copy monthly mean over each time index in that month."""
+    time = arr_mon[TIME_STR]
+    start = time.indexes[TIME_STR][0].replace(day=1, hour=0)
+    end = time.indexes[TIME_STR][-1]
+    new_indices = pd.DatetimeIndex(start=start, end=end, freq='MS')
+    arr_new = arr_mon.reindex(time=new_indices, method='backfill')
+    return arr_new.reindex_like(arr_sub, method='pad')
 
 
 def load_user_data(name):
