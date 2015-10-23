@@ -15,7 +15,7 @@ from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, level_thickness, apply_time_offset,
                     monthly_mean_ts, monthly_mean_at_each_ind,
-                    pfull_from_sigma, dp_from_sigma, int_dp_g)
+                    pfull_from_ps, dp_from_ps, int_dp_g)
 
 LON_STR = 'lon'
 TIME_STR = 'time'
@@ -405,14 +405,15 @@ class Calc(object):
             ps = self._create_input_data_obj(self.ps, start_date, end_date)
             pfull_coord = self.model[n].pfull
             if var == 'p':
-                data = pfull_from_sigma(bk, pk, ps, pfull_coord)
+                data = pfull_from_ps(bk, pk, ps, pfull_coord)
             elif var == 'dp':
-                data = dp_from_sigma(bk, pk, ps, pfull_coord)
+                data = dp_from_ps(bk, pk, ps, pfull_coord)
         return data
 
     def _get_input_data(self, var, start_date, end_date, n):
         """Get the data for a single variable over the desired date range."""
-        # Pass numerical constants as is.
+        self._print_verbose("Getting input data:", var)
+      # Pass numerical constants as is.
         if isinstance(var, (float, int)):
             return var
         elif isinstance(var, Constant):
@@ -437,7 +438,9 @@ class Calc(object):
         if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
             data = self._phalf_to_pfull(data)
         # Restrict to the desired dates within each year.
-        return self._to_desired_dates(data)
+        if var.def_time:
+            return self._to_desired_dates(data)
+        return data
 
     def _get_all_data(self, start_date, end_date):
         """Get the needed data from all of the vars in the calculation."""
