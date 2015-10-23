@@ -6,6 +6,9 @@ import xray
 from . import user_path
 from .constants import grav
 
+PLEVEL_STR = 'level'
+PHALF_STR = 'phalf'
+PFULL_STR = 'pfull'
 TIME_STR = 'time'
 
 
@@ -101,33 +104,135 @@ def dict_name_keys(objs):
             return {obj.name: obj for obj in objs}
         except AttributeError:
             raise AttributeError
+    return objs
+
+
+def to_radians(arr):
+    if np.max(np.abs(arr)) > 2*np.pi:
+        return np.deg2rad(arr)
     else:
-        return objs
+        return arr
 
 
-def to_radians(field):
-    if np.max(np.abs(field)) > 2*np.pi:
-        return np.deg2rad(field)
-    else:
-        return field
-
-
-def to_pascal(field):
+def to_pascal(arr):
     # For dp fields, this won't work if the input data is already Pascals and
     # the largest level thickness is < 1200 Pa, i.e. 12 hPa.  This will almost
     # never come up in practice for data interpolated to pressure levels, but
     # could come up in sigma data if model has sufficiently high vertical
     # resolution.
-    if np.max(np.abs(field)) < 1200.:
-        field *= 100.
-    return field
+    if np.max(np.abs(arr)) < 1200.:
+        arr *= 100.
+    return arr
 
 
-def to_hpa(field):
+def to_hpa(arr):
     """Convert pressure array from Pa to hPa (if needed)."""
-    if np.max(np.abs(field)) > 1200.:
-        field /= 100.
-    return field
+    if np.max(np.abs(arr)) > 1200.:
+        arr /= 100.
+    return arr
+
+
+def d_deta_from_pfull(arr):
+    """Compute $\partial f/\partial\eta$.
+
+    $\eta$ is the model vertical coordinate, and its value is assumed to simply
+    increment by 1 from 0 at the surface upwards.  The data to be differenced
+    is assumed to be defined at full pressure levels.
+    """
+    raise NotImplementedError
+
+
+def phalf_from_ps(bk, pk, ps):
+    """Compute pressure of half levels of hybrid sigma-pressure coordinates."""
+    return (ps*bk + pk)
+
+
+def replace_coord(arr, old_dim, new_dim,  new_coord):
+    """Replace a coordinate with new one; new and old must have same shape."""
+    new_arr = arr.rename({old_dim: new_dim})
+    new_arr[new_dim] = new_coord
+    return new_arr
+
+
+def to_pfull_from_phalf(arr, pfull_coord):
+    """Compute data at full pressure levels from values at half levels."""
+    phalf_top = arr.isel(phalf=slice(1, None))
+    phalf_top = replace_coord(phalf_top, PHALF_STR, PFULL_STR, pfull_coord)
+
+    phalf_bot = arr.isel(phalf=slice(None, -1))
+    phalf_bot = replace_coord(phalf_bot, PHALF_STR, PFULL_STR, pfull_coord)
+    return 0.5*(phalf_bot + phalf_top)
+
+
+def to_phalf_from_pfull(arr, val_toa=0, val_sfc=0):
+    """Compute data at half pressure levels from values at full levels.
+
+    Could be the pressure array itself, but it could also be any other data
+    defined at pressure levels.  Requires specification of values at surface
+    and top of atmosphere.
+    """
+    phalf = np.zeros((arr.shape[0] + 1, arr.shape[1], arr.shape[2]))
+    phalf[0] = val_toa
+    phalf[-1] = val_sfc
+    phalf[1:-1] = 0.5*(arr[:-1] + arr[1:])
+    return phalf
+
+
+def pfull_from_ps(bk, pk, ps, pfull_coord):
+    """Compute pressure at full levels from surface pressure."""
+    return to_pfull_from_phalf(phalf_from_ps(bk, pk, ps), pfull_coord)
+
+
+def d_deta_from_phalf(arr, pfull_coord):
+    """Compute pressure level thickness from half level pressures."""
+    d_deta = arr.diff(dim=PHALF_STR, n=1)
+    return replace_coord(d_deta, PHALF_STR, PFULL_STR, pfull_coord)
+
+
+def dp_from_ps(bk, pk, ps, pfull_coord):
+    """Compute pressure level thickness from surface pressure"""
+    return d_deta_from_phalf(phalf_from_ps(bk, pk, ps), pfull_coord)
+
+
+def integrate(integrand, ddim, dim):
+    """Integrate along the given dimension."""
+    return (integrand*ddim).sum(dim=dim)
+
+
+def vert_coord_name(dp):
+    for name in [PLEVEL_STR, PFULL_STR]:
+        if name in dp.coords:
+            return name
+    return None
+
+
+def int_dp_g(integrand, dp):
+    """Mass weighted integral."""
+    return integrate(integrand, dp, vert_coord_name(dp)) * (1. / grav.value)
+
+
+def dp_from_p(p, ps):
+    """Get level thickness of pressure data, incorporating surface pressure."""
+    # Top layer goes to 0 hPa; bottom layer goes to 1100 hPa.
+    p = to_pascal(p)
+    p_top = np.array([0])
+    p_bot = np.array([1.1e5])
+
+    # Layer edges are halfway between the given pressure levels.
+    p_edges_interior = 0.5*(p.isel(phalf=slice(0, -1)) +
+                            p.isel(phalf=slice(1, None)))
+    p_edges = xray.concat((p_bot, p_edges_interior, p_top), dim=PHALF_STR)
+    p_edge_above = p_edges.isel(phalf=slice(1, None))
+    p_edge_below = p_edges.isel(phalf=slice(0, -1))
+    dp_interior = p_edge_below - p_edge_above
+    dp_interior.rename({PHALF_STR: PFULL_STR})
+
+    ps = to_pascal(ps)
+    # If ps < p_edge_below, then ps becomes the layer's bottom boundary.
+    dp_adj_sfc = ps - p_edge_above
+    dp = np.where(np.sign(ps - p_edge_below) > 0, dp_interior, dp_adj_sfc)
+    # Mask where ps is less than the p.
+    return np.ma.masked_where(ps < p, dp)
 
 
 def level_thickness(p):
@@ -150,105 +255,3 @@ def level_thickness(p):
     dp.append(0.5*(p[-2] + p[-1]))
     # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
     return xray.DataArray(dp, coords=[p/100.0], dims=['level'])
-
-
-def phalf_from_sigma(bk, pk, ps):
-    """
-    This should work.
-    """
-    return (ps*bk + pk)
-
-
-def pfull_from_phalf(phalf, pfull_coord):
-    """
-    Compute data at full sigma levels from the values at the half levels.
-    """
-    # We will need to be smart in how we set the coordinates so that we can
-    # add things gracefully within xray.
-    phalf_top = phalf.isel(phalf=slice(1,None))
-    phalf_top = phalf_top.rename({'phalf' : 'pfull'})
-    phalf_top['pfull'] = pfull_coord
-
-    phalf_bot = phalf.isel(phalf=slice(None,-1))
-    phalf_bot = phalf_bot.rename({'phalf' : 'pfull'})
-    phalf_bot['pfull'] = pfull_coord
-
-    return 0.5*(phalf_bot + phalf_top)
-
-
-def phalf_from_pfull(pfull, val_toa=0, val_sfc=0):
-    """
-    Compute data at half sigma levels from the values at full levels, given the
-    specified top and bottom boundary conditions.
-
-    Could be the pressure array itself, but it could also be any other data
-    defined at pressure levels.
-    """
-    phalf = np.empty((pfull.shape[0] + 1, pfull.shape[1], pfull.shape[2]))
-    phalf[0] = val_toa
-    phalf[-1] = val_sfc
-    phalf[1:-1] = 0.5*(pfull[:-1] + pfull[1:])
-    return phalf
-
-
-def pfull_from_sigma(bk, pk, ps, pfull_coord):
-    return pfull_from_phalf(phalf_from_sigma(bk, pk, ps), pfull_coord)
-
-
-def dp_from_phalf(phalf, pfull_coord):
-    # We need to make sure dp is on a pfull coord.
-    dp = phalf.diff(dim='phalf', n=1)
-    dp = dp.rename({'phalf': 'pfull'})
-    dp['pfull'] = pfull_coord
-    return dp
-
-
-def dp_from_sigma(bk, pk, ps, pfull_coord):
-    return dp_from_phalf(phalf_from_sigma(bk, pk, ps), pfull_coord)
-
-
-def weight_by_delta(integrand, delta):
-    """Multiply an xray.DataArray by some weights."""
-    return integrand*delta
-
-
-def integrate(integrand, delta, dim):
-    """Integrate along the given dimension."""
-    prod = weight_by_delta(integrand, delta)
-    return prod.sum(dim=dim)
-
-
-def int_dp_g(integrand, dp):
-    """
-    Mass weighted integral.
-    """
-    return integrate(integrand, dp, vert_coord_name(dp)) * (1. / grav.value)
-
-
-def vert_coord_name(dp):
-    for name in ['level', 'pfull']:
-        if name in dp.coords:
-            return name
-    return None
-
-
-def dp_from_p(p, ps):
-    """Get level thickness of pressure data, incorporating surface pressure."""
-    # Top layer goes to 0 hPa; bottom layer goes to 1100 hPa.
-    p = to_pascal(p)[np.newaxis,:,np.newaxis,np.newaxis]
-    p_top = np.array([0])[np.newaxis,:,np.newaxis,np.newaxis]
-    p_bot = np.array([1.1e5])[np.newaxis,:,np.newaxis,np.newaxis]
-
-    # Layer edges are halfway between the given pressure levels.
-    p_edges_interior = 0.5*(p[:,:-1] + p[:,1:])
-    p_edges = np.concatenate((p_bot, p_edges_interior, p_top), axis=1)
-    p_edge_above = p_edges[:, 1:]
-    p_edge_below = p_edges[:, :-1]
-    dp_interior = p_edge_below - p_edge_above
-
-    ps = to_pascal(ps)[:,np.newaxis,:,:]
-    # If ps < p_edge_below, then ps becomes the layer's bottom boundary.
-    dp_adj_sfc = ps - p_edge_above[np.newaxis,:,np.newaxis,np.newaxis]
-    dp = np.where(np.sign(ps - p_edge_below) > 0, dp_interior, dp_adj_sfc)
-    # Mask where ps is less than the p.
-    return np.ma.masked_where(ps < p, dp)
