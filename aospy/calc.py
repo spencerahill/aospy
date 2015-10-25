@@ -254,7 +254,7 @@ class Calc(object):
                                                   self.intvl_out,
                                                   self.data_in_start_date[n].year,
                                                   self.data_in_dur[n]))
-                 for year in range(start_year, end_year)] # SKC
+                 for year in range(start_year, end_year + 1)]
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
