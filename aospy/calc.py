@@ -254,7 +254,7 @@ class Calc(object):
                                                   self.intvl_out,
                                                   self.data_in_start_date[n].year,
                                                   self.data_in_dur[n]))
-                 for year in range(start_year, end_year + 1)]
+                 for year in range(start_year, end_year)] # SKC
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
@@ -322,6 +322,35 @@ class Calc(object):
                           self.end_date_xray, self.months, indices=False)
         return arr.sel(time=times)
 
+    def _add_grid_attributes(self, ds, n=0):
+        """Add model grid attributes to a dataset"""
+        grid_attrs = {
+            'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
+            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
+            'level':       ('level', 'lev', 'plev'),
+            'sfc_area':    ('area', 'sfc_area'),
+            'land_mask':   ('land_mask',),
+            'pk':          ('pk',),
+            'bk':          ('bk',),
+            'phalf':       ('phalf',),
+            'pfull':       ('pfull',)
+        }
+        for name_int, names_ext in grid_attrs.items():
+            ds_coord_name = set(names_ext).intersection(set(ds.coords))
+            if ds_coord_name:
+                # Check if coord is in dataset already.
+                # If it is, then rename it so that it has 
+                # the correct internal name.
+                ds = ds.rename({list(ds_coord_name)[0] : name_int})
+                ds = ds.set_coords(name_int)
+            else:
+                # Bring in coord from model object.
+                ds[name_int] = getattr(self.model[n], name_int)
+                ds = ds.set_coords(name_int)
+        return ds
+
     def _create_input_data_obj(self, var, start_date=False,
                                end_date=False, n=0, set_dt=False):
         """Create xray.DataArray for the Var from files on disk."""
@@ -355,6 +384,7 @@ class Calc(object):
             test = xray.decode_cf(test)
             ds_chunks.append(test)
         ds = xray.concat(ds_chunks, dim='time')
+        ds = self._add_grid_attributes(ds,n)
         # 2015-10-16 S. Hill: Passing in each variable as a Dataset is causing
         # lots of problems in my functions, even ones as simple as just adding
         # the two variables together.  I think it makes most sense to just grab

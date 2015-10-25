@@ -95,9 +95,9 @@ class Model(object):
         """
         grid_attrs = {
             'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-            # 'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
+            'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
             'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-            # 'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
+            'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
             'level':       ('level', 'lev', 'plev'),
             # 'time':        ('time', 'TIME'),
             # 'time_st':     ('average_T1',),
