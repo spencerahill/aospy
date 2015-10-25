@@ -3,6 +3,7 @@ import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
+import xray
 
 from .__config__ import default_colormap
 from .calc import Calc, CalcInterface
@@ -72,7 +73,7 @@ class Fig(object):
         self.ax = []
 
         # Accept all other keyword arguments passed in as attrs.
-        for key, val in kwargs.iteritems():
+        for key, val in kwargs.items():
             setattr(self, key, val)
 
         self.do_ax_label = True if self.n_ax > 1 else False
@@ -258,7 +259,7 @@ class Ax(object):
     def _set_ax_loc_specs(self):
         """Set attrs that depend on Ax location within the Fig."""
         # Take the Fig's attr value if it's neeeded; otherwise set False.
-        for key, val in self.labels[self.ax_loc].iteritems():
+        for key, val in self.labels[self.ax_loc].items():
             if val:
                 if val == ' ':
                     new_val = ' '
@@ -595,7 +596,7 @@ class Plot(object):
     def _apply_data_transforms(self):
         """Apply any specified transformations to the data once loaded."""
         transforms = {'do_subtract_mean': self._subtract_mean}
-        for attr, method in transforms.iteritems():
+        for attr, method in transforms.items():
             for data, do_method in zip(['x_data', 'y_data'],
                                        getattr(self, attr)):
                 if do_method:
@@ -612,7 +613,12 @@ class Plot(object):
         self.lats = self.y_data
 
         self.plot_data = []
-        for data in self.data:
+
+        if isinstance(self.data, xray.Dataset):
+            loop_data = [self.data]
+        else:
+            loop_data = self.data
+        for data in loop_data:
             pd, self.plot_lons = mpl_toolkits.basemap.shiftgrid(
                 lon0, data, self.x_data,
                 start=self.ax.shiftgrid_start, cyclic=self.ax.shiftgrid_cyclic
