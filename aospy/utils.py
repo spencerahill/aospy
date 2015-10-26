@@ -1,8 +1,59 @@
 """aospy.utils: utility functions for the aospy module."""
 import numpy as np
+import pandas as pd
+import xray
 
-from . import user_path
-from .constants import grav
+from .__config__ import PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, user_path
+from .numerics import FiniteDiff
+from .constants import grav, Constant
+
+
+def coord_to_new_dataarray(arr, dim):
+    """Create a DataArray comprising the coord for the specified dim.
+
+    Useful, for example, when wanting to resample in time, because at least
+    for xray 0.6.0 and prior, the `resample` method doesn't work when applied
+    to coords.  The DataArray returned by this method lacks that limitation.
+    """
+    return xray.DataArray(arr[dim].values, coords=[arr[dim].values],
+                          dims=[dim])
+
+
+def apply_time_offset(time, months=0, days=0, hours=0):
+    """Apply the given offset to the given time array.
+
+    This is useful for GFDL model output of instantaneous values.  For example,
+    3 hourly data postprocessed to netCDF files spanning 1 year each will
+    actually have time values that are offset by 3 hours, such that the first
+    value is for 1 Jan 03:00 and the last value is 1 Jan 00:00 of the
+    subsequent year.  This causes problems in xray, e.g. when trying to group
+    by month.  It is resolved by manually subtracting off those three hours,
+    such that the dates span from 1 Jan 00:00 to 31 Dec 21:00 as desired.
+    """
+    return (pd.to_datetime(time.values) +
+            pd.tseries.offsets.DateOffset(months=months, days=days,
+                                          hours=hours))
+
+
+def monthly_mean_ts(arr):
+    """Convert a sub-monthly time-series into one of monthly means."""
+    if isinstance(arr, (float, int, Constant)):
+        return arr
+    try:
+        return arr.resample('1M', TIME_STR, how='mean')
+    except KeyError:
+        raise KeyError("`{}` lacks time dimension with "
+                       "label `{}`.".format(arr, TIME_STR))
+
+
+def monthly_mean_at_each_ind(arr_mon, arr_sub):
+    """Copy monthly mean over each time index in that month."""
+    time = arr_mon[TIME_STR]
+    start = time.indexes[TIME_STR][0].replace(day=1, hour=0)
+    end = time.indexes[TIME_STR][-1]
+    new_indices = pd.DatetimeIndex(start=start, end=end, freq='MS')
+    arr_new = arr_mon.reindex(time=new_indices, method='backfill')
+    return arr_new.reindex_like(arr_sub, method='pad')
 
 
 def load_user_data(name):
@@ -55,33 +106,139 @@ def dict_name_keys(objs):
             return {obj.name: obj for obj in objs}
         except AttributeError:
             raise AttributeError
+    return objs
+
+
+def to_radians(arr):
+    if np.max(np.abs(arr)) > 2*np.pi:
+        return np.deg2rad(arr)
     else:
-        return objs
+        return arr
 
 
-def to_radians(field):
-    if np.max(np.abs(field)) > 2*np.pi:
-        return np.deg2rad(field)
-    else:
-        return field
-
-
-def to_pascal(field):
+def to_pascal(arr):
     # For dp fields, this won't work if the input data is already Pascals and
     # the largest level thickness is < 1200 Pa, i.e. 12 hPa.  This will almost
     # never come up in practice for data interpolated to pressure levels, but
     # could come up in sigma data if model has sufficiently high vertical
     # resolution.
-    if np.max(np.abs(field)) < 1200.:
-        field *= 100.
-    return field
+    if np.max(np.abs(arr)) < 1200.:
+        arr *= 100.
+    return arr
 
 
-def to_hpa(field):
+def to_hpa(arr):
     """Convert pressure array from Pa to hPa (if needed)."""
-    if np.max(np.abs(field)) > 1200.:
-        field /= 100.
-    return field
+    if np.max(np.abs(arr)) > 1200.:
+        arr /= 100.
+    return arr
+
+
+def phalf_from_ps(bk, pk, ps):
+    """Compute pressure of half levels of hybrid sigma-pressure coordinates."""
+    return (ps*bk + pk)
+
+
+def replace_coord(arr, old_dim, new_dim,  new_coord):
+    """Replace a coordinate with new one; new and old must have same shape."""
+    new_arr = arr.rename({old_dim: new_dim})
+    new_arr[new_dim] = new_coord
+    return new_arr
+
+
+def to_pfull_from_phalf(arr, pfull_coord):
+    """Compute data at full pressure levels from values at half levels."""
+    phalf_top = arr.isel(phalf=slice(1, None))
+    phalf_top = replace_coord(phalf_top, PHALF_STR, PFULL_STR, pfull_coord)
+
+    phalf_bot = arr.isel(phalf=slice(None, -1))
+    phalf_bot = replace_coord(phalf_bot, PHALF_STR, PFULL_STR, pfull_coord)
+    return 0.5*(phalf_bot + phalf_top)
+
+
+def to_phalf_from_pfull(arr, val_toa=0, val_sfc=0):
+    """Compute data at half pressure levels from values at full levels.
+
+    Could be the pressure array itself, but it could also be any other data
+    defined at pressure levels.  Requires specification of values at surface
+    and top of atmosphere.
+    """
+    phalf = np.zeros((arr.shape[0] + 1, arr.shape[1], arr.shape[2]))
+    phalf[0] = val_toa
+    phalf[-1] = val_sfc
+    phalf[1:-1] = 0.5*(arr[:-1] + arr[1:])
+    return phalf
+
+
+def pfull_from_ps(bk, pk, ps, pfull_coord):
+    """Compute pressure at full levels from surface pressure."""
+    return to_pfull_from_phalf(phalf_from_ps(bk, pk, ps), pfull_coord)
+
+
+def d_deta_from_phalf(arr, pfull_coord):
+    """Compute pressure level thickness from half level pressures."""
+    d_deta = arr.diff(dim=PHALF_STR, n=1)
+    return replace_coord(d_deta, PHALF_STR, PFULL_STR, pfull_coord)
+
+
+def d_deta_from_pfull(arr):
+    """Compute $\partial/\partial\eta$ of the array on full hybrid levels.
+
+    $\eta$ is the model vertical coordinate, and its value is assumed to simply
+    increment by 1 from 0 at the surface upwards.  The data to be differenced
+    is assumed to be defined at full pressure levels.
+    """
+    deriv = FiniteDiff.cen_diff(arr, PFULL_STR, do_edges_one_sided=True) / 2.
+    # Edges use 1-sided differencing, so only spanning one level, not two.
+    deriv[{PFULL_STR: 0}] = deriv[{PFULL_STR: 0}] * 2.
+    deriv[{PFULL_STR: -1}] = deriv[{PFULL_STR: -1}] * 2.
+    return deriv
+
+
+def dp_from_ps(bk, pk, ps, pfull_coord):
+    """Compute pressure level thickness from surface pressure"""
+    return d_deta_from_phalf(phalf_from_ps(bk, pk, ps), pfull_coord)
+
+
+def integrate(integrand, ddim, dim):
+    """Integrate along the given dimension."""
+    return (integrand*ddim).sum(dim=dim)
+
+
+def vert_coord_name(dp):
+    for name in [PLEVEL_STR, PFULL_STR]:
+        if name in dp.coords:
+            return name
+    return None
+
+
+def int_dp_g(integrand, dp):
+    """Mass weighted integral."""
+    return integrate(integrand, dp, vert_coord_name(dp)) * (1. / grav.value)
+
+
+def dp_from_p(p, ps):
+    """Get level thickness of pressure data, incorporating surface pressure."""
+    # Top layer goes to 0 hPa; bottom layer goes to 1100 hPa.
+    p = to_pascal(p)
+    p_top = np.array([0])
+    p_bot = np.array([1.1e5])
+
+    # Layer edges are halfway between the given pressure levels.
+    p_edges_interior = 0.5*(p.isel(phalf=slice(0, -1)) +
+                            p.isel(phalf=slice(1, None)))
+    p_edges = xray.concat((p_bot, p_edges_interior, p_top), dim=PHALF_STR)
+    p_edge_above = p_edges.isel(phalf=slice(1, None))
+    p_edge_below = p_edges.isel(phalf=slice(0, -1))
+    dp_interior = p_edge_below - p_edge_above
+    dp_interior.rename({PHALF_STR: PFULL_STR})
+
+    ps = to_pascal(ps)
+    # If ps < p_edge_below, then ps becomes the layer's bottom boundary.
+    dp_adj_sfc = ps - p_edge_above
+    dp = np.where(np.sign(ps - p_edge_below) > 0, dp_interior, dp_adj_sfc)
+    # Mask where ps is less than the p.
+    return np.ma.masked_where(ps < p, dp)
 
 
 def level_thickness(p):
@@ -103,137 +260,4 @@ def level_thickness(p):
     # Top level extends from halfway between top two levels to 0 hPa.
     dp.append(0.5*(p[-2] + p[-1]))
     # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
-    return np.array(dp)
-
-
-def phalf_from_sigma(bk, pk, ps):
-    """
-    Compute pressure at sigma half levels from the sigma coordinate arrays and
-    the surface pressure.
-
-    Assume pk, bk, and ps are in Pa, unitless, and Pa, respectively.  Assume
-    pk[-1] and bk[-1] are at surface where pressure equals ps and pk[0] and
-    bk[0] are at top of atmosphere where pressure equals zero.  pk and bk are
-    1-d arrays; ps has last two dimensions (lat, lon) but may also have time as
-    first dimension.  Assume pk and bk include both endpoints, i.e. the surface
-    and TOA, such that the number of sigma layers is one less than the length
-    of either pk or bk.
-    """
-    # 3D ps array assumed to be (time, lat, lon).
-    if ps.ndim in (3, 4):
-        bk = bk[np.newaxis,:,np.newaxis,np.newaxis]
-        pk = pk[np.newaxis,:,np.newaxis,np.newaxis]
-        if ps.ndim == 3:
-            ps = ps[:,np.newaxis,:,:]
-    # 2D ps array assumed to be (lat, lon).
-    elif ps.ndim == 2:
-        bk = bk[:,np.newaxis,np.newaxis]
-        pk = pk[:,np.newaxis,np.newaxis]
-        ps = ps[np.newaxis,:,:]
-    return np.squeeze(pk + ps*bk)
-
-
-def pfull_from_phalf(phalf):
-    """
-    Compute data at full sigma levels from the values at half levels.
-
-    Could be the pressure array itself, but it could also be any other data
-    defined at half levels.
-    """
-    # 4D array assumed to be (time, p, lat, lon).
-    if phalf.ndim == 4:
-        return 0.5*(phalf[:,1:] + phalf[:,:-1])
-    # Anything else assumed to have p as first dimension.
-    else:
-        return 0.5*(phalf[1:] + phalf[:-1])
-
-
-def phalf_from_pfull(pfull, val_toa=0, val_sfc=0):
-    """
-    Compute data at half sigma levels from the values at full levels, given the
-    specified top and bottom boundary conditions.
-
-    Could be the pressure array itself, but it could also be any other data
-    defined at pressure levels.
-    """
-    phalf = np.empty((pfull.shape[0] + 1, pfull.shape[1], pfull.shape[2]))
-    phalf[0] = val_toa
-    phalf[-1] = val_sfc
-    phalf[1:-1] = 0.5*(pfull[:-1] + pfull[1:])
-    return phalf
-
-
-def pfull_from_sigma(bk, pk, ps):
-    """
-    Compute pressure at full sigma levels from the sigma coordinate arrays and
-    surface pressure.
-    """
-    return pfull_from_phalf(phalf_from_sigma(bk, pk, ps))
-
-
-def dp_from_phalf(phalf):
-    """Compute pressure-depth of vertical levels from level edge pressures."""
-    # If 4D, assume dimensions (time, p, lat, lon).
-    if phalf.ndim == 4:
-        return phalf[:,1:] - phalf[:,:-1]
-    # Otherwise assume first dimension is p.
-    else:
-        return phalf[1:] - phalf[:-1]
-
-
-def dp_from_sigma(bk, pk, ps):
-    """Compute sigma layer pressure thickness."""
-    return dp_from_phalf(phalf_from_sigma(bk, pk, ps))
-
-
-def weight_by_delta(integrand, delta):
-    """
-    Weight the `integrand` by `delta`, usually for subsequent integration.
-
-    `delta` array may be one dimension or three; if the latter it is assumed to
-    be of shape (vertical, lat, lon).  `integrand` is assumed to be 3 or 4
-    dimensions, with time 1st if 4-D.  Both are assumed to be numpy arrays.
-    """
-    try:
-        return integrand*delta
-    except ValueError:
-        delta = delta[np.newaxis,:,np.newaxis, np.newaxis]
-    return integrand*delta
-
-
-def integrate(integrand, delta, axis):
-    """Integrate the array along the given axis using the given delta array."""
-    prod = weight_by_delta(integrand, delta)
-    # Override axis specified if input is integrand is a singleton.
-    if isinstance(integrand, (int, float)):
-        axis = 0
-    return np.ma.sum(prod, axis=axis)
-
-
-def int_dp_g(integrand, dp, start=0., end=None, axis=-3):
-    """Integrate vertically in pressure."""
-    # Assume pressure is 3rd to last axis.
-    dp = to_pascal(dp)
-    return integrate(integrand, dp, axis) * (1. / grav)
-
-
-def dp_from_p(p, ps):
-    """Get level thickness of pressure data, incorporating surface pressure."""
-    # Top layer goes to 0 hPa; bottom layer goes to 1100 hPa.
-    p = to_pascal(p)[np.newaxis,:,np.newaxis,np.newaxis]
-    p_top = np.array([0])[np.newaxis,:,np.newaxis,np.newaxis]
-    p_bot = np.array([1.1e5])[np.newaxis,:,np.newaxis,np.newaxis]
-
-    # Layer edges are halfway between the given pressure levels.
-    p_edges_interior = 0.5*(p[:,:-1] + p[:,1:])
-    p_edges = np.concatenate((p_bot, p_edges_interior, p_top), axis=1)
-    p_edge_above = p_edges[:, 1:]
-    p_edge_below = p_edges[:, :-1]
-    dp_interior = p_edge_below - p_edge_above
-
-    ps = to_pascal(ps)[:,np.newaxis,:,:]
-    # If ps < p_edge_below, then ps becomes the layer's bottom boundary.
-    dp_adj_sfc = ps - p_edge_above[np.newaxis,:,np.newaxis,np.newaxis]
-    dp = np.where(np.sign(ps - p_edge_below) > 0, dp_interior, dp_adj_sfc)
-    # Mask where ps is less than the p.
-    return np.ma.masked_where(ps < p, dp)
+    return xray.DataArray(dp, coords=[p/100.0], dims=['level'])
