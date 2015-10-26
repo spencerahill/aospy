@@ -10,6 +10,8 @@ import numpy as np
 import xray
 
 from . import Constant, Var
+from .__config__ import (LAT_STR, LON_STR, PLEVEL_STR, TIME_STR,
+                         TIME_STR_IDEALIZED)
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
@@ -17,9 +19,6 @@ from .utils import (get_parent_attr, level_thickness, apply_time_offset,
                     monthly_mean_ts, monthly_mean_at_each_ind,
                     pfull_from_ps, dp_from_ps, int_dp_g)
 
-LON_STR = 'lon'
-TIME_STR = 'time'
-TIME_STR_IDEALIZED = 'year'
 
 ps = Var(
     name='ps',
@@ -388,7 +387,6 @@ class Calc(object):
 
     def _get_pressure_vals(self, var, start_date, end_date, n=0):
         """Get pressure array, whether sigma or standard levels."""
-        self._print_verbose("Getting pressure data:", var)
         if self.dtype_in_vert == 'pressure':
             if np.any(self.pressure):
                 pressure = self.pressure
@@ -413,20 +411,22 @@ class Calc(object):
     def _get_input_data(self, var, start_date, end_date, n):
         """Get the data for a single variable over the desired date range."""
         self._print_verbose("Getting input data:", var)
-      # Pass numerical constants as is.
-        if isinstance(var, (float, int)):
-            return var
-        elif isinstance(var, Constant):
-            return var.value
         # If only 1 run, use it to load all data.
         # Otherwise assume that # runs == # vars to load.
         if len(self.run) == 1:
             n = 0
+        # Pass numerical constants as is.
+        if isinstance(var, (float, int)):
+            return var
+        elif isinstance(var, Constant):
+            return var.value
         # Pressure handled specially due to complications from sigma vs. p.
-        if var in ('p', 'dp'):
-            data = self._get_pressure_vals(var, start_date, end_date)
+        elif var in ('p', 'dp'):
+            return self._to_desired_dates(self._get_pressure_vals(var,
+                                                                  start_date,
+                                                                  end_date))
         # Get grid, time, etc. arrays directly from model object
-        elif var.name in ('lat', 'lon', 'time', 'level',
+        elif var.name in (LAT_STR, LON_STR, TIME_STR, PLEVEL_STR,
                           'pk', 'bk', 'sfc_area'):
             data = getattr(self.model[n], var.name)
         # aospy.Var objects remain.
@@ -434,9 +434,9 @@ class Calc(object):
             set_dt = True if not hasattr(self, 'dt') else False
             data = self._create_input_data_obj(var, start_date, end_date, n=n,
                                                set_dt=set_dt)
-        # Force all data to be at full pressure levels, not half levels.
-        if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
-            data = self._phalf_to_pfull(data)
+            # Force all data to be at full pressure levels, not half levels.
+            if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
+                data = self._phalf_to_pfull(data)
         # Restrict to the desired dates within each year.
         if var.def_time:
             return self._to_desired_dates(data)
@@ -478,12 +478,16 @@ class Calc(object):
         arr.name = self.name
         return arr
 
-    def _compute(self, start_date, end_date, monthly_mean=False):
+    def _compute(self, data_in, monthly_mean=False):
         """Perform the calculation."""
-        data_in = self._prep_data(self._get_all_data(start_date, end_date),
-                                  self.var.func_input_dtype)
         if monthly_mean:
-            data_in = [monthly_mean_ts(d) for d in data_in]
+            data_monthly = []
+            for d in data_in:
+                try:
+                    data_monthly.append(monthly_mean_ts(d))
+                except KeyError:
+                    data_monthly.append(d)
+            data_in = data_monthly
         local_ts = self._local_ts(*data_in)
         if self.dtype_in_time == 'inst':
             dt = xray.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
@@ -498,15 +502,11 @@ class Calc(object):
         """Vertical integral"""
         return int_dp_g(arr, dp)
 
-    def _compute_full_ts(self, monthly_mean=False, zonal_asym=False):
+    def _compute_full_ts(self, data_in, monthly_mean=False, zonal_asym=False):
         """Perform calculation and create yearly timeseries at each point."""
         # Get results at each desired timestep and spatial point.
         # Here we need to provide file read-in dates (NOT xray dates)
-        if monthly_mean:
-            full_ts, dt = self._compute(self.start_date, self.end_date,
-                                        monthly_mean=True)
-        else:
-            full_ts, dt = self._compute(self.start_date, self.end_date)
+        full_ts, dt = self._compute(data_in, monthly_mean=monthly_mean)
         if zonal_asym:
             full_ts = full_ts - full_ts.mean(LON_STR)
         # Vertically integrate.
@@ -561,17 +561,23 @@ class Calc(object):
 
     def compute(self):
         """Perform all desired calculations on the data and save externally."""
+        # Load the input data from disk.
+        data_in = self._prep_data(self._get_all_data(self.start_date,
+                                                     self.end_date),
+                                  self.var.func_input_dtype)
         # Compute only the needed timeseries.
         self._print_verbose('\n', 'Computing desired timeseries for '
                             '{} -- {}.'.format(self.start_date, self.end_date))
         bool_monthly = ['monthly_from' in self.dtype_in_time]
         bool_eddy = ['eddy' in dout for dout in self.dtype_out_time]
         if not all(bool_monthly):
-            full_ts, full_dt = self._compute_full_ts(monthly_mean=False)
+            full_ts, full_dt = self._compute_full_ts(data_in,
+                                                     monthly_mean=False)
         else:
             full_ts = False
         if any(bool_eddy) or any(bool_monthly):
-            monthly_ts, monthly_dt = self._compute_full_ts(monthly_mean=True)
+            monthly_ts, monthly_dt = self._compute_full_ts(data_in,
+                                                           monthly_mean=True)
         else:
             monthly_ts = False
         if any(bool_eddy):
