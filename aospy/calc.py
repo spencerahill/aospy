@@ -254,7 +254,7 @@ class Calc(object):
                                                   self.intvl_out,
                                                   self.data_in_start_date[n].year,
                                                   self.data_in_dur[n]))
-                 for year in range(start_year, end_year)] # SKC
+                 for year in range(start_year, end_year + 1)]
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
@@ -322,107 +322,61 @@ class Calc(object):
                           self.end_date_xray, self.months, indices=False)
         return arr.sel(time=times)
 
-    def grid_sfc_area(self, lon, lat, lonb, latb, gridcenter=False):
-        """Calculate surface area of each grid cell in a lon-lat grid."""
-        def diff_latlon_bnds(array):
-            if array.ndim == 1:
-                return np.diff(array, axis=0)
-            else:
-                return array[:, 1] - array[:, 0]
-            dlon = diff_latlon_bnds(lonb)
-            # Must compute gridcell edges if given values at cell centers.
-        if gridcenter:
-            # Grid must be evenly spaced for algorithm to work.
-            assert np.allclose(dlon[0], dlon)
-            dlon = np.append(dlon, lonb[0] - lonb[-1] + 360.)
-            dlat = diff_latlon_bnds(latb)
-            assert np.allclose(dlat[0], dlat)
-            # First and last array values done separately.
-            lat = latb
-            latb = np.append(lat[0] - 0.5*dlat[0], lat[:-1] + 0.5*dlat)
-            latb = np.append(latb, lat[-1]+0.5*dlat[-1])
-
-        # The odd business of converting to radians then back to degrees
-        # is to account for a bug in xray. For whatever reason you cannot
-        # call the diff function on a coordinate. If we apply an identity
-        # operation (e.g. changing back and forth between degrees and radians)
-        # we can disconnect the coordinate from the values. This allows diff
-        # to work properly.
-        dlon = np.abs(np.rad2deg(np.deg2rad(lonb)).diff(dim='lon_bounds'))
-        dsinlat = np.abs(np.sin(np.pi * latb / 180.0).diff(dim='lat_bounds'))
-
-        # We will need to be clever about naming, however. For now we don't
-        # use the gridbox area, so we'll leave things like this for now.
-        sfc_area = dlon*dsinlat*(r_e**2) * (np.pi/180.)
-        # Rename the coordinates such that they match the actual lat / lon
-        # (Not the bounds)
-        sfc_area = sfc_area.rename({'lat_bounds': 'lat', 'lon_bounds': 'lon'})
-        sfc_area['lat'] = lat
-        sfc_area['lon'] = lon
-        return sfc_area
-
     def _add_grid_attributes(self, ds, n=0):
         """Add model grid attributes to a dataset"""
-        primary_attrs = {
+
+        grid_attrs = {
             'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
             'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
             'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
             'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
             'level':       ('level', 'lev', 'plev'),
-            'phalf':       ('phalf',),
-            'pfull':       ('pfull',)
-            }
-
-        for name_int, names_ext in primary_attrs.items():
-            ds_coord_name = set(names_ext).intersection(set(ds.coords))
-            if ds_coord_name:
-                # Check if coord is in dataset already.
-                # If it is, then rename it so that it has
-                # the correct internal name.
-                ds = ds.rename({list(ds_coord_name)[0] : name_int})
-                ds = ds.set_coords(name_int)
-            #else:
-                # Bring in coord from model object.
-            #    ds[name_int] = getattr(self.model[n], name_int)
-            #    ds = ds.set_coords(name_int)
-                
-        grid_attrs = {
-       #     'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-       #     'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
-       #     'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-       #     'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
-       #     'level':       ('level', 'lev', 'plev'),
+            # 'time':        ('time', 'TIME'),
+            # 'time_st':     ('average_T1',),
+            # 'time_end':    ('average_T2',),
+            # 'time_dur':    ('average_DT',),
+            # 'time_bounds': ('time_bounds', 'time_bnds'),
+            # 'year':        ('yr', 'year'),
+            # 'month':       ('mo', 'month'),
+            # 'day':         ('dy', 'day'),
             'sfc_area':    ('area', 'sfc_area'),
+            # 'zsurf':       ('zsurf',),
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
-       #     'phalf':       ('phalf',),
-       #     'pfull':       ('pfull',)
+            'phalf':       ('phalf',),
+            'pfull':       ('pfull',),
+            # 'nrecords':    ('nrecords',),
+            # 'idim':        ('idim',),
+            # 'fill_value':  ('fill_value')
         }
 
-        if len(set(['lat','lon']).intersection(set(ds.coords))) == 2:
-            # Bring in spatial coords.
-            ds['sfc_area'] = self.grid_sfc_area(ds.lon, ds.lat, ds.lon_bounds, ds.lat_bounds)
-            ds['land_mask'] = self.model[n].land_mask # This will break if latitudes are not perfectly aligned.
-            ds = ds.set_coords(['sfc_area', 'land_mask'])
-
-        if 'phalf' in ds.coords:
-            ds['pk'] = self.model[n].pk
-            ds['bk'] = self.model[n].bk
-            ds = ds.set_coords(['pk', 'bk'])
-        
-#        for name_int, names_ext in grid_attrs.items():
-#            ds_coord_name = set(names_ext).intersection(set(ds.coords))
-#            if ds_coord_name:
+        for name_int, names_ext in grid_attrs.items():
+            ds_coord_name = set(names_ext).intersection(set(ds.coords))
+            if ds_coord_name:
                 # Check if coord is in dataset already.
                 # If it is, then rename it so that it has 
                 # the correct internal name.
-#                ds = ds.rename({list(ds_coord_name)[0] : name_int})
-#                ds = ds.set_coords(name_int)
-#            else:
+                ds = ds.rename({list(ds_coord_name)[0] : name_int})
+                ds = ds.set_coords(name_int)
+                if not ds[name_int].equals(getattr(self.model[n], name_int)):
+                    print("Warning: Model coordinates for '{}' do not match those in Run".format(name_int))
+            else:
                 # Bring in coord from model object.
- #               ds[name_int] = getattr(self.model[n], name_int)
- #               ds = ds.set_coords(name_int)
+                ds[name_int] = getattr(self.model[n], name_int)
+                ds = ds.set_coords(name_int)
+
+        # 2015-10-26 S. Clark: From here on I think it's wise to create a rule that
+        # if a particular Run uses a slightly different model version and 
+        # has slightly different latitude or longitude coordinates (no matter
+        # how small) then it uses a different Model. So if something breaks due to 
+        # alignment it should raise an exception telling the user that the Model 
+        # coordinates do not match the coordinates of the Run and the user should
+        # create a new Model object for this Run (and others that use this version of
+        # the model). As inconvenient as that might be, it's more complicated to implement
+        # something that would allow for one model to use two slightly different grids.
+        
+        # As it turns out this removes the need to compute surface area within Calc.py.        
         return ds
 
     def _create_input_data_obj(self, var, start_date=False,
@@ -458,9 +412,7 @@ class Calc(object):
             test = xray.decode_cf(test)
             ds_chunks.append(test)
         ds = xray.concat(ds_chunks, dim='time')
-        print(ds)
         ds = self._add_grid_attributes(ds,n)
-        print(ds)
         # 2015-10-16 S. Hill: Passing in each variable as a Dataset is causing
         # lots of problems in my functions, even ones as simple as just adding
         # the two variables together.  I think it makes most sense to just grab

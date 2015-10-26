@@ -89,6 +89,29 @@ class Model(object):
                 pass
         return
 
+    def _rename_coords(self, ds):
+        """Renames all coordinates within a Dataset or DataArray so that they match 
+        the internal names.
+        """
+        primary_attrs = {
+            'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
+            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
+            'level':       ('level', 'lev', 'plev'),
+            'phalf':       ('phalf',),
+            'pfull':       ('pfull',)
+            }
+        if isinstance(ds, xray.Dataset) or isinstance(ds, xray.DataArray):
+            for name_int, names_ext in primary_attrs.items():
+                ds_coord_name = set(names_ext).intersection(set(ds.coords))
+                if ds_coord_name:
+                    # Check if coord is in dataset already.
+                    # If it is, then rename it so that it has
+                    # the correct internal name.
+                    ds = ds.rename({list(ds_coord_name)[0] : name_int})
+        return ds
+
     def _set_mult_grid_attr(self):
         """
         Set multiple attrs from grid file given their names in the grid file.
@@ -122,8 +145,9 @@ class Model(object):
         try:
             for name_int, names_ext in grid_attrs.items():
                 for name in names_ext:
+                    # Rename all coordinates such that they match specified internal names.
                     setattr(self, name_int,
-                            self._get_grid_attr(grid_objs, name))
+                            self._rename_coords(self._get_grid_attr(grid_objs, name)))
                     break
         except:
             raise
@@ -154,15 +178,15 @@ class Model(object):
         # operation (e.g. changing back and forth between degrees and radians)
         # we can disconnect the coordinate from the values. This allows diff
         # to work properly.
-        dlon = np.abs(np.rad2deg(np.deg2rad(lonb)).diff(dim='lonb'))
-        dsinlat = np.abs(np.sin(np.pi * latb / 180.0).diff(dim='latb'))
+        dlon = np.abs(np.rad2deg(np.deg2rad(lonb)).diff(dim='lon_bounds'))
+        dsinlat = np.abs(np.sin(np.pi * latb / 180.0).diff(dim='lat_bounds'))
 
         # We will need to be clever about naming, however. For now we don't
         # use the gridbox area, so we'll leave things like this for now.
         sfc_area = dlon*dsinlat*(r_e**2) * (np.pi/180.)
         # Rename the coordinates such that they match the actual lat / lon
         # (Not the bounds)
-        sfc_area = sfc_area.rename({'latb': 'lat', 'lonb': 'lon'})
+        sfc_area = sfc_area.rename({'lat_bounds': 'lat', 'lon_bounds': 'lon'})
         sfc_area['lat'] = lat
         sfc_area['lon'] = lon
         return sfc_area
