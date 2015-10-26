@@ -330,25 +330,14 @@ class Calc(object):
             'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
             'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
             'level':       ('level', 'lev', 'plev'),
-            # 'time':        ('time', 'TIME'),
-            # 'time_st':     ('average_T1',),
-            # 'time_end':    ('average_T2',),
-            # 'time_dur':    ('average_DT',),
-            # 'time_bounds': ('time_bounds', 'time_bnds'),
-            # 'year':        ('yr', 'year'),
-            # 'month':       ('mo', 'month'),
-            # 'day':         ('dy', 'day'),
             'sfc_area':    ('area', 'sfc_area'),
-            # 'zsurf':       ('zsurf',),
+            'zsurf':       ('zsurf',),
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
             'phalf':       ('phalf',),
             'pfull':       ('pfull',),
-            # 'nrecords':    ('nrecords',),
-            # 'idim':        ('idim',),
-            # 'fill_value':  ('fill_value')
-        }
+            }
 
         for name_int, names_ext in grid_attrs.items():
             ds_coord_name = set(names_ext).intersection(set(ds.coords))

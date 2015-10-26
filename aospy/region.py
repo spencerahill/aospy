@@ -67,9 +67,7 @@ class Region(object):
         dims = ['lat', 'lon']
         coords = [data_masked.coords[c] for c in dims]
         sfc_area = data.sfc_area
-        #sfc_area = self._get_sfc_area(model, dims, coords)
         land_mask = data.land_mask
-        #land_mask = self._get_land_mask(model, dims, coords)
         weights = (self.mask_var(sfc_area)*land_mask).sum('lat').sum('lon')
         return(data_masked*sfc_area*land_mask).sum('lat').sum('lon') / weights
 

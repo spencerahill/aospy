@@ -131,7 +131,7 @@ class Model(object):
             # 'month':       ('mo', 'month'),
             # 'day':         ('dy', 'day'),
             'sfc_area':    ('area', 'sfc_area'),
-            # 'zsurf':       ('zsurf',),
+            'zsurf':       ('zsurf',),
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
