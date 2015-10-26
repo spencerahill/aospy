@@ -8,7 +8,6 @@ import time
 
 import numpy as np
 import xray
-from .constants import r_e
 from . import Constant, Var
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
