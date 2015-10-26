@@ -3,13 +3,9 @@ import numpy as np
 import pandas as pd
 import xray
 
-from . import user_path
-from .constants import grav
-
-PLEVEL_STR = 'level'
-PHALF_STR = 'phalf'
-PFULL_STR = 'pfull'
-TIME_STR = 'time'
+from .__config__ import PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, user_path
+from .numerics import FiniteDiff
+from .constants import grav, Constant
 
 
 def coord_to_new_dataarray(arr, dim):
@@ -41,7 +37,13 @@ def apply_time_offset(time, months=0, days=0, hours=0):
 
 def monthly_mean_ts(arr):
     """Convert a sub-monthly time-series into one of monthly means."""
-    return arr.resample('1M', TIME_STR, how='mean')
+    if isinstance(arr, (float, int, Constant)):
+        return arr
+    try:
+        return arr.resample('1M', TIME_STR, how='mean')
+    except KeyError:
+        raise KeyError("`{}` lacks time dimension with "
+                       "label `{}`.".format(arr, TIME_STR))
 
 
 def monthly_mean_at_each_ind(arr_mon, arr_sub):
@@ -132,16 +134,6 @@ def to_hpa(arr):
     return arr
 
 
-def d_deta_from_pfull(arr):
-    """Compute $\partial f/\partial\eta$.
-
-    $\eta$ is the model vertical coordinate, and its value is assumed to simply
-    increment by 1 from 0 at the surface upwards.  The data to be differenced
-    is assumed to be defined at full pressure levels.
-    """
-    raise NotImplementedError
-
-
 def phalf_from_ps(bk, pk, ps):
     """Compute pressure of half levels of hybrid sigma-pressure coordinates."""
     return (ps*bk + pk)
@@ -187,6 +179,20 @@ def d_deta_from_phalf(arr, pfull_coord):
     """Compute pressure level thickness from half level pressures."""
     d_deta = arr.diff(dim=PHALF_STR, n=1)
     return replace_coord(d_deta, PHALF_STR, PFULL_STR, pfull_coord)
+
+
+def d_deta_from_pfull(arr):
+    """Compute $\partial/\partial\eta$ of the array on full hybrid levels.
+
+    $\eta$ is the model vertical coordinate, and its value is assumed to simply
+    increment by 1 from 0 at the surface upwards.  The data to be differenced
+    is assumed to be defined at full pressure levels.
+    """
+    deriv = FiniteDiff.cen_diff(arr, PFULL_STR, do_edges_one_sided=True) / 2.
+    # Edges use 1-sided differencing, so only spanning one level, not two.
+    deriv[{PFULL_STR: 0}] = deriv[{PFULL_STR: 0}] * 2.
+    deriv[{PFULL_STR: -1}] = deriv[{PFULL_STR: -1}] * 2.
+    return deriv
 
 
 def dp_from_ps(bk, pk, ps, pfull_coord):
