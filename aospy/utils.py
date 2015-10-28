@@ -212,9 +212,9 @@ def vert_coord_name(dp):
     return None
 
 
-def int_dp_g(integrand, dp):
+def int_dp_g(arr, dp):
     """Mass weighted integral."""
-    return integrate(integrand, dp, vert_coord_name(dp)) * (1. / grav.value)
+    return integrate(arr, to_pascal(dp), vert_coord_name(dp)) / grav.value
 
 
 def dp_from_p(p, ps):
