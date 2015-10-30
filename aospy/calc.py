@@ -7,7 +7,6 @@ import tarfile
 import time
 
 import numpy as np
-import pandas as pd
 import xray
 
 from . import Constant, Var
@@ -386,6 +385,7 @@ class Calc(object):
 
     def _get_pressure_vals(self, var, start_date, end_date, n=0):
         """Get pressure array, whether sigma or standard levels."""
+
         if self.dtype_in_vert == 'pressure':
             if np.any(self.pressure):
                 pressure = self.pressure
@@ -405,6 +405,9 @@ class Calc(object):
                 data = pfull_from_ps(bk, pk, ps, pfull_coord)
             elif var == 'dp':
                 data = dp_from_ps(bk, pk, ps, pfull_coord)
+        else:
+            raise ValueError("`dtype_in_vert` must be either 'pressure' or "
+                             "'sigma' for pressure data")
         return data
 
     def _correct_gfdl_inst_time(self, arr):
@@ -448,10 +451,10 @@ class Calc(object):
             if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
                 data = self._phalf_to_pfull(data)
         # Correct GFDL instantaneous data time indexing problem.
-        if self.dtype_in_time == 'inst':
-            data = self._correct_gfdl_inst_time(data)
-        # Restrict to the desired dates within each year.
         if var.def_time:
+            if self.dtype_in_time == 'inst':
+                data = self._correct_gfdl_inst_time(data)
+            # Restrict to the desired dates within each year.
             return self._to_desired_dates(data)
         return data
 
