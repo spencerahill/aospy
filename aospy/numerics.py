@@ -5,13 +5,13 @@ import xray
 
 class FiniteDiff(object):
     """For numerical approximations of derivatives using finite differences."""
-    def __init__(self, f, geometry='spherical',
+    def __init__(self, arr, geometry='spherical',
                  vector_field=False, wraparound=False):
         """
         Create a `FiniteDiff` object.
 
-        :param f: Data to be finite-differenced.
-        :type f: xray.Dataset or xray.DataArray object
+        :param arr: Data to be finite-differenced.
+        :type arr: xray.Dataset or xray.DataArray object
         :param str geometry: Geometry of the positions.  Either 'cartesian'
                              or 'spherical'.
         :param vector_field: Whether or not `f` is a component of a vector
@@ -21,7 +21,7 @@ class FiniteDiff(object):
         :param wraparound: Which, if any, axes are wraparound, e.g. longitude
                            on the sphere.
         """
-        self.f = f
+        self.arr = arr
         self.geometry = geometry
         self.vector_field = vector_field
         self.wraparound = wraparound
@@ -30,7 +30,7 @@ class FiniteDiff(object):
     def fwd_diff1(arr, dim, is_coord=False):
         """Forward differencing of the array.  Not its full derivative.
 
-        A bug in xray version 0.6.0 and prior causes the `DataArray.diff`
+        A bug in xray version 0.6.1 and prior causes the `DataArray.diff`
         method to not work when applied to a coordinate array.  Therefore,
         a workaround is implemented here and used if the `is_coord` keyword
         argument is True.
@@ -65,7 +65,7 @@ class FiniteDiff(object):
                                    for the stencil.  If `True`, use one-sided
                                    differencing with the same order of accuracy
                                    as `order`, and the outputted array is the
-                                   same shape as `self.f`.
+                                   same shape as `arr`.
 
                                    If `False`, the outputted array has a length
                                    in the computed axis reduced by `order`.
@@ -83,7 +83,6 @@ class FiniteDiff(object):
             diff_left = cls.fwd_diff1(left, dim, is_coord=is_coord)
             diff_right = cls.bwd_diff1(right, dim, is_coord=is_coord)
             diff = xray.concat([diff_left, diff, diff_right], dim=dim)
-
         return diff
 
     @classmethod
@@ -130,7 +129,7 @@ class FiniteDiff(object):
                                    for the stencil.  If `True`, use one-sided
                                    differencing with the same order of accuracy
                                    as `order`, and the outputted array is the
-                                   same shape as `self.f`.
+                                   same shape as `arr`.
 
                                    If `False`, the outputted array has a length
                                    in the computed axis reduced by `order`.
