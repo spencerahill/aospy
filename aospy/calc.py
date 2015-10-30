@@ -14,7 +14,7 @@ from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, level_thickness, apply_time_offset,
                     monthly_mean_ts, monthly_mean_at_each_ind,
-                    pfull_from_ps, dp_from_ps, int_dp_g)
+                    pfull_from_ps, dp_from_ps, int_dp_g, to_pascal)
 
 LON_STR = 'lon'
 TIME_STR = 'time'
@@ -253,7 +253,7 @@ class Calc(object):
                                                   self.intvl_out,
                                                   self.data_in_start_date[n].year,
                                                   self.data_in_dur[n]))
-                 for year in range(start_year, end_year + 1)]
+                 for year in range(start_year, end_year)]
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
@@ -347,13 +347,14 @@ class Calc(object):
                 # the correct internal name.
                 ds = ds.rename({list(ds_coord_name)[0] : name_int})
                 ds = ds.set_coords(name_int)
-                if not ds[name_int].equals(getattr(self.model[n], name_int)):
+                if not self._strip_undefined_coords(ds[name_int]).equals(getattr(self.model[n], name_int)):
                     print("Warning: Model coordinates for '{}' do not match those in Run".format(name_int))
             else:
                 # Bring in coord from model object.
                 ds[name_int] = getattr(self.model[n], name_int)
                 ds = ds.set_coords(name_int)
-
+            if self.dtype_in_vert == 'pressure' and 'level' in ds.coords:
+                self.pressure = ds.level
         # 2015-10-26 S. Clark: From here on I think it's wise to create a rule that
         # if a particular Run uses a slightly different model version and 
         # has slightly different latitude or longitude coordinates (no matter
@@ -387,6 +388,7 @@ class Calc(object):
         # here was that it opens a can of worms with regard to performance;
         # we'd need to add some logic to make sure the data were chunked in a
         # reasonable way (and logic to change the chunking if need be).
+
         for file_ in paths:
             test = xray.open_dataset(file_, decode_cf=False,
                                      drop_variables=['time_bounds', 'nv',
@@ -484,6 +486,10 @@ class Calc(object):
         if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
             data = self._phalf_to_pfull(data)
         # Restrict to the desired dates within each year.
+        if self.dtype_in_vert == 'sigma' and var in ('p', 'dp'):
+            return self.to_desired_dates(data)
+        if self.dtype_in_vert == 'pressure' and var in ('p', 'dp'):
+            return data
         if var.def_time:
             return self._to_desired_dates(data)
         return data
@@ -654,9 +660,18 @@ class Calc(object):
         for dtype_time, data in reduced.items():
             self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert)
 
+    def _strip_undefined_coords(self, ds):
+        """Removes all undefined coordinates from a Dataset or DataArray"""
+        for coord in ds.coords:
+            if ds[coord].values is None:
+                ds = ds.drop(coord)
+        return ds
+
     def _save_to_scratch(self, data, dtype_out_time):
         """Save the data to the scratch filesystem."""
         path = self.path_scratch[dtype_out_time]
+        # Drop undefined coords.
+        data = self._strip_undefined_coords(data)
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
         if 'reg' in dtype_out_time:

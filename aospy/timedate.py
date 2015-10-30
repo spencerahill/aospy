@@ -10,7 +10,8 @@ class TimeManager(object):
     """Convert input time specifications into arrays of datetime objects."""
 
     NUMPYMINYEAR = 1678
-    YEAROFFSET = 1900
+    # We start at year 1 (not 0) so this needs to be 1900-1.
+    YEAROFFSET = 1899
 
     @classmethod
     def to_datetime(cls, obj):

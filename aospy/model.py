@@ -74,9 +74,9 @@ class Model(object):
         datasets = []
         for path in self.grid_file_paths:
             try:
-                ds = xray.open_dataset(path)
+                ds = xray.open_dataset(path, decode_cf=False)
             except TypeError:
-                ds = xray.open_mfdataset(path)
+                ds = xray.open_mfdataset(path, decode_cf=False)
             datasets.append(ds)
         return tuple(datasets)
 
