@@ -51,7 +51,8 @@ class FiniteDiff(object):
         return arr.diff(dim, n=1, label='upper')
 
     @classmethod
-    def cen_diff(cls, arr, dim, spacing=1, is_coord=False):
+    def cen_diff(cls, arr, dim, spacing=1, is_coord=False,
+                 do_edges_one_sided=False):
         """Centered differencing of the DataArray or Dataset.
 
         :param arr: Data to be center-differenced.
@@ -59,14 +60,31 @@ class FiniteDiff(object):
         :param str dim: Dimension over which to perform the differencing.
         :param int spacing: How many gridpoints over to use.  Size of resulting
                             array depends on this value.
+        :param do_edges_one_sided: Whether or not to fill in the edge cells
+                                   that don't have the needed neighbor cells
+                                   for the stencil.  If `True`, use one-sided
+                                   differencing with the same order of accuracy
+                                   as `order`, and the outputted array is the
+                                   same shape as `self.f`.
+
+                                   If `False`, the outputted array has a length
+                                   in the computed axis reduced by `order`.
         """
         if spacing < 1:
             raise ValueError("Centered differencing cannot have spacing < 1")
         left = arr.isel(**{dim: slice(0, -spacing)})
         right = arr.isel(**{dim: slice(spacing, None)})
         # Centered differencing = sum of intermediate forward differences
-        return (cls.fwd_diff1(right, dim, is_coord=is_coord) +
+        diff = (cls.fwd_diff1(right, dim, is_coord=is_coord) +
                 cls.bwd_diff1(left, dim, is_coord=is_coord))
+        if do_edges_one_sided:
+            left = arr.isel(**{dim: slice(0, 2)})
+            right = arr.isel(**{dim: slice(-2, None)})
+            diff_left = cls.fwd_diff1(left, dim, is_coord=is_coord)
+            diff_right = cls.bwd_diff1(right, dim, is_coord=is_coord)
+            diff = xray.concat([diff_left, diff, diff_right], dim=dim)
+
+        return diff
 
     @classmethod
     def fwd_diff_deriv(cls, arr, dim):
@@ -120,15 +138,10 @@ class FiniteDiff(object):
         if order != 2:
             raise NotImplementedError("Centered differencing of df/dx only "
                                       "supported for 2nd order currently")
-        deriv = (cls.cen_diff(arr, dim, spacing=1, is_coord=False) /
-                 cls.cen_diff(arr[dim], dim, spacing=1, is_coord=True))
-        if do_edges_one_sided:
-            left = arr.isel(**{dim: slice(0, 2)})
-            right = arr.isel(**{dim: slice(-2, None)})
-            deriv_left = cls.fwd_diff_deriv(left, dim)
-            deriv_right = cls.bwd_diff_deriv(right, dim)
-            deriv = xray.concat([deriv_left, deriv, deriv_right], dim=dim)
-        return deriv
+        return (cls.cen_diff(arr, dim, spacing=1, is_coord=False,
+                             do_edges_one_sided=do_edges_one_sided) /
+                cls.cen_diff(arr[dim], dim, spacing=1, is_coord=True,
+                             do_edges_one_sided=do_edges_one_sided))
 
     @classmethod
     def upwind_advection(cls, arr, flow, dim, order=1):

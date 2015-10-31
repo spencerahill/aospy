@@ -7,8 +7,11 @@ import tarfile
 import time
 
 import numpy as np
+import pandas as pd
 import xray
 from . import Constant, Var
+from .__config__ import (LAT_STR, LON_STR, PLEVEL_STR, TIME_STR,
+                         TIME_STR_IDEALIZED)
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
@@ -16,9 +19,6 @@ from .utils import (get_parent_attr, level_thickness, apply_time_offset,
                     monthly_mean_ts, monthly_mean_at_each_ind,
                     pfull_from_ps, dp_from_ps, int_dp_g, to_pascal)
 
-LON_STR = 'lon'
-TIME_STR = 'time'
-TIME_STR_IDEALIZED = 'year'
 
 ps = Var(
     name='ps',
@@ -248,12 +248,12 @@ class Calc(object):
             dtype = self.dtype_in_time
         direc = os.path.join(data_in_direc, domain, dtype_lbl, self.intvl_in,
                              str(self.data_in_dur[n]) + 'yr')
-        files = [os.path.join(direc, data_in_name_gfdl(name, domain, dtype,
-                                                  self.intvl_in, year,
-                                                  self.intvl_out,
-                                                  self.data_in_start_date[n].year,
-                                                  self.data_in_dur[n]))
-                 for year in range(start_year, end_year)]
+
+        files = [os.path.join(direc, data_in_name_gfdl(
+                     name, domain, dtype, self.intvl_in, year, self.intvl_out,
+                     self.data_in_start_date[n].year, self.data_in_dur[n]
+                 )) for year in range(start_year, end_year + 1)]
+
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
@@ -317,7 +317,7 @@ class Calc(object):
 
     def _to_desired_dates(self, arr):
         """Restrict the xray DataArray or Dataset to the desired months."""
-        times = _get_time(arr['time'], self.start_date_xray,
+        times = _get_time(arr[TIME_STR], self.start_date_xray,
                           self.end_date_xray, self.months, indices=False)
         return arr.sel(time=times)
 
@@ -395,13 +395,13 @@ class Calc(object):
                                                      'average_T1',
                                                      'average_T2'])
             if start_date.year < 1678:
-                for v in ['time']:
+                for v in [TIME_STR]:
                     test[v].attrs['units'] = ('days since 1900-01-01 '
                                               '00:00:00')
-                test['time'].attrs['calendar'] = 'noleap'
+                test[TIME_STR].attrs['calendar'] = 'noleap'
             test = xray.decode_cf(test)
             ds_chunks.append(test)
-        ds = xray.concat(ds_chunks, dim='time')
+        ds = xray.concat(ds_chunks, dim=TIME_STR)
         ds = self._add_grid_attributes(ds,n)
         # 2015-10-16 S. Hill: Passing in each variable as a Dataset is causing
         # lots of problems in my functions, even ones as simple as just adding
@@ -436,7 +436,6 @@ class Calc(object):
 
     def _get_pressure_vals(self, var, start_date, end_date, n=0):
         """Get pressure array, whether sigma or standard levels."""
-        self._print_verbose("Getting pressure data:", var)
         if self.dtype_in_vert == 'pressure':
             if np.any(self.pressure):
                 pressure = self.pressure
@@ -458,23 +457,36 @@ class Calc(object):
                 data = dp_from_ps(bk, pk, ps, pfull_coord)
         return data
 
+    def _correct_gfdl_inst_time(self, arr):
+        """Correct off-by-one error in GFDL instantaneous model data."""
+        time = arr[TIME_STR]
+        if self.intvl_in == '3hr':
+            offset = -3
+        elif self.intvl_in == '6hr':
+            offset = -6
+        time = apply_time_offset(time, hours=offset)
+        arr[TIME_STR] = time
+        return arr
+
     def _get_input_data(self, var, start_date, end_date, n):
         """Get the data for a single variable over the desired date range."""
         self._print_verbose("Getting input data:", var)
-      # Pass numerical constants as is.
-        if isinstance(var, (float, int)):
-            return var
-        elif isinstance(var, Constant):
-            return var.value
         # If only 1 run, use it to load all data.
         # Otherwise assume that # runs == # vars to load.
         if len(self.run) == 1:
             n = 0
+        # Pass numerical constants as is.
+        if isinstance(var, (float, int)):
+            return var
+        elif isinstance(var, Constant):
+            return var.value
         # Pressure handled specially due to complications from sigma vs. p.
-        if var in ('p', 'dp'):
-            data = self._get_pressure_vals(var, start_date, end_date)
+        elif var in ('p', 'dp'):
+            return self._to_desired_dates(self._get_pressure_vals(var,
+                                                                  start_date,
+                                                                  end_date))
         # Get grid, time, etc. arrays directly from model object
-        elif var.name in ('lat', 'lon', 'time', 'level',
+        elif var.name in (LAT_STR, LON_STR, TIME_STR, PLEVEL_STR,
                           'pk', 'bk', 'sfc_area'):
             data = getattr(self.model[n], var.name)
         # aospy.Var objects remain.
@@ -482,9 +494,12 @@ class Calc(object):
             set_dt = True if not hasattr(self, 'dt') else False
             data = self._create_input_data_obj(var, start_date, end_date, n=n,
                                                set_dt=set_dt)
-        # Force all data to be at full pressure levels, not half levels.
-        if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
-            data = self._phalf_to_pfull(data)
+            # Force all data to be at full pressure levels, not half levels.
+            if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
+                data = self._phalf_to_pfull(data)
+        # Correct GFDL instantaneous data time indexing problem.
+        if self.dtype_in_time == 'inst':
+            data = self._correct_gfdl_inst_time(data)
         # Restrict to the desired dates within each year.
         if self.dtype_in_vert == 'sigma' and var in ('p', 'dp'):
             return self.to_desired_dates(data)
@@ -493,11 +508,6 @@ class Calc(object):
         if var.def_time:
             return self._to_desired_dates(data)
         return data
-
-    def _get_all_data(self, start_date, end_date):
-        """Get the needed data from all of the vars in the calculation."""
-        return [self._get_input_data(v, start_date, end_date, n)
-                for n, v in enumerate(self.variables)]
 
     def _prep_data(self, data, func_input_dtype):
         """Convert data to type needed by the given function.
@@ -522,6 +532,13 @@ class Calc(object):
         raise ValueError("Unknown func_input_dtype "
                          "'{}'.".format(func_input_dtype))
 
+    def _get_all_data(self, start_date, end_date):
+        """Get the needed data from all of the vars in the calculation."""
+        return [self._prep_data(self._get_input_data(var, start_date,
+                                                     end_date, n),
+                                self.var.func_input_dtype)
+                for n, var in enumerate(self.variables)]
+
     def _local_ts(self, *data_in):
         """Perform the computation at each gridpoint and time index."""
         arr = self.function(*data_in)
@@ -530,12 +547,16 @@ class Calc(object):
         arr.name = self.name
         return arr
 
-    def _compute(self, start_date, end_date, monthly_mean=False):
+    def _compute(self, data_in, monthly_mean=False):
         """Perform the calculation."""
-        data_in = self._prep_data(self._get_all_data(start_date, end_date),
-                                  self.var.func_input_dtype)
         if monthly_mean:
-            data_in = [monthly_mean_ts(d) for d in data_in]
+            data_monthly = []
+            for d in data_in:
+                try:
+                    data_monthly.append(monthly_mean_ts(d))
+                except KeyError:
+                    data_monthly.append(d)
+            data_in = data_monthly
         local_ts = self._local_ts(*data_in)
         if self.dtype_in_time == 'inst':
             dt = xray.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
@@ -550,15 +571,11 @@ class Calc(object):
         """Vertical integral"""
         return int_dp_g(arr, dp)
 
-    def _compute_full_ts(self, monthly_mean=False, zonal_asym=False):
+    def _compute_full_ts(self, data_in, monthly_mean=False, zonal_asym=False):
         """Perform calculation and create yearly timeseries at each point."""
         # Get results at each desired timestep and spatial point.
         # Here we need to provide file read-in dates (NOT xray dates)
-        if monthly_mean:
-            full_ts, dt = self._compute(self.start_date, self.end_date,
-                                        monthly_mean=True)
-        else:
-            full_ts, dt = self._compute(self.start_date, self.end_date)
+        full_ts, dt = self._compute(data_in, monthly_mean=monthly_mean)
         if zonal_asym:
             full_ts = full_ts - full_ts.mean(LON_STR)
         # Vertically integrate.
@@ -571,8 +588,8 @@ class Calc(object):
 
     def _avg_by_year(self, arr, dt):
         """Average a sub-yearly time-series over each year."""
-        return ((arr*dt).groupby('time.year').sum('time') /
-                dt.groupby('time.year').sum('time'))
+        return ((arr*dt).groupby('time.year').sum(TIME_STR) /
+                dt.groupby('time.year').sum(TIME_STR))
 
     def _full_to_yearly_ts(self, arr, dt):
         """Average the full timeseries within each year."""
@@ -613,17 +630,23 @@ class Calc(object):
 
     def compute(self):
         """Perform all desired calculations on the data and save externally."""
+        # Load the input data from disk.
+        data_in = self._prep_data(self._get_all_data(self.start_date,
+                                                     self.end_date),
+                                  self.var.func_input_dtype)
         # Compute only the needed timeseries.
         self._print_verbose('\n', 'Computing desired timeseries for '
                             '{} -- {}.'.format(self.start_date, self.end_date))
         bool_monthly = ['monthly_from' in self.dtype_in_time]
         bool_eddy = ['eddy' in dout for dout in self.dtype_out_time]
         if not all(bool_monthly):
-            full_ts, full_dt = self._compute_full_ts(monthly_mean=False)
+            full_ts, full_dt = self._compute_full_ts(data_in,
+                                                     monthly_mean=False)
         else:
             full_ts = False
         if any(bool_eddy) or any(bool_monthly):
-            monthly_ts, monthly_dt = self._compute_full_ts(monthly_mean=True)
+            monthly_ts, monthly_dt = self._compute_full_ts(data_in,
+                                                           monthly_mean=True)
         else:
             monthly_ts = False
         if any(bool_eddy):
