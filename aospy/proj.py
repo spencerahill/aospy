@@ -16,7 +16,6 @@ class Proj(object):
         self.direc_out = direc_out
         self.nc_dir_struc = nc_dir_struc
 
-        self.vars = dict_name_keys(vars)
         if models:
             self.models = dict_name_keys(models)
         else:
@@ -32,7 +31,7 @@ class Proj(object):
         else:
             self.regions = {}
 
-        for obj_dict in (self.vars, self.models, self.regions):
+        for obj_dict in (self.models, self.regions):
             for obj in obj_dict.values():
                 setattr(obj, 'proj', self)
 
