@@ -13,8 +13,6 @@ from . import units
 from .units import Units
 from . import operator
 from .operator import Operator
-#from . import spharm_interface # On hold in python3
-#from .spharm_interface import SpharmInterface
 from . import var
 from .var import Var
 from . import region
