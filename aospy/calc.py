@@ -336,7 +336,7 @@ class Calc(object):
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
-            PHALF_STR:       ('phalf',),
+            PHALF_STR:     ('phalf',),
             PFULL_STR:     ('pfull',),
             }
 
