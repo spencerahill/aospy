@@ -1,4 +1,6 @@
 """aospy.utils: utility functions for the aospy module."""
+import warnings
+
 import numpy as np
 import pandas as pd
 import xray
@@ -110,20 +112,22 @@ def dict_name_keys(objs):
 
 
 def to_radians(arr):
-    if np.max(np.abs(arr)) > 2*np.pi:
+    if np.max(np.abs(arr)) > 4*np.pi:
         return np.deg2rad(arr)
+        warn_msg = ("Conversion applied: degrees -> radians to array:"
+                    "{}".format(arr))
+        warnings.warn(warn_msg, UserWarning)
     else:
         return arr
 
 
-def to_pascal(arr):
-    # For dp fields, this won't work if the input data is already Pascals and
-    # the largest level thickness is < 1200 Pa, i.e. 12 hPa.  This will almost
-    # never come up in practice for data interpolated to pressure levels, but
-    # could come up in sigma data if model has sufficiently high vertical
-    # resolution.
-    if np.max(np.abs(arr)) < 1200.:
+def to_pascal(arr, is_dp=False):
+    """Force data with units either hPa or Pa to be in Pa."""
+    threshold = 400 if is_dp else 1200
+    if np.max(np.abs(arr)) < threshold:
         arr *= 100.
+        warn_msg = "Conversion applied: hPa -> Pa to array: {}".format(arr)
+        warnings.warn(warn_msg, UserWarning)
     return arr
 
 
@@ -131,6 +135,8 @@ def to_hpa(arr):
     """Convert pressure array from Pa to hPa (if needed)."""
     if np.max(np.abs(arr)) > 1200.:
         arr /= 100.
+        warn_msg = "Conversion applied: Pa -> hPa to array: {}".format(arr)
+        warnings.warn(warn_msg, UserWarning)
     return arr
 
 
@@ -200,21 +206,22 @@ def dp_from_ps(bk, pk, ps, pfull_coord):
     return d_deta_from_phalf(phalf_from_ps(bk, pk, ps), pfull_coord)
 
 
-def integrate(integrand, ddim, dim):
+def integrate(arr, ddim, dim):
     """Integrate along the given dimension."""
-    return (integrand*ddim).sum(dim=dim)
+    return (arr*ddim).sum(dim=dim)
 
 
 def vert_coord_name(dp):
     for name in [PLEVEL_STR, PFULL_STR]:
         if name in dp.coords:
             return name
-    return None
+    return
 
 
-def int_dp_g(integrand, dp):
+def int_dp_g(arr, dp):
     """Mass weighted integral."""
-    return integrate(integrand, dp, vert_coord_name(dp)) * (1. / grav.value)
+    return integrate(arr, to_pascal(dp, is_dp=True),
+                     vert_coord_name(dp)) / grav.value
 
 
 def dp_from_p(p, ps):

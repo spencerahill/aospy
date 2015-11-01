@@ -554,21 +554,6 @@ class Plot(object):
             else:
                 return (np.ma.array(ans, mask=joint_mask),)
 
-        # elif isinstance(calc, dict):
-        #     data = tuple(
-        #         [cl.load(self.dtype_out_time[n],
-        #                  dtype_out_vert=self.dtype_out_vert[n],
-        #                  region=self.region[n], time=False, vert=self.level[n],
-        #                  lat=False, lon=False, plot_units=True,
-        #                  mask_unphysical=True)
-        #          for cl in calc]
-        #     )
-        #     # Combine masks of the two inputs.
-        #     try:
-        #         joint_mask = np.ma.mask_or(data[0].mask, data[1].mask)
-        #         return (np.ma.array(data[0] - data[1], mask=joint_mask),)
-        #     except AttributeError:
-        #         return (data[0] - data[1],)
 
         elif isinstance(calc, (list, tuple)):
             return tuple(

@@ -11,14 +11,14 @@ import numpy as np
 import xray
 
 from . import Constant, Var
-from .__config__ import (LAT_STR, LON_STR, PLEVEL_STR, TIME_STR,
+from .__config__ import (LAT_STR, LON_STR, PFULL_STR, PLEVEL_STR, TIME_STR,
                          TIME_STR_IDEALIZED)
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, level_thickness, apply_time_offset,
                     monthly_mean_ts, monthly_mean_at_each_ind,
-                    pfull_from_ps, dp_from_ps, int_dp_g)
+                    pfull_from_ps, to_pfull_from_phalf, dp_from_ps, int_dp_g)
 
 
 ps = Var(
@@ -361,7 +361,8 @@ class Calc(object):
         return ds
 
     def _create_input_data_obj(self, var, start_date=False,
-                               end_date=False, n=0, set_dt=False):
+                               end_date=False, n=0, set_dt=False,
+                               set_pfull=False):
         """Create xray.DataArray for the Var from files on disk."""
         paths = self._get_input_data_paths(var, start_date, end_date, n)
         # 2015-10-15 S. Hill: This `dmget` call, which is unique to the
@@ -420,14 +421,17 @@ class Calc(object):
                     self.dt = (self._to_desired_dates(dt) /
                                np.timedelta64(1, 's'))
                     break
+        # At least one variable has to get us the pfull array, if its needed.
+        if set_pfull:
+            try:
+                self.pfull = ds[PFULL_STR]
+            except KeyError:
+                pass
         return arr
-
-    def _phalf_to_pfull(self, arr):
-        """Interpolate data at sigma half levels to full levels."""
-        raise NotImplementedError
 
     def _get_pressure_vals(self, var, start_date, end_date, n=0):
         """Get pressure array, whether sigma or standard levels."""
+
         if self.dtype_in_vert == 'pressure':
             if np.any(self.pressure):
                 pressure = self.pressure
@@ -447,6 +451,9 @@ class Calc(object):
                 data = pfull_from_ps(bk, pk, ps, pfull_coord)
             elif var == 'dp':
                 data = dp_from_ps(bk, pk, ps, pfull_coord)
+        else:
+            raise ValueError("`dtype_in_vert` must be either 'pressure' or "
+                             "'sigma' for pressure data")
         return data
 
     def _correct_gfdl_inst_time(self, arr):
@@ -484,20 +491,20 @@ class Calc(object):
         # aospy.Var objects remain.
         else:
             set_dt = True if not hasattr(self, 'dt') else False
+            cond_pfull = (not hasattr(self, 'pfull') and var.def_vert and
+                          self.dtype_in_vert == 'sigma')
+            set_pfull = True if cond_pfull else False
             data = self._create_input_data_obj(var, start_date, end_date, n=n,
-                                               set_dt=set_dt)
+                                               set_dt=set_dt,
+                                               set_pfull=set_pfull)
             # Force all data to be at full pressure levels, not half levels.
             if self.dtype_in_vert == 'sigma' and var.def_vert == 'phalf':
-                data = self._phalf_to_pfull(data)
+                data = to_pfull_from_phalf(data, self.pfull)
         # Correct GFDL instantaneous data time indexing problem.
-        if self.dtype_in_time == 'inst':
-            data = self._correct_gfdl_inst_time(data)
-        # Restrict to the desired dates within each year.
-        if self.dtype_in_vert == 'sigma' and var in ('p', 'dp'):
-            return self.to_desired_dates(data)
-        if self.dtype_in_vert == 'pressure' and var in ('p', 'dp'):
-            return data
         if var.def_time:
+            if self.dtype_in_time == 'inst':
+                data = self._correct_gfdl_inst_time(data)
+            # Restrict to the desired dates within each year.
             return self._to_desired_dates(data)
         return data
 
