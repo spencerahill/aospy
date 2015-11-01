@@ -5,10 +5,11 @@ import shutil
 import subprocess
 import tarfile
 import time
+import warnings
 
 import numpy as np
-import pandas as pd
 import xray
+
 from . import Constant, Var
 from .__config__ import (LAT_STR, LON_STR, PLEVEL_STR, TIME_STR,
                          TIME_STR_IDEALIZED)
@@ -17,7 +18,7 @@ from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, level_thickness, apply_time_offset,
                     monthly_mean_ts, monthly_mean_at_each_ind,
-                    pfull_from_ps, dp_from_ps, int_dp_g, to_pascal)
+                    pfull_from_ps, dp_from_ps, int_dp_g)
 
 
 ps = Var(
@@ -250,8 +251,8 @@ class Calc(object):
                              str(self.data_in_dur[n]) + 'yr')
 
         files = [os.path.join(direc, data_in_name_gfdl(
-                     name, domain, dtype, self.intvl_in, year, self.intvl_out,
-                     self.data_in_start_date[n].year, self.data_in_dur[n]
+                 name, domain, dtype, self.intvl_in, year, self.intvl_out,
+                 self.data_in_start_date[n].year, self.data_in_dur[n]
                  )) for year in range(start_year, end_year + 1)]
 
         # Remove duplicate entries.
@@ -325,47 +326,38 @@ class Calc(object):
         """Add model grid attributes to a dataset"""
 
         grid_attrs = {
-            'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            LAT_STR:       ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
             'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
-            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            LON_STR:       ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
             'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
-            'level':       ('level', 'lev', 'plev'),
+            PLEVEL_STR:    ('level', 'lev', 'plev'),
             'sfc_area':    ('area', 'sfc_area'),
             'zsurf':       ('zsurf',),
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
             'phalf':       ('phalf',),
-            'pfull':       ('pfull',),
+            PHALF_STR:     ('pfull',),
             }
 
         for name_int, names_ext in grid_attrs.items():
             ds_coord_name = set(names_ext).intersection(set(ds.coords))
             if ds_coord_name:
                 # Check if coord is in dataset already.
-                # If it is, then rename it so that it has 
+                # If it is, then rename it so that it has
                 # the correct internal name.
-                ds = ds.rename({list(ds_coord_name)[0] : name_int})
+                ds = ds.rename({list(ds_coord_name)[0]: name_int})
                 ds = ds.set_coords(name_int)
-                if not self._strip_undefined_coords(ds[name_int]).equals(getattr(self.model[n], name_int)):
-                    print("Warning: Model coordinates for '{}' do not match those in Run".format(name_int))
+                raw_coord = self._strip_undefined_coords(ds[name_int])
+                if not raw_coord.equals(getattr(self.model[n], name_int)):
+                    warnings.warn("Model coordinates for '{}'"
+                                  "do not match those in Run".format(name_int))
             else:
                 # Bring in coord from model object.
                 ds[name_int] = getattr(self.model[n], name_int)
                 ds = ds.set_coords(name_int)
             if self.dtype_in_vert == 'pressure' and 'level' in ds.coords:
                 self.pressure = ds.level
-        # 2015-10-26 S. Clark: From here on I think it's wise to create a rule that
-        # if a particular Run uses a slightly different model version and 
-        # has slightly different latitude or longitude coordinates (no matter
-        # how small) then it uses a different Model. So if something breaks due to 
-        # alignment it should raise an exception telling the user that the Model 
-        # coordinates do not match the coordinates of the Run and the user should
-        # create a new Model object for this Run (and others that use this version of
-        # the model). As inconvenient as that might be, it's more complicated to implement
-        # something that would allow for one model to use two slightly different grids.
-        
-        # As it turns out this removes the need to compute surface area within Calc.py.        
         return ds
 
     def _create_input_data_obj(self, var, start_date=False,
@@ -402,7 +394,7 @@ class Calc(object):
             test = xray.decode_cf(test)
             ds_chunks.append(test)
         ds = xray.concat(ds_chunks, dim=TIME_STR)
-        ds = self._add_grid_attributes(ds,n)
+        ds = self._add_grid_attributes(ds, n)
         # 2015-10-16 S. Hill: Passing in each variable as a Dataset is causing
         # lots of problems in my functions, even ones as simple as just adding
         # the two variables together.  I think it makes most sense to just grab

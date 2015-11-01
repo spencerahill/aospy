@@ -90,17 +90,18 @@ class Model(object):
         return
 
     def _rename_coords(self, ds):
-        """Renames all coordinates within a Dataset or DataArray so that they match 
-        the internal names.
+        """
+        Renames all coordinates within a Dataset or DataArray so that they
+        match the internal names.
         """
         primary_attrs = {
-            'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            LAT_STR:         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
             'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
-            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            LON_STR:         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
             'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
-            'level':       ('level', 'lev', 'plev'),
+            PLEVEL_STR:       ('level', 'lev', 'plev'),
             'phalf':       ('phalf',),
-            'pfull':       ('pfull',)
+            PFULL_STR:       ('pfull',)
             }
         if isinstance(ds, xray.Dataset) or isinstance(ds, xray.DataArray):
             for name_int, names_ext in primary_attrs.items():
@@ -109,7 +110,7 @@ class Model(object):
                     # Check if coord is in dataset already.
                     # If it is, then rename it so that it has
                     # the correct internal name.
-                    ds = ds.rename({list(ds_coord_name)[0] : name_int})
+                    ds = ds.rename({list(ds_coord_name)[0]: name_int})
         return ds
 
     def _set_mult_grid_attr(self):
@@ -117,11 +118,11 @@ class Model(object):
         Set multiple attrs from grid file given their names in the grid file.
         """
         grid_attrs = {
-            'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            LAT_STR:         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
             'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
-            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            LON_STR:         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
             'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
-            'level':       ('level', 'lev', 'plev'),
+            PLEVEL_STR:       ('level', 'lev', 'plev'),
             # 'time':        ('time', 'TIME'),
             # 'time_st':     ('average_T1',),
             # 'time_end':    ('average_T2',),
@@ -136,7 +137,7 @@ class Model(object):
             'pk':          ('pk',),
             'bk':          ('bk',),
             'phalf':       ('phalf',),
-            'pfull':       ('pfull',),
+            PFULL_STR:       ('pfull',),
             # 'nrecords':    ('nrecords',),
             # 'idim':        ('idim',),
             # 'fill_value':  ('fill_value')
@@ -145,9 +146,11 @@ class Model(object):
         try:
             for name_int, names_ext in grid_attrs.items():
                 for name in names_ext:
-                    # Rename all coordinates such that they match specified internal names.
-                    setattr(self, name_int,
-                            self._rename_coords(self._get_grid_attr(grid_objs, name)))
+                    # Rename all coordinates such that they match
+                    # specified internal names.
+                    grid_attr = self._get_grid_attr(grid_objs, name)
+                    renamed_attrs = self._rename_coords(grid_attr)
+                    setattr(self, name_int, renamed_attrs)
                     break
         except:
             raise
