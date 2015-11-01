@@ -11,8 +11,8 @@ import numpy as np
 import xray
 
 from . import Constant, Var
-from .__config__ import (LAT_STR, LON_STR, PFULL_STR, PLEVEL_STR, TIME_STR,
-                         TIME_STR_IDEALIZED)
+from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
+                         TIME_STR, TIME_STR_IDEALIZED)
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
@@ -336,8 +336,8 @@ class Calc(object):
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
-            'phalf':       ('phalf',),
-            PHALF_STR:     ('pfull',),
+            PHALF_STR:       ('phalf',),
+            PFULL_STR:     ('pfull',),
             }
 
         for name_int, names_ext in grid_attrs.items():

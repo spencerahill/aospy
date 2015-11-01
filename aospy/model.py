@@ -5,6 +5,8 @@ import os
 import numpy as np
 import xray
 
+from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
+                   TIME_STR, TIME_STR_IDEALIZED)
 from .constants import r_e
 from .io import get_data_in_direc_repo
 from .utils import dict_name_keys, level_thickness
@@ -74,9 +76,9 @@ class Model(object):
         datasets = []
         for path in self.grid_file_paths:
             try:
-                ds = xray.open_dataset(path, decode_cf=False)
+                ds = xray.open_dataset(path, decode_time=False)
             except TypeError:
-                ds = xray.open_mfdataset(path, decode_cf=False)
+                ds = xray.open_mfdataset(path, decode_time=False)
             datasets.append(ds)
         return tuple(datasets)
 
@@ -96,11 +98,11 @@ class Model(object):
         """
         primary_attrs = {
             LAT_STR:         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-            'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
+            'lat_bounds':    ('latb', 'lat_bnds', 'lat_bounds'),
             LON_STR:         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-            'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
-            PLEVEL_STR:       ('level', 'lev', 'plev'),
-            'phalf':       ('phalf',),
+            'lon_bounds':    ('lonb', 'lon_bnds', 'lon_bounds'),
+            PLEVEL_STR:      ('level', 'lev', 'plev'),
+            PHALF_STR:       ('phalf',),
             PFULL_STR:       ('pfull',)
             }
         if isinstance(ds, xray.Dataset) or isinstance(ds, xray.DataArray):
@@ -119,10 +121,10 @@ class Model(object):
         """
         grid_attrs = {
             LAT_STR:         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-            'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
+            'lat_bounds':    ('latb', 'lat_bnds', 'lat_bounds'),
             LON_STR:         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-            'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
-            PLEVEL_STR:       ('level', 'lev', 'plev'),
+            'lon_bounds':    ('lonb', 'lon_bnds', 'lon_bounds'),
+            PLEVEL_STR:      ('level', 'lev', 'plev'),
             # 'time':        ('time', 'TIME'),
             # 'time_st':     ('average_T1',),
             # 'time_end':    ('average_T2',),
@@ -136,8 +138,8 @@ class Model(object):
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
-            'phalf':       ('phalf',),
-            PFULL_STR:       ('pfull',),
+            PHALF_STR:     ('phalf',),
+            PFULL_STR:     ('pfull',),
             # 'nrecords':    ('nrecords',),
             # 'idim':        ('idim',),
             # 'fill_value':  ('fill_value')
