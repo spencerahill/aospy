@@ -91,7 +91,8 @@ class Model(object):
                 pass
         return
 
-    def _rename_coords(self, ds):
+    @staticmethod
+    def _rename_coords(ds):
         """
         Renames all coordinates within a Dataset or DataArray so that they
         match the internal names.
