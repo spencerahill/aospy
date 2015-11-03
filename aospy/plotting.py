@@ -3,6 +3,7 @@ import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
+import xray
 
 from .__config__ import default_colormap
 from .calc import Calc, CalcInterface
@@ -38,7 +39,7 @@ plot_specs = (
     'quiverkey_args', 'quiverkey_kwargs', 'scatter_kwargs'
 )
 data_specs = (
-    'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'yr_range',
+    'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'date_range',
     'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert',
     'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean'
 )
@@ -48,7 +49,7 @@ specs = fig_specs + ax_specs + plot_specs + data_specs
 class Fig(object):
     """Class for producing figures with one or more panels."""
     def __init__(self, fig_params, n_ax=1, n_plot=1, n_data=1, n_row=1,
-                 n_col=1, yr_range=None, intvl_in=None, intvl_out=None,
+                 n_col=1, date_range=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
                  dtype_out_vert=None, level=None, **kwargs):
         self.__dict__ = vars(fig_params)
@@ -60,7 +61,7 @@ class Fig(object):
         self.n_col = n_col
         self._set_n_ax_plot_data()
 
-        self.yr_range = yr_range
+        self.date_range = date_range
         self.intvl_in = intvl_in
         self.intvl_out = intvl_out
         self.dtype_in_time = dtype_in_time
@@ -72,7 +73,7 @@ class Fig(object):
         self.ax = []
 
         # Accept all other keyword arguments passed in as attrs.
-        for key, val in kwargs.iteritems():
+        for key, val in kwargs.items():
             setattr(self, key, val)
 
         self.do_ax_label = True if self.n_ax > 1 else False
@@ -258,7 +259,7 @@ class Ax(object):
     def _set_ax_loc_specs(self):
         """Set attrs that depend on Ax location within the Fig."""
         # Take the Fig's attr value if it's neeeded; otherwise set False.
-        for key, val in self.labels[self.ax_loc].iteritems():
+        for key, val in self.labels[self.ax_loc].items():
             if val:
                 if val == ' ':
                     new_val = ' '
@@ -462,26 +463,26 @@ class Plot(object):
                     proj=self.proj[i], model=self.model[i],
                     run=run,
                     ens_mem=self.ens_mem[i], var=self.var[i],
-                    yr_range=self.yr_range[i], region=self.region[i],
+                    date_range=self.date_range[i], region=self.region[i],
                     intvl_in=self.intvl_in[i], intvl_out=self.intvl_out[i],
                     dtype_in_time=self.dtype_in_time[i],
                     dtype_in_vert=self.dtype_in_vert[i],
                     dtype_out_time=self.dtype_out_time[i],
                     dtype_out_vert=self.dtype_out_vert[i], level=self.level[i],
-                    verbose=self.fig.verbose, skip_time_inds=True
+                    verbose=self.fig.verbose
                 )) for run in self.run[i].objects]
                 calc_obj.append(Operator(self.run[i].operator, calcs))
             else:
                 calc_obj.append(Calc(CalcInterface(
                     proj=self.proj[i], model=self.model[i], run=self.run[i],
                     ens_mem=self.ens_mem[i], var=self.var[i],
-                    yr_range=self.yr_range[i], region=self.region[i],
+                    date_range=self.date_range[i], region=self.region[i],
                     intvl_in=self.intvl_in[i], intvl_out=self.intvl_out[i],
                     dtype_in_time=self.dtype_in_time[i],
                     dtype_in_vert=self.dtype_in_vert[i],
                     dtype_out_time=self.dtype_out_time[i],
                     dtype_out_vert=self.dtype_out_vert[i], level=self.level[i],
-                    verbose=self.fig.verbose, skip_time_inds=True
+                    verbose=self.fig.verbose
                 )))
         return calc_obj
 
@@ -553,21 +554,6 @@ class Plot(object):
             else:
                 return (np.ma.array(ans, mask=joint_mask),)
 
-        # elif isinstance(calc, dict):
-        #     data = tuple(
-        #         [cl.load(self.dtype_out_time[n],
-        #                  dtype_out_vert=self.dtype_out_vert[n],
-        #                  region=self.region[n], time=False, vert=self.level[n],
-        #                  lat=False, lon=False, plot_units=True,
-        #                  mask_unphysical=True)
-        #          for cl in calc]
-        #     )
-        #     # Combine masks of the two inputs.
-        #     try:
-        #         joint_mask = np.ma.mask_or(data[0].mask, data[1].mask)
-        #         return (np.ma.array(data[0] - data[1], mask=joint_mask),)
-        #     except AttributeError:
-        #         return (data[0] - data[1],)
 
         elif isinstance(calc, (list, tuple)):
             return tuple(
@@ -595,7 +581,7 @@ class Plot(object):
     def _apply_data_transforms(self):
         """Apply any specified transformations to the data once loaded."""
         transforms = {'do_subtract_mean': self._subtract_mean}
-        for attr, method in transforms.iteritems():
+        for attr, method in transforms.items():
             for data, do_method in zip(['x_data', 'y_data'],
                                        getattr(self, attr)):
                 if do_method:
@@ -612,7 +598,12 @@ class Plot(object):
         self.lats = self.y_data
 
         self.plot_data = []
-        for data in self.data:
+
+        if isinstance(self.data, xray.Dataset):
+            loop_data = [self.data]
+        else:
+            loop_data = self.data
+        for data in loop_data:
             pd, self.plot_lons = mpl_toolkits.basemap.shiftgrid(
                 lon0, data, self.x_data,
                 start=self.ax.shiftgrid_start, cyclic=self.ax.shiftgrid_cyclic

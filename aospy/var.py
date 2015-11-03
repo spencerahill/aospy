@@ -10,18 +10,24 @@ class Var(object):
                  units=False, plot_units='', plot_units_conv=1, domain='atmos',
                  description='', def_time=False, def_vert=False, def_lat=False,
                  def_lon=False, in_nc_grid=False, math_str=False,
-                 colormap='RdBu_r', valid_range=False):
+                 colormap='RdBu_r', valid_range=False,
+                 func_input_dtype='DataArray'):
         """Create Var object."""
         self.name = name
         if alt_names:
             self.alt_names = alt_names
+            self.names = tuple([name] + list(alt_names))
+        else:
+            self.names = tuple([name])
 
         if not func:
             self.func = lambda x: x
             self.variables = False
+            self.func_input_dtype = None
         else:
             self.func = func
             self.variables = variables
+        self.func_input_dtype = func_input_dtype
 
         if not isinstance(units, Units):
             self.units = Units(units=units)
