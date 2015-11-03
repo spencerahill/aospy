@@ -1,12 +1,12 @@
 """aospy.utils: utility functions for the aospy module."""
 import warnings
 
+from finite_diff import FiniteDiff
 import numpy as np
 import pandas as pd
 import xray
 
 from .__config__ import PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, user_path
-from .numerics import FiniteDiff
 from .constants import grav, Constant
 
 
