@@ -105,7 +105,7 @@ class Model(object):
             PHALF_STR:       ('phalf',),
             PFULL_STR:       ('pfull',)
             }
-        if isinstance(ds, xray.Dataset) or isinstance(ds, xray.DataArray):
+        if isinstance(ds, (xray.DataArray, xray.Dataset)):
             for name_int, names_ext in primary_attrs.items():
                 ds_coord_name = set(names_ext).intersection(set(ds.coords))
                 if ds_coord_name:
