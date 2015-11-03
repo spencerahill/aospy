@@ -348,14 +348,14 @@ class Calc(object):
                 # the correct internal name.
                 ds = ds.rename({list(ds_coord_name)[0]: name_int})
                 ds = ds.set_coords(name_int)
-                raw_coord = self._strip_undefined_coords(ds[name_int])
-                if not raw_coord.equals(getattr(self.model[n], name_int)):
+                if not ds[name_int].equals(getattr(self.model[n], name_int)):
                     warnings.warn("Model coordinates for '{}'"
                                   "do not match those in Run".format(name_int))
             else:
-                # Bring in coord from model object.
-                ds[name_int] = getattr(self.model[n], name_int)
-                ds = ds.set_coords(name_int)
+                # Bring in coord from model object if it exists.
+                if getattr(self.model[n], name_int) is not None:
+                    ds[name_int] = getattr(self.model[n], name_int)
+                    ds = ds.set_coords(name_int)
             if self.dtype_in_vert == 'pressure' and 'level' in ds.coords:
                 self.pressure = ds.level
         return ds
@@ -682,18 +682,10 @@ class Calc(object):
         for dtype_time, data in reduced.items():
             self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert)
 
-    def _strip_undefined_coords(self, ds):
-        """Removes all undefined coordinates from a Dataset or DataArray"""
-        for coord in ds.coords:
-            if ds[coord].values is None:
-                ds = ds.drop(coord)
-        return ds
-
     def _save_to_scratch(self, data, dtype_out_time):
         """Save the data to the scratch filesystem."""
         path = self.path_scratch[dtype_out_time]
         # Drop undefined coords.
-        data = self._strip_undefined_coords(data)
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
         if 'reg' in dtype_out_time:
