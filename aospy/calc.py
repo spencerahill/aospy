@@ -5,13 +5,14 @@ import shutil
 import subprocess
 import tarfile
 import time
+import warnings
 
 import numpy as np
 import xray
 
 from . import Constant, Var
-from .__config__ import (LAT_STR, LON_STR, PFULL_STR, PLEVEL_STR, TIME_STR,
-                         TIME_STR_IDEALIZED)
+from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
+                         TIME_STR, TIME_STR_IDEALIZED)
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
@@ -248,10 +249,12 @@ class Calc(object):
             dtype = self.dtype_in_time
         direc = os.path.join(data_in_direc, domain, dtype_lbl, self.intvl_in,
                              str(self.data_in_dur[n]) + 'yr')
+
         files = [os.path.join(direc, data_in_name_gfdl(
-                     name, domain, dtype, self.intvl_in, year, self.intvl_out,
-                     self.data_in_start_date[n].year, self.data_in_dur[n]
+                 name, domain, dtype, self.intvl_in, year, self.intvl_out,
+                 self.data_in_start_date[n].year, self.data_in_dur[n]
                  )) for year in range(start_year, end_year + 1)]
+
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
@@ -319,6 +322,44 @@ class Calc(object):
                           self.end_date_xray, self.months, indices=False)
         return arr.sel(time=times)
 
+    def _add_grid_attributes(self, ds, n=0):
+        """Add model grid attributes to a dataset"""
+
+        grid_attrs = {
+            LAT_STR:       ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
+            LON_STR:       ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
+            PLEVEL_STR:    ('level', 'lev', 'plev'),
+            'sfc_area':    ('area', 'sfc_area'),
+            'zsurf':       ('zsurf',),
+            'land_mask':   ('land_mask',),
+            'pk':          ('pk',),
+            'bk':          ('bk',),
+            PHALF_STR:     ('phalf',),
+            PFULL_STR:     ('pfull',),
+            }
+
+        for name_int, names_ext in grid_attrs.items():
+            ds_coord_name = set(names_ext).intersection(set(ds.coords))
+            if ds_coord_name:
+                # Check if coord is in dataset already.
+                # If it is, then rename it so that it has
+                # the correct internal name.
+                ds = ds.rename({list(ds_coord_name)[0]: name_int})
+                ds = ds.set_coords(name_int)
+                if not ds[name_int].equals(getattr(self.model[n], name_int)):
+                    warnings.warn("Model coordinates for '{}'"
+                                  "do not match those in Run".format(name_int))
+            else:
+                # Bring in coord from model object if it exists.
+                if getattr(self.model[n], name_int) is not None:
+                    ds[name_int] = getattr(self.model[n], name_int)
+                    ds = ds.set_coords(name_int)
+            if self.dtype_in_vert == 'pressure' and 'level' in ds.coords:
+                self.pressure = ds.level
+        return ds
+
     def _create_input_data_obj(self, var, start_date=False,
                                end_date=False, n=0, set_dt=False,
                                set_pfull=False):
@@ -340,6 +381,7 @@ class Calc(object):
         # here was that it opens a can of worms with regard to performance;
         # we'd need to add some logic to make sure the data were chunked in a
         # reasonable way (and logic to change the chunking if need be).
+
         for file_ in paths:
             test = xray.open_dataset(file_, decode_cf=False,
                                      drop_variables=['time_bounds', 'nv',
@@ -353,6 +395,11 @@ class Calc(object):
             test = xray.decode_cf(test)
             ds_chunks.append(test)
         ds = xray.concat(ds_chunks, dim=TIME_STR)
+        ds = self._add_grid_attributes(ds, n)
+        # 2015-10-16 S. Hill: Passing in each variable as a Dataset is causing
+        # lots of problems in my functions, even ones as simple as just adding
+        # the two variables together.  I think it makes most sense to just grab
+        # the DataArray of the desired data from the Dataset.
         for name in var.names:
             try:
                 arr = ds[name]
@@ -638,6 +685,7 @@ class Calc(object):
     def _save_to_scratch(self, data, dtype_out_time):
         """Save the data to the scratch filesystem."""
         path = self.path_scratch[dtype_out_time]
+        # Drop undefined coords.
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
         if 'reg' in dtype_out_time:

@@ -5,6 +5,8 @@ import os
 import numpy as np
 import xray
 
+from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
+                   TIME_STR, TIME_STR_IDEALIZED)
 from .constants import r_e
 from .io import get_data_in_direc_repo
 from .utils import dict_name_keys, level_thickness
@@ -74,9 +76,9 @@ class Model(object):
         datasets = []
         for path in self.grid_file_paths:
             try:
-                ds = xray.open_dataset(path)
+                ds = xray.open_dataset(path, decode_times=False)
             except TypeError:
-                ds = xray.open_mfdataset(path)
+                ds = xray.open_mfdataset(path, decode_times=False)
             datasets.append(ds)
         return tuple(datasets)
 
@@ -89,16 +91,41 @@ class Model(object):
                 pass
         return
 
+    @staticmethod
+    def _rename_coords(ds):
+        """
+        Renames all coordinates within a Dataset or DataArray so that they
+        match the internal names.
+        """
+        primary_attrs = {
+            LAT_STR:         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            'lat_bounds':    ('latb', 'lat_bnds', 'lat_bounds'),
+            LON_STR:         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            'lon_bounds':    ('lonb', 'lon_bnds', 'lon_bounds'),
+            PLEVEL_STR:      ('level', 'lev', 'plev'),
+            PHALF_STR:       ('phalf',),
+            PFULL_STR:       ('pfull',)
+            }
+        if isinstance(ds, (xray.DataArray, xray.Dataset)):
+            for name_int, names_ext in primary_attrs.items():
+                ds_coord_name = set(names_ext).intersection(set(ds.coords))
+                if ds_coord_name:
+                    # Check if coord is in dataset already.
+                    # If it is, then rename it so that it has
+                    # the correct internal name.
+                    ds = ds.rename({list(ds_coord_name)[0]: name_int})
+        return ds
+
     def _set_mult_grid_attr(self):
         """
         Set multiple attrs from grid file given their names in the grid file.
         """
         grid_attrs = {
-            'lat':         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-            # 'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
-            'lon':         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-            # 'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
-            'level':       ('level', 'lev', 'plev'),
+            LAT_STR:         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            'lat_bounds':    ('latb', 'lat_bnds', 'lat_bounds'),
+            LON_STR:         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            'lon_bounds':    ('lonb', 'lon_bnds', 'lon_bounds'),
+            PLEVEL_STR:      ('level', 'lev', 'plev'),
             # 'time':        ('time', 'TIME'),
             # 'time_st':     ('average_T1',),
             # 'time_end':    ('average_T2',),
@@ -108,12 +135,12 @@ class Model(object):
             # 'month':       ('mo', 'month'),
             # 'day':         ('dy', 'day'),
             'sfc_area':    ('area', 'sfc_area'),
-            # 'zsurf':       ('zsurf',),
+            'zsurf':       ('zsurf',),
             'land_mask':   ('land_mask',),
             'pk':          ('pk',),
             'bk':          ('bk',),
-            'phalf':       ('phalf',),
-            'pfull':       ('pfull',),
+            PHALF_STR:     ('phalf',),
+            PFULL_STR:     ('pfull',),
             # 'nrecords':    ('nrecords',),
             # 'idim':        ('idim',),
             # 'fill_value':  ('fill_value')
@@ -122,8 +149,11 @@ class Model(object):
         try:
             for name_int, names_ext in grid_attrs.items():
                 for name in names_ext:
-                    setattr(self, name_int,
-                            self._get_grid_attr(grid_objs, name))
+                    # Rename all coordinates such that they match
+                    # specified internal names.
+                    grid_attr = self._get_grid_attr(grid_objs, name)
+                    renamed_attrs = self._rename_coords(grid_attr)
+                    setattr(self, name_int, renamed_attrs)
                     break
         except:
             raise
@@ -154,15 +184,15 @@ class Model(object):
         # operation (e.g. changing back and forth between degrees and radians)
         # we can disconnect the coordinate from the values. This allows diff
         # to work properly.
-        dlon = np.abs(np.rad2deg(np.deg2rad(lonb)).diff(dim='lonb'))
-        dsinlat = np.abs(np.sin(np.pi * latb / 180.0).diff(dim='latb'))
+        dlon = np.abs(np.rad2deg(np.deg2rad(lonb)).diff(dim='lon_bounds'))
+        dsinlat = np.abs(np.sin(np.pi * latb / 180.0).diff(dim='lat_bounds'))
 
         # We will need to be clever about naming, however. For now we don't
         # use the gridbox area, so we'll leave things like this for now.
         sfc_area = dlon*dsinlat*(r_e**2) * (np.pi/180.)
         # Rename the coordinates such that they match the actual lat / lon
         # (Not the bounds)
-        sfc_area = sfc_area.rename({'latb': 'lat', 'lonb': 'lon'})
+        sfc_area = sfc_area.rename({'lat_bounds': 'lat', 'lon_bounds': 'lon'})
         sfc_area['lat'] = lat
         sfc_area['lon'] = lon
         return sfc_area
