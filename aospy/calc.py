@@ -21,6 +21,17 @@ from .utils import (get_parent_attr, level_thickness, apply_time_offset,
                     pfull_from_ps, to_pfull_from_phalf, dp_from_ps, int_dp_g)
 
 
+dp = Var(
+    name='dp',
+    units='Pa',
+    domain='atmos',
+    description='Pressure thickness of model levels.',
+    def_time=True,
+    def_vert=True,
+    def_lat=True,
+    def_lon=True,
+    in_nc_grid=False,
+ )
 ps = Var(
     name='ps',
     units='Pa',
@@ -437,9 +448,9 @@ class Calc(object):
                 pressure = self.pressure
             else:
                 pressure = self.model[n].level
-            if var == 'p':
+            if var.name == 'p':
                 data = pressure
-            elif var == 'dp':
+            elif var.name == 'dp':
                 data = level_thickness(pressure)
 
         if self.dtype_in_vert == 'sigma':
@@ -447,10 +458,13 @@ class Calc(object):
             pk = self.model[n].pk
             ps = self._create_input_data_obj(self.ps, start_date, end_date)
             pfull_coord = self.model[n].pfull
-            if var == 'p':
+            if var.name == 'p':
                 data = pfull_from_ps(bk, pk, ps, pfull_coord)
-            elif var == 'dp':
+            elif var.name == 'dp':
                 data = dp_from_ps(bk, pk, ps, pfull_coord)
+            else:
+                raise ValueError("var.name must be 'p' or 'dp':"
+                                 "'{}'".format(var.name))
         else:
             raise ValueError("`dtype_in_vert` must be either 'pressure' or "
                              "'sigma' for pressure data")
@@ -470,8 +484,8 @@ class Calc(object):
     def _get_input_data(self, var, start_date, end_date, n):
         """Get the data for a single variable over the desired date range."""
         self._print_verbose("Getting input data:", var)
-        # If only 1 run, use it to load all data.
-        # Otherwise assume that # runs == # vars to load.
+        # If only 1 run, use it to load all data.  Otherwise assume that num
+        # runs equals num vars to load.
         if len(self.run) == 1:
             n = 0
         # Pass numerical constants as is.
@@ -479,16 +493,16 @@ class Calc(object):
             return var
         elif isinstance(var, Constant):
             return var.value
+        # aospy.Var objects remain.
         # Pressure handled specially due to complications from sigma vs. p.
-        elif var in ('p', 'dp'):
-            return self._to_desired_dates(self._get_pressure_vals(var,
-                                                                  start_date,
-                                                                  end_date))
+        elif var.name in ('p', 'dp'):
+            return self._to_desired_dates(
+                self._get_pressure_vals(var, start_date, end_date)
+            )
         # Get grid, time, etc. arrays directly from model object
         elif var.name in (LAT_STR, LON_STR, TIME_STR, PLEVEL_STR,
                           'pk', 'bk', 'sfc_area'):
             data = getattr(self.model[n], var.name)
-        # aospy.Var objects remain.
         else:
             set_dt = True if not hasattr(self, 'dt') else False
             cond_pfull = (not hasattr(self, 'pfull') and var.def_vert and
@@ -581,7 +595,7 @@ class Calc(object):
         if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
             # Here we need file read-in dates (NOT xray dates)
             full_ts = self._vert_int(full_ts, self._get_pressure_vals(
-                'dp', self.start_date, self.end_date
+                dp, self.start_date, self.end_date
             ))
         return full_ts, dt
 
