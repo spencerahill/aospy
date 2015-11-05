@@ -12,7 +12,7 @@ import xray
 
 from . import Constant, Var
 from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
-                         TIME_STR, TIME_STR_IDEALIZED)
+                         TIME_STR, YEAR_STR)
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
@@ -272,7 +272,7 @@ class Calc(object):
         """Get paths to netCDF files save in GFDL standard output format."""
         domain = self.domain
         dtype_lbl = self.dtype_in_time
-        if self.dtype_in_vert == 'sigma' and name != 'ps':
+        if self.dtype_in_vert == 'sigma':  # and name != 'ps':
             domain += '_level'
         if self.dtype_in_time == 'inst':
             domain += '_inst'
@@ -647,12 +647,11 @@ class Calc(object):
 
     def _time_reduce(self, arr, reduction):
         """Perform the specified time reduction on a local time-series."""
-        tdim = TIME_STR if self.idealized[0] else TIME_STR_IDEALIZED
         reductions = {
             'None': lambda xarr: xarr,
             'ts': lambda xarr: xarr,
-            'av': lambda xarr: xarr.mean(tdim),
-            'std': lambda xarr: xarr.std(tdim),
+            'av': lambda xarr: xarr.mean(YEAR_STR),
+            'std': lambda xarr: xarr.std(YEAR_STR),
             }
         try:
             return reductions[reduction](arr)
@@ -683,7 +682,8 @@ class Calc(object):
         # Compute only the needed timeseries.
         self._print_verbose('\n', 'Computing desired timeseries for '
                             '{} -- {}.'.format(self.start_date, self.end_date))
-        bool_monthly = ['monthly_from' in self.dtype_in_time]
+        bool_monthly = (['monthly_from' in self.dtype_in_time] +
+                        ['time-mean' in dout for dout in self.dtype_out_time])
         bool_eddy = ['eddy' in dout for dout in self.dtype_out_time]
         if not all(bool_monthly):
             full_ts, full_dt = self._compute_full_ts(data_in,
@@ -707,16 +707,20 @@ class Calc(object):
             monthly_ts = self._full_to_yearly_ts(monthly_ts, monthly_dt)
         if any(bool_eddy):
             eddy_ts = self._full_to_yearly_ts(eddy_ts, full_dt)
-
         # Apply time reduction methods.
         if self.def_time:
             self._print_verbose("Applying desired time-reduction methods.")
-            # Determine which are regional, which are eddy.
+            # Determine which are regional, eddy, time-mean.
             reduc_specs = [r.split('.') for r in self.dtype_out_time]
             reduced = {}
             for reduc, specs in zip(self.dtype_out_time, reduc_specs):
                 func = specs[-1]
-                data = eddy_ts if 'eddy' in specs else full_ts
+                if 'eddy' in specs:
+                    data = eddy_ts
+                elif 'time-mean' in specs:
+                    data = monthly_ts
+                else:
+                    data = full_ts
                 if 'reg' in specs:
                     reduced.update({reduc: self.region_calcs(data, func)})
                 else:

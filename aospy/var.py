@@ -34,8 +34,16 @@ class Var(object):
         else:
             self.units = units
 
+        if not description:
+            try:
+                self.description = self.func.func_doc
+            except AttributeError:
+                self.description = description
+        else:
+            self.description = description
+        self.__doc__ = self.description
+
         self.domain = domain
-        self.description = description
         self.def_time = def_time
         self.def_vert = def_vert
         self.def_lat = def_lat
