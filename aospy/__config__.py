@@ -1,8 +1,7 @@
-import os as _os
+import os
 
 default_colormap = 'RdBu'
-user_path = '/'.join([_os.getenv('HOME'),
-                      'aospy_user/aospy_user']).replace('//', '/')
+user_path = os.path.join(os.getenv('HOME'), 'aospy_user', 'aospy_user')
 
 LON_STR = 'lon'
 LAT_STR = 'lat'
@@ -11,5 +10,6 @@ PFULL_STR = 'pfull'
 PLEVEL_STR = 'level'
 TIME_STR = 'time'
 TIME_STR_IDEALIZED = 'year'
+YEAR_STR = 'year'
 
-del _os
+del os
