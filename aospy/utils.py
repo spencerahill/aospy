@@ -102,12 +102,12 @@ def get_parent_attr(obj, attr, strict=False):
 
 def dict_name_keys(objs):
     """Create dict whose keys are the 'name' attr of the objects."""
-    assert isinstance(objs, (tuple, list, dict))
-    if isinstance(objs, (tuple, list)):
+    assert isinstance(objs, (tuple, list, dict, set))
+    if isinstance(objs, (tuple, list, set)):
         try:
             return {obj.name: obj for obj in objs}
-        except AttributeError:
-            raise AttributeError
+        except AttributeError as e:
+            raise AttributeError(e)
     return objs
 
 
