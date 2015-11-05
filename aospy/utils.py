@@ -1,7 +1,7 @@
 """aospy.utils: utility functions for the aospy module."""
 import warnings
 
-from finite_diff import FiniteDiff
+from infinite_diff import FiniteDiff
 import numpy as np
 import pandas as pd
 import xray
