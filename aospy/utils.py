@@ -206,8 +206,10 @@ def dp_from_ps(bk, pk, ps, pfull_coord):
     return d_deta_from_phalf(phalf_from_ps(bk, pk, ps), pfull_coord)
 
 
-def integrate(arr, ddim, dim):
+def integrate(arr, ddim, dim=False, is_pressure=False):
     """Integrate along the given dimension."""
+    if is_pressure:
+        dim = vert_coord_name(ddim)
     return (arr*ddim).sum(dim=dim)
 
 
