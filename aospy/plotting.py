@@ -600,7 +600,7 @@ class Plot(object):
         self.plot_data = []
 
         if isinstance(self.data, xray.Dataset):
-            loop_data = [self.data]
+            loop_data = [self.data[self.var[0].name].values]
         else:
             loop_data = self.data
         for data in loop_data:
