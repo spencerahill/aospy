@@ -268,3 +268,16 @@ def level_thickness(p):
     dp.append(0.5*(p[-2] + p[-1]))
     # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
     return xray.DataArray(dp, coords=[p/100.0], dims=['level'])
+
+
+def does_coord_increase_w_index(arr):
+    """Determine if the array values increase with the index.
+
+    Useful, e.g., for pressure, which sometimes is indexed surface to TOA and
+    sometimes the opposite.
+    """
+    diff = np.diff(arr)
+    if not np.all(np.abs(np.sign(diff))):
+        raise ValueError("Array is not monotonic: {}".format(arr))
+    # Since we know its monotonic, just test the first value.
+    return bool(diff[0])
