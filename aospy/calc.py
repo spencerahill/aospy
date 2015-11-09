@@ -248,7 +248,7 @@ class Calc(object):
         """Get paths to netCDF files save in GFDL standard output format."""
         domain = self.domain
         dtype_lbl = self.dtype_in_time
-        if self.dtype_in_vert == 'sigma':  # and name != 'ps':
+        if self.dtype_in_vert == 'sigma' and name != 'ps':
             domain += '_level'
         if self.dtype_in_time == 'inst':
             domain += '_inst'
@@ -407,10 +407,6 @@ class Calc(object):
             ds_chunks.append(test)
         ds = xray.concat(ds_chunks, dim=TIME_STR)
         ds = self._add_grid_attributes(ds, n)
-        # 2015-10-16 S. Hill: Passing in each variable as a Dataset is causing
-        # lots of problems in my functions, even ones as simple as just adding
-        # the two variables together.  I think it makes most sense to just grab
-        # the DataArray of the desired data from the Dataset.
         for name in var.names:
             try:
                 arr = ds[name]
@@ -453,7 +449,7 @@ class Calc(object):
             elif var.name == 'dp':
                 data = level_thickness(pressure)
 
-        if self.dtype_in_vert == 'sigma':
+        elif self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk
             ps = self._create_input_data_obj(self.ps, start_date, end_date)
@@ -496,9 +492,12 @@ class Calc(object):
         # aospy.Var objects remain.
         # Pressure handled specially due to complications from sigma vs. p.
         elif var.name in ('p', 'dp'):
-            return self._to_desired_dates(
-                self._get_pressure_vals(var, start_date, end_date)
-            )
+            data = self._get_pressure_vals(var, start_date, end_date)
+            if self.dtype_in_vert == 'sigma':
+                if self.dtype_in_time == 'inst':
+                    data = self._correct_gfdl_inst_time(data)
+                return self._to_desired_dates(data)
+            return data
         # Get grid, time, etc. arrays directly from model object
         elif var.name in (LAT_STR, LON_STR, TIME_STR, PLEVEL_STR,
                           'pk', 'bk', 'sfc_area'):
