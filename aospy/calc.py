@@ -16,9 +16,9 @@ from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
-from .utils import (get_parent_attr, level_thickness, apply_time_offset,
-                    monthly_mean_ts, monthly_mean_at_each_ind,
-                    pfull_from_ps, to_pfull_from_phalf, dp_from_ps, int_dp_g)
+from .utils import (get_parent_attr, apply_time_offset, monthly_mean_ts,
+                    monthly_mean_at_each_ind, pfull_from_ps,
+                    to_pfull_from_phalf, dp_from_ps, dp_from_p, int_dp_g)
 
 
 dp = Var(
@@ -438,6 +438,7 @@ class Calc(object):
 
     def _get_pressure_vals(self, var, start_date, end_date, n=0):
         """Get pressure array, whether sigma or standard levels."""
+        ps = self._create_input_data_obj(self.ps, start_date, end_date)
 
         if self.dtype_in_vert == 'pressure':
             if np.any(self.pressure):
@@ -447,12 +448,11 @@ class Calc(object):
             if var.name == 'p':
                 data = pressure
             elif var.name == 'dp':
-                data = level_thickness(pressure)
+                data = dp_from_p(pressure, ps)
 
         elif self.dtype_in_vert == 'sigma':
             bk = self.model[n].bk
             pk = self.model[n].pk
-            ps = self._create_input_data_obj(self.ps, start_date, end_date)
             pfull_coord = self.model[n].pfull
             if var.name == 'p':
                 data = pfull_from_ps(bk, pk, ps, pfull_coord)

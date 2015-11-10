@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """Test suite for aospy.utils module."""
-
 import sys
 import unittest
 
 import numpy as np
+import xray
 
 import aospy.utils as au
 
@@ -12,7 +12,8 @@ import aospy.utils as au
 class AospyUtilsTestCase(unittest.TestCase):
     def setUp(self):
         self.p_in_hpa = np.array([1000, 925, 850, 775, 700, 600, 500, 400, 300,
-                                  200, 150, 100, 70, 50, 30, 20, 10])
+                                  200, 150, 100, 70, 50, 30, 20, 10],
+                                 dtype=np.float64)
         self.p_in_pa = self.p_in_hpa*1e2
         self.p_top = 0
         self.p_bot = 1.1e5
@@ -37,15 +38,30 @@ class TestUtils(AospyUtilsTestCase):
                                       self.p_in_pa)
         np.testing.assert_array_equal(au.to_pascal(self.p_in_pa), self.p_in_pa)
 
-    def test_phalf_from_pfull(self):
+    def test_to_phalf_from_pfull(self):
+        # S. Hill 2015-11-10: This needs to be rewritten.
         np.testing.assert_array_equal(
-            au.phalf_from_pfull(self.p_in_pa, self.p_top, self.p_bot),
+            au.to_phalf_from_pfull(self.p_in_pa, self.p_top, self.p_bot),
             self.phalf
         )
 
-    # def test_dp_from_p(self):
-        # ps = 9e4
-        # dp_true = self.p_in_pa
+
+def test_dp_from_p():
+    path = (
+        '/archive/Spencer.Hill/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/pp/'
+        'atmos/ts/monthly/30yr/atmos.198301-201212.ucomp.nc'
+    )
+    ds = xray.open_dataset(path)
+    p = ds.level
+    path = (
+        '/archive/Spencer.Hill/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/pp/'
+        'atmos/ts/monthly/30yr/atmos.198301-201212.ps.nc'
+    )
+    ps = xray.open_dataset(path).ps
+    dp = au.dp_from_p(p, ps)
+    np.testing.assert_array_equal(p.level, dp.level)
+    # TODO: More tests
+
 
 if __name__ == '__main__':
     sys.exit(unittest.main())

@@ -1,4 +1,5 @@
 """aospy.utils: utility functions for the aospy module."""
+import logging
 import warnings
 
 from infinite_diff import FiniteDiff
@@ -6,7 +7,8 @@ import numpy as np
 import pandas as pd
 import xray
 
-from .__config__ import PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, user_path
+from .__config__ import (PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR,
+                         LAT_STR, LON_STR, user_path)
 from .constants import grav, Constant
 
 
@@ -226,28 +228,67 @@ def int_dp_g(arr, dp):
                      vert_coord_name(dp)) / grav.value
 
 
-def dp_from_p(p, ps):
-    """Get level thickness of pressure data, incorporating surface pressure."""
-    # Top layer goes to 0 hPa; bottom layer goes to 1100 hPa.
-    p = to_pascal(p)
-    p_top = np.array([0])
-    p_bot = np.array([1.1e5])
+def dp_from_p(p, ps, p_top=0., p_bot=1.1e5):
+    """Get level thickness of pressure data, incorporating surface pressure.
+
+    Level edges are defined as halfway between the levels, as well as the user-
+    specified uppermost and lowermost values.  The dp of levels whose bottom
+    pressure is less than the surface pressure is not changed by ps, since they
+    don't intersect the surface.  If ps is in between a level's top and bottom
+    pressures, then its dp becomes the pressure difference between its top and
+    ps.  If ps is less than a level's top and bottom pressures, then that level
+    is underground and its values are masked.
+
+    Note that postprocessing routines (e.g. at GFDL) typically mask out data
+    wherever the surface pressure is less than the level's given value, not the
+    level's upper edge.  This masks out more levels than the
+
+    """
+    p_vals = to_pascal(p.values)
 
     # Layer edges are halfway between the given pressure levels.
-    p_edges_interior = 0.5*(p.isel(phalf=slice(0, -1)) +
-                            p.isel(phalf=slice(1, None)))
-    p_edges = xray.concat((p_bot, p_edges_interior, p_top), dim=PHALF_STR)
-    p_edge_above = p_edges.isel(phalf=slice(1, None))
-    p_edge_below = p_edges.isel(phalf=slice(0, -1))
-    dp_interior = p_edge_below - p_edge_above
-    dp_interior.rename({PHALF_STR: PFULL_STR})
-
-    ps = to_pascal(ps)
-    # If ps < p_edge_below, then ps becomes the layer's bottom boundary.
-    dp_adj_sfc = ps - p_edge_above
-    dp = np.where(np.sign(ps - p_edge_below) > 0, dp_interior, dp_adj_sfc)
-    # Mask where ps is less than the p.
-    return np.ma.masked_where(ps < p, dp)
+    p_edges_interior = 0.5*(p_vals[:-1] + p_vals[1:])
+    p_edges = np.concatenate(([p_bot], p_edges_interior, [p_top]))
+    p_edge_above = p_edges[1:]
+    p_edge_below = p_edges[:-1]
+    dp = p_edge_below - p_edge_above
+    if not all(np.sign(dp)):
+        raise ValueError("dp array not all > 0 : {}".format(dp))
+    # Pressure difference between ps and the upper edge of each pressure level.
+    p_edge_above_xray = xray.DataArray(p_edge_above, dims=p.dims,
+                                       coords=p.coords)
+    dp_to_sfc = ps - p_edge_above_xray
+    # Find the level adjacent to the masked, under-ground levels.
+    change = xray.DataArray(np.zeros(dp_to_sfc.shape), dims=dp_to_sfc.dims,
+                            coords=dp_to_sfc.coords)
+    change[{PLEVEL_STR: slice(1, None)}] = np.diff(
+        np.sign(ps - to_pascal(p.copy()))
+    )
+    dp_combined = xray.DataArray(np.where(change, dp_to_sfc, dp),
+                                 dims=dp_to_sfc.dims, coords=dp_to_sfc.coords)
+    # Mask levels that are under ground.
+    above_ground = ps > to_pascal(p.copy())
+    above_ground[PLEVEL_STR].values = p.values
+    dp_with_ps = dp_combined.where(above_ground)
+    # Revert to original dim order.
+    possible_dim_orders = [
+        (TIME_STR, PLEVEL_STR, LAT_STR, LON_STR),
+        (TIME_STR, PLEVEL_STR, LAT_STR),
+        (TIME_STR, PLEVEL_STR, LON_STR),
+        (TIME_STR, PLEVEL_STR),
+        (PLEVEL_STR, LAT_STR, LON_STR),
+        (PLEVEL_STR, LAT_STR),
+        (PLEVEL_STR, LON_STR),
+        (PLEVEL_STR,),
+    ]
+    for dim_order in possible_dim_orders:
+        try:
+            return dp_with_ps.transpose(*dim_order)
+        except ValueError:
+            logging.debug("Failed transpose to dims: {}".format(dim_order))
+    else:
+        logging.debug("No transpose was successful.")
+        return dp_with_ps
 
 
 def level_thickness(p):
