@@ -11,8 +11,8 @@ import numpy as np
 import xray
 
 from . import Constant, Var
-from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
-                         TIME_STR, YEAR_STR)
+from .__config__ import (LAT_STR, LON_STR, LAT_BOUNDS_STR, LON_BOUNDS_STR,
+                         PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, YEAR_STR)
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
@@ -248,6 +248,8 @@ class Calc(object):
         """Get paths to netCDF files save in GFDL standard output format."""
         domain = self.domain
         dtype_lbl = self.dtype_in_time
+        if self.intvl_in == 'daily':
+            domain += '_daily'
         if self.dtype_in_vert == 'sigma' and name != 'ps':
             domain += '_level'
         if self.dtype_in_time == 'inst':
@@ -337,26 +339,26 @@ class Calc(object):
         """Add model grid attributes to a dataset"""
 
         grid_attrs = {
-            LAT_STR:       ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-            'lat_bounds':  ('latb', 'lat_bnds', 'lat_bounds'),
-            LON_STR:       ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-            'lon_bounds':  ('lonb', 'lon_bnds', 'lon_bounds'),
-            PLEVEL_STR:    ('level', 'lev', 'plev'),
-            'sfc_area':    ('area', 'sfc_area'),
-            'zsurf':       ('zsurf',),
-            'land_mask':   ('land_mask',),
-            'pk':          ('pk',),
-            'bk':          ('bk',),
-            PHALF_STR:     ('phalf',),
-            PFULL_STR:     ('pfull',),
+            LAT_STR:        ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
+            LAT_BOUNDS_STR: ('latb', 'lat_bnds', 'lat_bounds'),
+            LON_STR:        ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
+            LON_BOUNDS_STR: ('lonb', 'lon_bnds', 'lon_bounds'),
+            PLEVEL_STR:     ('level', 'lev', 'plev'),
+            'sfc_area':     ('area', 'sfc_area'),
+            'zsurf':        ('zsurf',),
+            'land_mask':    ('land_mask',),
+            'pk':           ('pk',),
+            'bk':           ('bk',),
+            PHALF_STR:      ('phalf',),
+            PFULL_STR:      ('pfull',),
             }
 
         for name_int, names_ext in grid_attrs.items():
             ds_coord_name = set(names_ext).intersection(set(ds.coords))
+            # print(name_int, names_ext, ds_coord_name)
             if ds_coord_name:
-                # Check if coord is in dataset already.
-                # If it is, then rename it so that it has
-                # the correct internal name.
+                # Check if coord is in dataset already.  If it is, then rename
+                # it so that it has the correct internal name.
                 ds = ds.rename({list(ds_coord_name)[0]: name_int})
                 ds = ds.set_coords(name_int)
                 if not ds[name_int].equals(getattr(self.model[n], name_int)):
@@ -364,11 +366,12 @@ class Calc(object):
                                   "do not match those in Run".format(name_int))
             else:
                 # Bring in coord from model object if it exists.
-                if getattr(self.model[n], name_int) is not None:
+                if getattr(self.model[n], name_int, None) is not None:
                     ds[name_int] = getattr(self.model[n], name_int)
                     ds = ds.set_coords(name_int)
             if self.dtype_in_vert == 'pressure' and 'level' in ds.coords:
                 self.pressure = ds.level
+        # print(ds)
         return ds
 
     def _create_input_data_obj(self, var, start_date=False,
@@ -392,7 +395,6 @@ class Calc(object):
         # here was that it opens a can of worms with regard to performance;
         # we'd need to add some logic to make sure the data were chunked in a
         # reasonable way (and logic to change the chunking if need be).
-
         for file_ in paths:
             test = xray.open_dataset(file_, decode_cf=False,
                                      drop_variables=['time_bounds', 'nv',
@@ -631,11 +633,11 @@ class Calc(object):
         for reg in self.region.values():
             # Just pass along the data if averaged already.
             if 'av' in self.dtype_in_time:
-                data_out = reg.ts(arr, self.model[n])
+                data_out = reg.ts(arr)
             # Otherwise perform the calculation.
             else:
                 method = getattr(reg, func)
-                data_out = method(arr, self.model[n])
+                data_out = method(arr)
             reg_dat.update({reg.name: data_out})
         return reg_dat
 
