@@ -235,7 +235,7 @@ class Calc(object):
         # data_in_files may hold absolute or relative paths
         paths = []
         for nc in data_in_files:
-            full = '/'.join([data_in_direc, nc]).replace('//', '/')
+            full = os.path.join(data_in_direc, nc)
             if os.path.isfile(nc):
                 paths.append(nc)
             elif os.path.isfile(full):
