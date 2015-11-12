@@ -215,36 +215,23 @@ class Calc(object):
 
         self.data_out = {}
 
-    def _get_input_data_paths_one_dir_freq(self, name, data_in_direc, n=0):
-        """Get the names of netCDF files when all in same directory.
-        Allow the use to specify the separate output frequencies.
-        """
-        if isinstance(self.data_in_files[n][self.intvl_in][name], str):
-            data_in_files = [self.data_in_files[n][self.intvl_in][name]]
-        else:
-            data_in_files = self.data_in_files[n][self.intvl_in][name]
-        # data_in_files may hold absolute or relative paths
-        paths = []
-        for nc in data_in_files:
-            full = '/'.join([data_in_direc, nc]).replace('//', '/')
-            if os.path.isfile(nc):
-                paths.append(nc)
-            elif os.path.isfile(full):
-                paths.append(full)
+    def _data_in_files_one_dir(self, name, n=0):
+        """Get the file names of the files in a single directory"""
+        if self.intvl_in in self.data_in_files[n]:
+            if isinstance(self.data_in_files[n][self.intvl_in][name], str):
+                data_in_files = [self.data_in_files[n][self.intvl_in][name]]
             else:
-                print("Warning: specified netCDF file `{}` "
-                      "not found".format(nc))
-        # Remove duplicate entries.
-        files = list(set(paths))
-        files.sort()
-        return files
+                data_in_files = self.data_in_files[n][self.intvl_in][name]
+        else:
+            if isinstance(self.data_in_files[n][name], str):
+                data_in_files = [self.data_in_files[n][name]]
+            else:
+                data_in_files = self.data_in_files[n][name]
+        return data_in_files
 
     def _get_input_data_paths_one_dir(self, name, data_in_direc, n=0):
         """Get the names of netCDF files when all in same directory."""
-        if isinstance(self.data_in_files[n][name], str):
-            data_in_files = [self.data_in_files[n][name]]
-        else:
-            data_in_files = self.data_in_files[n][name]
+        data_in_files = self._data_in_files_one_dir(name, n)
         # data_in_files may hold absolute or relative paths
         paths = []
         for nc in data_in_files:
@@ -316,15 +303,6 @@ class Calc(object):
             if self.data_in_dir_struc[n] == 'one_dir':
                 try:
                     files = self._get_input_data_paths_one_dir(
-                        name, data_in_direc, n=n
-                    )
-                except KeyError:
-                    pass
-                else:
-                    break
-            elif self.data_in_dir_struc[n] == 'one_dir_freq':
-                try:
-                    files = self._get_input_data_paths_one_dir_freq(
                         name, data_in_direc, n=n
                     )
                 except KeyError:
