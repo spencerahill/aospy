@@ -45,9 +45,9 @@ class Region(object):
         except:
             raise
 
-    def _get_land_mask(self, model, dims, coords):
+    def _get_land_mask(self, data):
         try:
-            lmask = xray.DataArray(model.land_mask, dims=dims, coords=coords)
+            lmask = data.land_mask
         except:
             # S. Hill 2015-10-14: Eventually aospy will have a built-in land
             # mask array that it can use in case the object doesn't have one
@@ -64,10 +64,8 @@ class Region(object):
     def ts(self, data, model):
         """Create time-series of region-average data."""
         data_masked = self.mask_var(data)
-        dims = ['lat', 'lon']
-        coords = [data_masked.coords[c] for c in dims]
         sfc_area = data.sfc_area
-        land_mask = data.land_mask
+        land_mask = self._get_land_mask(data)
         weights = (self.mask_var(sfc_area)*land_mask).sum('lat').sum('lon')
         return(data_masked*sfc_area*land_mask).sum('lat').sum('lon') / weights
 
