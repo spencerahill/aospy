@@ -215,16 +215,27 @@ class Calc(object):
 
         self.data_out = {}
 
+    def _data_in_files_one_dir(self, name, n=0):
+        """Get the file names of the files in a single directory"""
+        if self.intvl_in in self.data_in_files[n]:
+            if isinstance(self.data_in_files[n][self.intvl_in][name], str):
+                data_in_files = [self.data_in_files[n][self.intvl_in][name]]
+            else:
+                data_in_files = self.data_in_files[n][self.intvl_in][name]
+        else:
+            if isinstance(self.data_in_files[n][name], str):
+                data_in_files = [self.data_in_files[n][name]]
+            else:
+                data_in_files = self.data_in_files[n][name]
+        return data_in_files
+
     def _get_input_data_paths_one_dir(self, name, data_in_direc, n=0):
         """Get the names of netCDF files when all in same directory."""
-        if isinstance(self.data_in_files[n][name], str):
-            data_in_files = [self.data_in_files[n][name]]
-        else:
-            data_in_files = self.data_in_files[n][name]
+        data_in_files = self._data_in_files_one_dir(name, n)
         # data_in_files may hold absolute or relative paths
         paths = []
         for nc in data_in_files:
-            full = '/'.join([data_in_direc, nc]).replace('//', '/')
+            full = os.path.join(data_in_direc, nc)
             if os.path.isfile(nc):
                 paths.append(nc)
             elif os.path.isfile(full):
