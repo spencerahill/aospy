@@ -590,10 +590,10 @@ class Plot(object):
 
     def prep_data_for_basemap(self):
         # if self.ax.shiftgrid_start:
-        #     lon0 = 180
+        #     lon0 = 181.25
         # else:
         #     lon0 = self.ax.shiftgrid_start
-        lon0 = 180
+        lon0 = 181.25
         self.lons = self.x_data
         self.lats = self.y_data
 
