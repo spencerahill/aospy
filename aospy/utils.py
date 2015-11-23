@@ -23,6 +23,7 @@ def coord_to_new_dataarray(arr, dim):
                           dims=[dim])
 
 
+# 2015-11-16 S. Hill: This time-related function should be moved to time module
 def apply_time_offset(time, months=0, days=0, hours=0):
     """Apply the given offset to the given time array.
 
@@ -39,6 +40,7 @@ def apply_time_offset(time, months=0, days=0, hours=0):
                                           hours=hours))
 
 
+# 2015-11-16 S. Hill: This time-related function should be moved to time module
 def monthly_mean_ts(arr):
     """Convert a sub-monthly time-series into one of monthly means."""
     if isinstance(arr, (float, int, Constant)):
@@ -50,6 +52,7 @@ def monthly_mean_ts(arr):
                        "label `{}`.".format(arr, TIME_STR))
 
 
+# 2015-11-16 S. Hill: This time-related function should be moved to time module
 def monthly_mean_at_each_ind(arr_mon, arr_sub):
     """Copy monthly mean over each time index in that month."""
     time = arr_mon[TIME_STR]
