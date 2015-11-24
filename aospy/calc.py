@@ -355,11 +355,6 @@ class Calc(object):
             ds_coord_name = set(names_ext).intersection(set(ds.coords) |
                                                         set(ds.data_vars))
             model_attr = getattr(self.model[n], name_int, None)
-            if name_int == 'sfc_area':
-                print(model_attr, '\n\n')
-                print(name_int, names_ext, ds_coord_name)
-                print('\n\n', set(ds.coords), '\n\n', set(ds.data_vars))
-                print('\n\n', model_attr)
             if ds_coord_name:
                 # Check if coord is in dataset already.  If it is, then rename
                 # it so that it has the correct internal name.
