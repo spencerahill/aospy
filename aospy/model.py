@@ -1,4 +1,5 @@
 """model.py: Model class of aospy for storing attributes of a GCM."""
+from __future__ import print_function
 import glob
 import os
 
@@ -6,10 +7,10 @@ import numpy as np
 import xray
 
 from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
-                   TIME_STR, TIME_STR_IDEALIZED)
+                         LAT_BOUNDS_STR, LON_BOUNDS_STR)
 from .constants import r_e
 from .io import get_data_in_direc_repo
-from .utils import dict_name_keys, level_thickness
+from .utils import dict_name_keys, level_thickness, to_radians
 
 
 class Model(object):
@@ -82,14 +83,14 @@ class Model(object):
             datasets.append(ds)
         return tuple(datasets)
 
-    def _get_grid_attr(self, grid_objs, attr_name):
+    @staticmethod
+    def _get_grid_attr(grid_objs, attr_name):
         """Get attribute from the grid_objs file(s)."""
         for xds in grid_objs:
             try:
                 return getattr(xds, attr_name)
             except AttributeError:
                 pass
-        return
 
     @staticmethod
     def _rename_coords(ds):
@@ -99,20 +100,19 @@ class Model(object):
         """
         primary_attrs = {
             LAT_STR:         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-            'lat_bounds':    ('latb', 'lat_bnds', 'lat_bounds'),
+            LAT_BOUNDS_STR:    ('latb', 'lat_bnds', 'lat_bounds'),
             LON_STR:         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-            'lon_bounds':    ('lonb', 'lon_bnds', 'lon_bounds'),
+            LON_BOUNDS_STR:    ('lonb', 'lon_bnds', 'lon_bounds'),
             PLEVEL_STR:      ('level', 'lev', 'plev'),
             PHALF_STR:       ('phalf',),
             PFULL_STR:       ('pfull',)
             }
         if isinstance(ds, (xray.DataArray, xray.Dataset)):
             for name_int, names_ext in primary_attrs.items():
+                # Check if coord is in dataset already.
                 ds_coord_name = set(names_ext).intersection(set(ds.coords))
                 if ds_coord_name:
-                    # Check if coord is in dataset already.
-                    # If it is, then rename it so that it has
-                    # the correct internal name.
+                    # Rename to the aospy internal name.
                     ds = ds.rename({list(ds_coord_name)[0]: name_int})
         return ds
 
@@ -122,9 +122,9 @@ class Model(object):
         """
         grid_attrs = {
             LAT_STR:         ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-            'lat_bounds':    ('latb', 'lat_bnds', 'lat_bounds'),
+            LAT_BOUNDS_STR:    ('latb', 'lat_bnds', 'lat_bounds'),
             LON_STR:         ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-            'lon_bounds':    ('lonb', 'lon_bnds', 'lon_bounds'),
+            LON_BOUNDS_STR:    ('lonb', 'lon_bnds', 'lon_bounds'),
             PLEVEL_STR:      ('level', 'lev', 'plev'),
             # 'time':        ('time', 'TIME'),
             # 'time_st':     ('average_T1',),
@@ -146,81 +146,79 @@ class Model(object):
             # 'fill_value':  ('fill_value')
         }
         grid_objs = self._get_grid_files()
-        try:
-            for name_int, names_ext in grid_attrs.items():
-                for name in names_ext:
-                    # Rename all coordinates such that they match
-                    # specified internal names.
-                    grid_attr = self._get_grid_attr(grid_objs, name)
+        for name_int, names_ext in grid_attrs.items():
+            for name in names_ext:
+                grid_attr = self._get_grid_attr(grid_objs, name)
+                if np.any(grid_attr):
+                    # Rename coordinates to aospy's internal names.
                     renamed_attrs = self._rename_coords(grid_attr)
                     setattr(self, name_int, renamed_attrs)
                     break
-        except:
-            raise
 
-    def grid_sfc_area(self, lon, lat, lonb, latb, gridcenter=False):
+    @staticmethod
+    def bounds_from_array(arr, bounds_name):
+        """Get the bounds of an array given its center values.
+
+        E.g. if lat-lon grid center lat/lon values are known, but not the
+        bounds of each grid box.  The algorithm assumes that the bounds
+        are simply halfway between each pair of center values.
+        """
+        bounds_interior = np.diff(arr)
+        bound_0 = arr[0] - (bounds_interior[0] - arr[0])
+        bound_last = arr[-1] + (arr[-1] - bounds_interior[-1])
+        bounds = xray.concat([bound_0, bounds_interior, bound_last])
+        return bounds.rename(bounds_name)
+
+    @staticmethod
+    def diff_bounds(bounds, coord):
+        """Get grid spacing by subtracting upper and lower bounds."""
+        try:
+            return bounds[:, 1] - bounds[:, 0]
+        except IndexError:
+            diff = np.diff(bounds, axis=0)
+            return xray.DataArray(diff, dims=coord.dims, coords=coord.coords)
+
+    @classmethod
+    def grid_sfc_area(cls, lon, lat, lon_bounds=None, lat_bounds=None):
         """Calculate surface area of each grid cell in a lon-lat grid."""
-        def diff_latlon_bnds(array):
-            if array.ndim == 1:
-                return np.diff(array, axis=0)
-            else:
-                return array[:, 1] - array[:, 0]
-        dlon = diff_latlon_bnds(lonb)
-        # Must compute gridcell edges if given values at cell centers.
-        if gridcenter:
-            # Grid must be evenly spaced for algorithm to work.
-            assert np.allclose(dlon[0], dlon)
-            dlon = np.append(dlon, lonb[0] - lonb[-1] + 360.)
-            dlat = diff_latlon_bnds(latb)
-            assert np.allclose(dlat[0], dlat)
-            # First and last array values done separately.
-            lat = latb
-            latb = np.append(lat[0] - 0.5*dlat[0], lat[:-1] + 0.5*dlat)
-            latb = np.append(latb, lat[-1]+0.5*dlat[-1])
-
-        # The odd business of converting to radians then back to degrees
-        # is to account for a bug in xray. For whatever reason you cannot
-        # call the diff function on a coordinate. If we apply an identity
-        # operation (e.g. changing back and forth between degrees and radians)
-        # we can disconnect the coordinate from the values. This allows diff
-        # to work properly.
-        dlon = np.abs(np.rad2deg(np.deg2rad(lonb)).diff(dim='lon_bounds'))
-        dsinlat = np.abs(np.sin(np.pi * latb / 180.0).diff(dim='lat_bounds'))
-
-        # We will need to be clever about naming, however. For now we don't
-        # use the gridbox area, so we'll leave things like this for now.
-        sfc_area = dlon*dsinlat*(r_e**2) * (np.pi/180.)
-        # Rename the coordinates such that they match the actual lat / lon
-        # (Not the bounds)
-        sfc_area = sfc_area.rename({'lat_bounds': 'lat', 'lon_bounds': 'lon'})
-        sfc_area['lat'] = lat
-        sfc_area['lon'] = lon
-        return sfc_area
-
-    def _set_sfc_area(self):
-        """Set the 2D array holding the surface area of gridboxes."""
-        if getattr(self, 'sfc_area', None) is not None:
-            return
-        else:
-            try:
-                sfc_area = self.grid_sfc_area(
-                    self.lon, self.lat,
-                    self.lon_bounds, self.lat_bounds, gridcenter=False
-                )
-            except AttributeError:
-                sfc_area = self.grid_sfc_area(
-                    self.lon, self.lat, gridcenter=True
-                )
-            self.sfc_area = sfc_area
+        # Compute the bounds if not given.
+        if lon_bounds is None:
+            lon_bounds = cls.bounds_from_array(lon, LON_BOUNDS_STR)
+        if lat_bounds is None:
+            lat_bounds = cls.bounds_from_array(lat, LAT_BOUNDS_STR)
+        # Compute the surface area.
+        dlon = to_radians(cls.diff_bounds(lon_bounds, lon))
+        sinlat_bounds = np.sin(to_radians(lat_bounds))
+        dsinlat = np.abs(cls.diff_bounds(sinlat_bounds, lat))
+        sfc_area = dlon*dsinlat*(r_e**2)
+        # Rename the coordinates such that they match the actual lat / lon.
+        try:
+            sfc_area = sfc_area.rename({LAT_BOUNDS_STR: LAT_STR,
+                                        LON_BOUNDS_STR: LON_STR})
+        except ValueError:
+            pass
+        # Clean up: correct names and dimension order.
+        sfc_area = sfc_area.rename('sfc_area')
+        sfc_area[LAT_STR] = lat
+        sfc_area[LON_STR] = lon
+        return sfc_area.transpose()
 
     def set_grid_data(self):
         """Populate the attrs that hold grid data."""
         if self.grid_data_is_set:
             return
         self._set_mult_grid_attr()
-        self._set_sfc_area()
-        if self.level is not None:
+        if not np.any(getattr(self, 'sfc_area', None)):
+            try:
+                sfc_area = self.grid_sfc_area(self.lon, self.lat,
+                                              self.lon_bounds, self.lat_bounds)
+            except AttributeError:
+                sfc_area = self.grid_sfc_area(self.lon, self.lat)
+            self.sfc_area = sfc_area
+        # print('\n\n', 'sfc_area', self.sfc_area, '\n\n')
+        try:
             self.levs_thick = level_thickness(self.level)
-        else:
+        except AttributeError:
+            self.level = None
             self.levs_thick = None
         self.grid_data_is_set = True
