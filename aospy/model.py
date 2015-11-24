@@ -170,12 +170,13 @@ class Model(object):
         return bounds.rename(bounds_name)
 
     @staticmethod
-    def diff_bounds(arr):
+    def diff_bounds(bounds, coord):
         """Get grid spacing by subtracting upper and lower bounds."""
         try:
-            return arr[:, 1] - arr[:, 0]
+            return bounds[:, 1] - bounds[:, 0]
         except IndexError:
-            return np.diff(arr, axis=0)
+            diff = np.diff(bounds, axis=0)
+            return xray.DataArray(diff, dims=coord.dims, coords=coord.coords)
 
     @classmethod
     def grid_sfc_area(cls, lon, lat, lon_bounds=None, lat_bounds=None):
@@ -186,10 +187,9 @@ class Model(object):
         if lat_bounds is None:
             lat_bounds = cls.bounds_from_array(lat, LAT_BOUNDS_STR)
         # Compute the surface area.
-        dlon = cls.diff_bounds(lon_bounds)
-        dlon = np.abs(to_radians(lon_bounds).diff(dim=LON_BOUNDS_STR))
+        dlon = to_radians(cls.diff_bounds(lon_bounds, lon))
         sinlat_bounds = np.sin(to_radians(lat_bounds))
-        dsinlat = np.abs(sinlat_bounds).diff(dim=LAT_BOUNDS_STR)
+        dsinlat = np.abs(cls.diff_bounds(sinlat_bounds, lat))
         sfc_area = dlon*dsinlat*(r_e**2)
         # Rename the coordinates such that they match the actual lat / lon.
         try:
@@ -197,10 +197,11 @@ class Model(object):
                                         LON_BOUNDS_STR: LON_STR})
         except ValueError:
             pass
-        sfc_area.rename('sfc_area')
+        # Clean up: correct names and dimension order.
+        sfc_area = sfc_area.rename('sfc_area')
         sfc_area[LAT_STR] = lat
         sfc_area[LON_STR] = lon
-        return sfc_area
+        return sfc_area.transpose()
 
     def set_grid_data(self):
         """Populate the attrs that hold grid data."""
