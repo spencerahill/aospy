@@ -215,16 +215,27 @@ class Calc(object):
 
         self.data_out = {}
 
+    def _data_in_files_one_dir(self, name, n=0):
+        """Get the file names of the files in a single directory"""
+        if self.intvl_in in self.data_in_files[n]:
+            if isinstance(self.data_in_files[n][self.intvl_in][name], str):
+                data_in_files = [self.data_in_files[n][self.intvl_in][name]]
+            else:
+                data_in_files = self.data_in_files[n][self.intvl_in][name]
+        else:
+            if isinstance(self.data_in_files[n][name], str):
+                data_in_files = [self.data_in_files[n][name]]
+            else:
+                data_in_files = self.data_in_files[n][name]
+        return data_in_files
+
     def _get_input_data_paths_one_dir(self, name, data_in_direc, n=0):
         """Get the names of netCDF files when all in same directory."""
-        if isinstance(self.data_in_files[n][name], str):
-            data_in_files = [self.data_in_files[n][name]]
-        else:
-            data_in_files = self.data_in_files[n][name]
+        data_in_files = self._data_in_files_one_dir(name, n)
         # data_in_files may hold absolute or relative paths
         paths = []
         for nc in data_in_files:
-            full = '/'.join([data_in_direc, nc]).replace('//', '/')
+            full = os.path.join(data_in_direc, nc)
             if os.path.isfile(nc):
                 paths.append(nc)
             elif os.path.isfile(full):
@@ -337,7 +348,6 @@ class Calc(object):
 
     def _add_grid_attributes(self, ds, n=0):
         """Add model grid attributes to a dataset"""
-
         grid_attrs = {
             LAT_STR:        ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
             LAT_BOUNDS_STR: ('latb', 'lat_bnds', 'lat_bounds'),
@@ -352,26 +362,25 @@ class Calc(object):
             PHALF_STR:      ('phalf',),
             PFULL_STR:      ('pfull',),
             }
-
         for name_int, names_ext in grid_attrs.items():
-            ds_coord_name = set(names_ext).intersection(set(ds.coords))
-            # print(name_int, names_ext, ds_coord_name)
+            ds_coord_name = set(names_ext).intersection(set(ds.coords) |
+                                                        set(ds.data_vars))
+            model_attr = getattr(self.model[n], name_int, None)
             if ds_coord_name:
                 # Check if coord is in dataset already.  If it is, then rename
                 # it so that it has the correct internal name.
                 ds = ds.rename({list(ds_coord_name)[0]: name_int})
                 ds = ds.set_coords(name_int)
-                if not ds[name_int].equals(getattr(self.model[n], name_int)):
+                if not ds[name_int].equals(model_attr):
                     warnings.warn("Model coordinates for '{}'"
                                   "do not match those in Run".format(name_int))
             else:
                 # Bring in coord from model object if it exists.
-                if getattr(self.model[n], name_int, None) is not None:
-                    ds[name_int] = getattr(self.model[n], name_int)
+                if model_attr is not None:
+                    ds[name_int] = model_attr
                     ds = ds.set_coords(name_int)
             if self.dtype_in_vert == 'pressure' and 'level' in ds.coords:
                 self.pressure = ds.level
-        # print(ds)
         return ds
 
     def _create_input_data_obj(self, var, start_date=False,
@@ -407,7 +416,7 @@ class Calc(object):
                 test[TIME_STR].attrs['calendar'] = 'noleap'
             test = xray.decode_cf(test)
             ds_chunks.append(test)
-        ds = xray.concat(ds_chunks, dim=TIME_STR)
+        ds = xray.concat(ds_chunks, dim=TIME_STR, data_vars='minimal')
         ds = self._add_grid_attributes(ds, n)
         for name in var.names:
             try:
