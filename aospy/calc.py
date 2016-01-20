@@ -778,10 +778,13 @@ class Calc(object):
             self._save_to_archive(dtype_out_time)
         print('\t', '{}'.format(self.path_scratch[dtype_out_time]))
 
-    def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
+    def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False,
+                           region=False):
         """Load aospy data saved on scratch file system."""
         ds = xray.open_dataset(self.path_scratch[dtype_out_time],
                                engine='scipy')
+        if region:
+            return ds[region.name]
         return ds[self.name]
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
@@ -798,11 +801,11 @@ class Calc(object):
     def _get_data_subset(self, data, region=False, time=False,
                          vert=False, lat=False, lon=False, n=0):
         """Subset the data array to the specified time/level/lat/lon, etc."""
-        if region:
+        # if region:
             # if type(region) is str:
                 # data = data[region]
             # elif type(region) is Region:
-            data = data[region.name]
+            # data = data[region.name]
         if np.any(time):
             data = data[time]
             if 'monthly_from_' in self.dtype_in_time:
@@ -835,13 +838,14 @@ class Calc(object):
         except (AttributeError, KeyError):
             # Otherwise get from disk.  Try scratch first, then archive.
             try:
-                data = self._load_from_scratch(dtype_out_time, dtype_out_vert)
+                data = self._load_from_scratch(dtype_out_time, dtype_out_vert,
+                                               region=region)
             except IOError:
                 data = self._load_from_archive(dtype_out_time, dtype_out_vert)
         # Copy the array to self.data_out for ease of future access.
         self._update_data_out(data, dtype_out_time)
         # Subset the array and convert units as desired.
-        if any((region, time, vert, lat, lon)):
+        if any((time, vert, lat, lon)):
             data = self._get_data_subset(data, region=region, time=time,
                                          vert=vert, lat=lat, lon=lon)
         # Apply desired plotting/cleanup methods.
