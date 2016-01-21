@@ -46,7 +46,7 @@ def monthly_mean_ts(arr):
     if isinstance(arr, (float, int, Constant)):
         return arr
     try:
-        return arr.resample('1M', TIME_STR, how='mean')
+        return arr.resample('1M', TIME_STR, how='mean').dropna(TIME_STR)
     except KeyError:
         raise KeyError("`{}` lacks time dimension with "
                        "label `{}`.".format(arr, TIME_STR))
