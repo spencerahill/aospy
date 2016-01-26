@@ -1,8 +1,6 @@
 """region.py: Region class and region_inst()."""
 from . import LAT_STR, LON_STR
 
-import xray
-
 
 class Region(object):
     """Geographical region."""

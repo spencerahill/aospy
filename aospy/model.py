@@ -4,7 +4,7 @@ import glob
 import os
 
 import numpy as np
-import xray
+import xarray as xr
 
 from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
                          LAT_BOUNDS_STR, LON_BOUNDS_STR)
@@ -77,9 +77,9 @@ class Model(object):
         datasets = []
         for path in self.grid_file_paths:
             try:
-                ds = xray.open_dataset(path, decode_times=False)
+                ds = xr.open_dataset(path, decode_times=False)
             except TypeError:
-                ds = xray.open_mfdataset(path, decode_times=False)
+                ds = xr.open_mfdataset(path, decode_times=False)
             datasets.append(ds)
         return tuple(datasets)
 
@@ -107,13 +107,17 @@ class Model(object):
             PHALF_STR:       ('phalf',),
             PFULL_STR:       ('pfull',)
             }
-        if isinstance(ds, (xray.DataArray, xray.Dataset)):
+        if isinstance(ds, (xr.DataArray, xr.Dataset)):
             for name_int, names_ext in primary_attrs.items():
                 # Check if coord is in dataset already.
                 ds_coord_name = set(names_ext).intersection(set(ds.coords))
                 if ds_coord_name:
                     # Rename to the aospy internal name.
-                    ds = ds.rename({list(ds_coord_name)[0]: name_int})
+                    try:
+                        ds = ds.rename({list(ds_coord_name)[0]: name_int})
+                    # xarray throws a ValueError if the name already exists
+                    except ValueError:
+                        ds = ds
         return ds
 
     def _set_mult_grid_attr(self):
@@ -166,7 +170,7 @@ class Model(object):
         bounds_interior = np.diff(arr)
         bound_0 = arr[0] - (bounds_interior[0] - arr[0])
         bound_last = arr[-1] + (arr[-1] - bounds_interior[-1])
-        bounds = xray.concat([bound_0, bounds_interior, bound_last])
+        bounds = xr.concat([bound_0, bounds_interior, bound_last])
         return bounds.rename(bounds_name)
 
     @staticmethod
@@ -176,7 +180,7 @@ class Model(object):
             return bounds[:, 1] - bounds[:, 0]
         except IndexError:
             diff = np.diff(bounds, axis=0)
-            return xray.DataArray(diff, dims=coord.dims, coords=coord.coords)
+            return xr.DataArray(diff, dims=coord.dims, coords=coord.coords)
 
     @classmethod
     def grid_sfc_area(cls, lon, lat, lon_bounds=None, lat_bounds=None):

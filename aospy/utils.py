@@ -5,7 +5,7 @@ import warnings
 from infinite_diff import FiniteDiff
 import numpy as np
 import pandas as pd
-import xray
+import xarray as xr
 
 from .__config__ import (PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR,
                          LAT_STR, LON_STR, user_path)
@@ -16,11 +16,10 @@ def coord_to_new_dataarray(arr, dim):
     """Create a DataArray comprising the coord for the specified dim.
 
     Useful, for example, when wanting to resample in time, because at least
-    for xray 0.6.0 and prior, the `resample` method doesn't work when applied
+    for xarray 0.6.0 and prior, the `resample` method doesn't work when applied
     to coords.  The DataArray returned by this method lacks that limitation.
     """
-    return xray.DataArray(arr[dim].values, coords=[arr[dim].values],
-                          dims=[dim])
+    return xr.DataArray(arr[dim].values, coords=[arr[dim].values], dims=[dim])
 
 
 # 2015-11-16 S. Hill: This time-related function should be moved to time module
@@ -31,7 +30,7 @@ def apply_time_offset(time, months=0, days=0, hours=0):
     3 hourly data postprocessed to netCDF files spanning 1 year each will
     actually have time values that are offset by 3 hours, such that the first
     value is for 1 Jan 03:00 and the last value is 1 Jan 00:00 of the
-    subsequent year.  This causes problems in xray, e.g. when trying to group
+    subsequent year.  This causes problems in xarray, e.g. when trying to group
     by month.  It is resolved by manually subtracting off those three hours,
     such that the dates span from 1 Jan 00:00 to 31 Dec 21:00 as desired.
     """
@@ -150,10 +149,12 @@ def phalf_from_ps(bk, pk, ps):
     return (ps*bk + pk)
 
 
-def replace_coord(arr, old_dim, new_dim,  new_coord):
+def replace_coord(arr, old_dim, new_dim, new_coord):
     """Replace a coordinate with new one; new and old must have same shape."""
     new_arr = arr.rename({old_dim: new_dim})
-    new_arr[new_dim] = new_coord
+    # new_arr[new_dim] = new_coord
+    # 2016-01-25 S. Hill: Temporary workaround to deal with xarray 0.7.0 bug.
+    new_arr[new_dim].values = new_coord.values
     return new_arr
 
 
@@ -258,16 +259,16 @@ def dp_from_p(p, ps, p_top=0., p_bot=1.1e5):
     if not all(np.sign(dp)):
         raise ValueError("dp array not all > 0 : {}".format(dp))
     # Pressure difference between ps and the upper edge of each pressure level.
-    p_edge_above_xray = xray.DataArray(p_edge_above, dims=p.dims,
+    p_edge_above_xarray = xr.DataArray(p_edge_above, dims=p.dims,
                                        coords=p.coords)
-    dp_to_sfc = ps - p_edge_above_xray
+    dp_to_sfc = ps - p_edge_above_xarray
     # Find the level adjacent to the masked, under-ground levels.
-    change = xray.DataArray(np.zeros(dp_to_sfc.shape), dims=dp_to_sfc.dims,
+    change = xr.DataArray(np.zeros(dp_to_sfc.shape), dims=dp_to_sfc.dims,
                             coords=dp_to_sfc.coords)
     change[{PLEVEL_STR: slice(1, None)}] = np.diff(
         np.sign(ps - to_pascal(p.copy()))
     )
-    dp_combined = xray.DataArray(np.where(change, dp_to_sfc, dp),
+    dp_combined = xr.DataArray(np.where(change, dp_to_sfc, dp),
                                  dims=dp_to_sfc.dims, coords=dp_to_sfc.coords)
     # Mask levels that are under ground.
     above_ground = ps > to_pascal(p.copy())
@@ -313,7 +314,7 @@ def level_thickness(p):
     # Top level extends from halfway between top two levels to 0 hPa.
     dp.append(0.5*(p[-2] + p[-1]))
     # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
-    return xray.DataArray(dp, coords=[p/100.0], dims=['level'])
+    return xr.DataArray(dp, coords=[p/100.0], dims=['level'])
 
 
 def does_coord_increase_w_index(arr):

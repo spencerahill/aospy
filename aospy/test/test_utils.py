@@ -4,7 +4,7 @@ import sys
 import unittest
 
 import numpy as np
-import xray
+import xarray as xr
 
 import aospy.utils as au
 
@@ -51,13 +51,13 @@ def test_dp_from_p():
         '/archive/Spencer.Hill/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/pp/'
         'atmos/ts/monthly/30yr/atmos.198301-201212.ucomp.nc'
     )
-    ds = xray.open_dataset(path)
+    ds = xr.open_dataset(path)
     p = ds.level
     path = (
         '/archive/Spencer.Hill/am2/am2clim_reyoi/gfdl.ncrc2-default-prod/pp/'
         'atmos/ts/monthly/30yr/atmos.198301-201212.ps.nc'
     )
-    ps = xray.open_dataset(path).ps
+    ps = xr.open_dataset(path).ps
     dp = au.dp_from_p(p, ps)
     np.testing.assert_array_equal(p.level, dp.level)
     # TODO: More tests

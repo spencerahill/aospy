@@ -3,7 +3,7 @@ import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
-import xray
+import xarray as xr
 
 from .__config__ import default_colormap
 from .calc import Calc, CalcInterface
@@ -599,7 +599,7 @@ class Plot(object):
 
         self.plot_data = []
 
-        if isinstance(self.data, xray.Dataset):
+        if isinstance(self.data, xr.Dataset):
             loop_data = [self.data[self.var[0].name].values]
         else:
             loop_data = self.data

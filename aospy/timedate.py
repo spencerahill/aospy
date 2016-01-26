@@ -3,9 +3,10 @@ import datetime
 
 import numpy as np
 import pandas as pd
-import xray
+import xarray as xr
 
 from . import TIME_STR
+
 
 class TimeManager(object):
     """Convert input time specifications into arrays of datetime objects."""
@@ -64,12 +65,12 @@ class TimeManager(object):
         return cond
 
     def create_time_array(self):
-        """Create an xray.DataArray comprising the desired months."""
+        """Create an xarray.DataArray comprising the desired months."""
         all_months = pd.date_range(
             start=self.apply_year_offset(self.start_date),
             end=self.apply_year_offset(self.end_date), freq='M'
         )
-        time = xray.DataArray(all_months, dims=[TIME_STR])
+        time = xr.DataArray(all_months, dims=[TIME_STR])
         month_cond = self._construct_month_conditional(time, self.months)
         return time[month_cond]
 
@@ -106,7 +107,7 @@ class TimeManager(object):
 def _get_time(time, start_date, end_date, months, indices=False):
     """Determine indices/values of a time array within the specified interval.
 
-    Assumes time is an xray DataArray and that it can be represented
+    Assumes time is an xarray DataArray and that it can be represented
     by numpy datetime64 objects (i.e. the year is between 1678 and 2262).
     """
     inds = TimeManager._construct_month_conditional(time, months)
