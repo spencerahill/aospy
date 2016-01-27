@@ -154,16 +154,18 @@ def replace_coord(arr, old_dim, new_dim, new_coord):
     new_arr = arr.rename({old_dim: new_dim})
     # new_arr[new_dim] = new_coord
     # 2016-01-25 S. Hill: Temporary workaround to deal with xarray 0.7.0 bug.
-    new_arr[new_dim].values = new_coord.values
-    return new_arr
+    # new_arr[new_dim].values = new_coord.values
+    ds = new_arr.to_dataset(name='new_arr')
+    ds[new_dim] = new_coord
+    return ds['new_arr']
 
 
 def to_pfull_from_phalf(arr, pfull_coord):
     """Compute data at full pressure levels from values at half levels."""
-    phalf_top = arr.isel(phalf=slice(1, None))
+    phalf_top = arr.isel(**{PHALF_STR: slice(1, None)})
     phalf_top = replace_coord(phalf_top, PHALF_STR, PFULL_STR, pfull_coord)
 
-    phalf_bot = arr.isel(phalf=slice(None, -1))
+    phalf_bot = arr.isel(**{PHALF_STR: slice(None, -1)})
     phalf_bot = replace_coord(phalf_bot, PHALF_STR, PFULL_STR, pfull_coord)
     return 0.5*(phalf_bot + phalf_top)
 
