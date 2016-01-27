@@ -38,12 +38,12 @@ class TestUtils(AospyUtilsTestCase):
                                       self.p_in_pa)
         np.testing.assert_array_equal(au.to_pascal(self.p_in_pa), self.p_in_pa)
 
-    def test_to_phalf_from_pfull(self):
-        # S. Hill 2015-11-10: This needs to be rewritten.
-        np.testing.assert_array_equal(
-            au.to_phalf_from_pfull(self.p_in_pa, self.p_top, self.p_bot),
-            self.phalf
-        )
+    # def test_to_phalf_from_pfull(self):
+    #     # S. Hill 2015-11-10: This needs to be rewritten.
+    #     np.testing.assert_array_equal(
+    #         au.to_phalf_from_pfull(self.p_in_pa, self.p_top, self.p_bot),
+    #         self.phalf
+    #     )
 
 
 def test_dp_from_p():
