@@ -115,32 +115,45 @@ def dict_name_keys(objs):
     return objs
 
 
-def to_radians(arr):
-    if np.max(np.abs(arr)) > 4*np.pi:
-        return np.deg2rad(arr)
-        warn_msg = ("Conversion applied: degrees -> radians to array:"
+def to_radians(arr, is_delta=False):
+    """Force data with units either degrees or radians to be radians."""
+    # Infer the units from embedded metadata, if it's there.
+    try:
+        units = arr.units
+    except AttributeError:
+        pass
+    else:
+        if units.lower().startswith('degrees'):
+            warn_msg = ("Conversion applied: degrees -> radians to array: "
+                        "{}".format(arr))
+            warnings.warn(warn_msg, UserWarning)
+            return np.deg2rad(arr)
+    # Otherwise, assume degrees if the values are sufficiently large.
+    threshold = 0.1*np.pi if is_delta else 4*np.pi
+    if np.max(np.abs(arr)) > threshold:
+        warn_msg = ("Conversion applied: degrees -> radians to array: "
                     "{}".format(arr))
         warnings.warn(warn_msg, UserWarning)
-    else:
-        return arr
+        return np.deg2rad(arr)
+    return arr
 
 
 def to_pascal(arr, is_dp=False):
     """Force data with units either hPa or Pa to be in Pa."""
     threshold = 400 if is_dp else 1200
     if np.max(np.abs(arr)) < threshold:
-        arr *= 100.
         warn_msg = "Conversion applied: hPa -> Pa to array: {}".format(arr)
         warnings.warn(warn_msg, UserWarning)
+        return arr*100.
     return arr
 
 
 def to_hpa(arr):
     """Convert pressure array from Pa to hPa (if needed)."""
     if np.max(np.abs(arr)) > 1200.:
-        arr /= 100.
         warn_msg = "Conversion applied: Pa -> hPa to array: {}".format(arr)
         warnings.warn(warn_msg, UserWarning)
+        return arr / 100.
     return arr
 
 
@@ -154,16 +167,18 @@ def replace_coord(arr, old_dim, new_dim, new_coord):
     new_arr = arr.rename({old_dim: new_dim})
     # new_arr[new_dim] = new_coord
     # 2016-01-25 S. Hill: Temporary workaround to deal with xarray 0.7.0 bug.
-    new_arr[new_dim].values = new_coord.values
-    return new_arr
+    # new_arr[new_dim].values = new_coord.values
+    ds = new_arr.to_dataset(name='new_arr')
+    ds[new_dim] = new_coord
+    return ds['new_arr']
 
 
 def to_pfull_from_phalf(arr, pfull_coord):
     """Compute data at full pressure levels from values at half levels."""
-    phalf_top = arr.isel(phalf=slice(1, None))
+    phalf_top = arr.isel(**{PHALF_STR: slice(1, None)})
     phalf_top = replace_coord(phalf_top, PHALF_STR, PFULL_STR, pfull_coord)
 
-    phalf_bot = arr.isel(phalf=slice(None, -1))
+    phalf_bot = arr.isel(**{PHALF_STR: slice(None, -1)})
     phalf_bot = replace_coord(phalf_bot, PHALF_STR, PFULL_STR, pfull_coord)
     return 0.5*(phalf_bot + phalf_top)
 

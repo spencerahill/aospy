@@ -191,8 +191,8 @@ class Model(object):
         if lat_bounds is None:
             lat_bounds = cls.bounds_from_array(lat, LAT_BOUNDS_STR)
         # Compute the surface area.
-        dlon = to_radians(cls.diff_bounds(lon_bounds, lon))
-        sinlat_bounds = np.sin(to_radians(lat_bounds))
+        dlon = cls.diff_bounds(to_radians(lon_bounds, is_delta=True), lon)
+        sinlat_bounds = np.sin(to_radians(lat_bounds, is_delta=True))
         dsinlat = np.abs(cls.diff_bounds(sinlat_bounds, lat))
         sfc_area = dlon*dsinlat*(r_e**2)
         # Rename the coordinates such that they match the actual lat / lon.
