@@ -8,7 +8,7 @@ import time
 import warnings
 
 import numpy as np
-import xray
+import xarray as xr
 
 from . import Constant, Var
 from .__config__ import (LAT_STR, LON_STR, LAT_BOUNDS_STR, LON_BOUNDS_STR,
@@ -133,14 +133,14 @@ class CalcInterface(object):
         tm = TimeManager(self.start_date, self.end_date, intvl_out)
         self.date_range = tm.create_time_array()
 
-        self.start_date_xray = tm.apply_year_offset(self.start_date)
-        self.end_date_xray = tm.apply_year_offset(self.end_date)
+        self.start_date_xarray = tm.apply_year_offset(self.start_date)
+        self.end_date_xarray = tm.apply_year_offset(self.end_date)
 
 
 class Calc(object):
     """Class for executing, saving, and loading a single computation."""
 
-    ARR_XRAY_NAME = 'aospy_result'
+    ARR_XARRAY_NAME = 'aospy_result'
 
     def __str__(self):
         """String representation of the object."""
@@ -294,7 +294,7 @@ class Calc(object):
 
     def _get_input_data_paths(self, var, start_date=False,
                               end_date=False, n=0):
-        """Create xray.DataArray of the variable from its netCDF files on disk.
+        """Create xarray.DataArray of the variable from its netCDF files on disk.
 
         Files chosen depend on the specified variables and time interval and
         the attributes of the netCDF files.
@@ -341,14 +341,13 @@ class Calc(object):
         return paths
 
     def _to_desired_dates(self, arr):
-        """Restrict the xray DataArray or Dataset to the desired months."""
-        times = _get_time(arr[TIME_STR], self.start_date_xray,
-                          self.end_date_xray, self.months, indices=False)
+        """Restrict the xarray DataArray or Dataset to the desired months."""
+        times = _get_time(arr[TIME_STR], self.start_date_xarray,
+                          self.end_date_xarray, self.months, indices=False)
         return arr.sel(time=times)
 
     def _add_grid_attributes(self, ds, n=0):
         """Add model grid attributes to a dataset"""
-
         grid_attrs = {
             LAT_STR:        ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
             LAT_BOUNDS_STR: ('latb', 'lat_bnds', 'lat_bounds'),
@@ -363,32 +362,34 @@ class Calc(object):
             PHALF_STR:      ('phalf',),
             PFULL_STR:      ('pfull',),
             }
-
         for name_int, names_ext in grid_attrs.items():
-            ds_coord_name = set(names_ext).intersection(set(ds.coords))
-            # print(name_int, names_ext, ds_coord_name)
+            ds_coord_name = set(names_ext).intersection(set(ds.coords) |
+                                                        set(ds.data_vars))
+            model_attr = getattr(self.model[n], name_int, None)
             if ds_coord_name:
                 # Check if coord is in dataset already.  If it is, then rename
                 # it so that it has the correct internal name.
-                ds = ds.rename({list(ds_coord_name)[0]: name_int})
+                try:
+                    ds = ds.rename({list(ds_coord_name)[0]: name_int})
+                except ValueError:
+                    ds = ds
                 ds = ds.set_coords(name_int)
-                if not ds[name_int].equals(getattr(self.model[n], name_int)):
-                    warnings.warn("Model coordinates for '{}'"
+                if not ds[name_int].equals(model_attr):
+                    warnings.warn("Model coordinates for '{}' "
                                   "do not match those in Run".format(name_int))
             else:
                 # Bring in coord from model object if it exists.
-                if getattr(self.model[n], name_int, None) is not None:
-                    ds[name_int] = getattr(self.model[n], name_int)
+                if model_attr is not None:
+                    ds[name_int] = model_attr
                     ds = ds.set_coords(name_int)
             if self.dtype_in_vert == 'pressure' and 'level' in ds.coords:
                 self.pressure = ds.level
-        # print(ds)
         return ds
 
     def _create_input_data_obj(self, var, start_date=False,
                                end_date=False, n=0, set_dt=False,
                                set_pfull=False):
-        """Create xray.DataArray for the Var from files on disk."""
+        """Create xarray.DataArray for the Var from files on disk."""
         paths = self._get_input_data_paths(var, start_date, end_date, n)
         # 2015-10-15 S. Hill: This `dmget` call, which is unique to the
         # filesystem at the NOAA GFDL computing cluster, should be factored out
@@ -396,18 +397,18 @@ class Calc(object):
         # specify what method to call to access the files on the filesystem.
         dmget(paths)
         ds_chunks = []
-        # 2015-10-16 S. Hill: Can we use the xray.open_mfdataset function here
+        # 2015-10-16 S. Hill: Can we use the xarray.open_mfdataset function here
         # instead of this logic of making individual datasets and then
-        # calling xray.concat?  Or does the year<1678 logic make this not
+        # calling xarray.concat?  Or does the year<1678 logic make this not
         # possible?
 
         # 2015-10-16 19:06:00 S. Clark: The year<1678 logic is independent of
-        # using xray.open_mfdataset. The main reason I held off on using it
+        # using xarray.open_mfdataset. The main reason I held off on using it
         # here was that it opens a can of worms with regard to performance;
         # we'd need to add some logic to make sure the data were chunked in a
         # reasonable way (and logic to change the chunking if need be).
         for file_ in paths:
-            test = xray.open_dataset(file_, decode_cf=False,
+            test = xr.open_dataset(file_, decode_cf=False,
                                      drop_variables=['time_bounds', 'nv',
                                                      'average_T1',
                                                      'average_T2'])
@@ -416,9 +417,9 @@ class Calc(object):
                     test[v].attrs['units'] = ('days since 1900-01-01 '
                                               '00:00:00')
                 test[TIME_STR].attrs['calendar'] = 'noleap'
-            test = xray.decode_cf(test)
+            test = xr.decode_cf(test)
             ds_chunks.append(test)
-        ds = xray.concat(ds_chunks, dim=TIME_STR)
+        ds = xr.concat(ds_chunks, dim=TIME_STR, data_vars='minimal')
         ds = self._add_grid_attributes(ds, n)
         for name in var.names:
             try:
@@ -537,7 +538,7 @@ class Calc(object):
     def _prep_data(self, data, func_input_dtype):
         """Convert data to type needed by the given function.
 
-        :param data: List of xray.DataArray objects.
+        :param data: List of xarray.DataArray objects.
         :param func_input_dtype: One of (None, 'DataArray', 'Dataset',
                                  'numpy'). Specifies which datatype to convert
                                  to.
@@ -568,7 +569,7 @@ class Calc(object):
         """Perform the computation at each gridpoint and time index."""
         arr = self.function(*data_in)
         if self.var.func_input_dtype == 'numpy':
-            arr = xray.DataArray(arr, coords=self.coords)
+            arr = xr.DataArray(arr, coords=self.coords)
         arr.name = self.name
         return arr
 
@@ -584,7 +585,7 @@ class Calc(object):
             data_in = data_monthly
         local_ts = self._local_ts(*data_in)
         if self.dtype_in_time == 'inst':
-            dt = xray.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
+            dt = xr.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
                                 dims=[TIME_STR], coords=[local_ts[TIME_STR]])
         else:
             dt = self.dt
@@ -599,13 +600,13 @@ class Calc(object):
     def _compute_full_ts(self, data_in, monthly_mean=False, zonal_asym=False):
         """Perform calculation and create yearly timeseries at each point."""
         # Get results at each desired timestep and spatial point.
-        # Here we need to provide file read-in dates (NOT xray dates)
+        # Here we need to provide file read-in dates (NOT xarray dates)
         full_ts, dt = self._compute(data_in, monthly_mean=monthly_mean)
         if zonal_asym:
             full_ts = full_ts - full_ts.mean(LON_STR)
         # Vertically integrate.
         if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
-            # Here we need file read-in dates (NOT xray dates)
+            # Here we need file read-in dates (NOT xarray dates)
             full_ts = self._vert_int(full_ts, self._get_pressure_vals(
                 dp, self.start_date, self.end_date
             ))
@@ -720,17 +721,17 @@ class Calc(object):
             os.makedirs(self.dir_scratch)
         if 'reg' in dtype_out_time:
             try:
-                reg_data = xray.open_dataset(path)
+                reg_data = xr.open_dataset(path)
             except (EOFError, RuntimeError):
-                reg_data = xray.Dataset()
+                reg_data = xr.Dataset()
             # Add the new data to the dictionary or Dataset.
             # Same method works for both.
             reg_data.update(data)
             data_out = reg_data
         else:
             data_out = data
-        if isinstance(data_out, xray.DataArray):
-            data_out = xray.Dataset({self.name: data_out})
+        if isinstance(data_out, xr.DataArray):
+            data_out = xr.Dataset({self.name: data_out})
         data_out.to_netcdf(path, engine='scipy')
 
     def _save_to_archive(self, dtype_out_time):
@@ -780,10 +781,13 @@ class Calc(object):
             self._save_to_archive(dtype_out_time)
         print('\t', '{}'.format(self.path_scratch[dtype_out_time]))
 
-    def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False):
+    def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False,
+                           region=False):
         """Load aospy data saved on scratch file system."""
-        ds = xray.open_dataset(self.path_scratch[dtype_out_time],
+        ds = xr.open_dataset(self.path_scratch[dtype_out_time],
                                engine='scipy')
+        if region:
+            return ds[region.name]
         return ds[self.name]
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
@@ -791,7 +795,7 @@ class Calc(object):
         path = os.path.join(self.dir_archive, 'data.tar')
         dmget([path])
         with tarfile.open(path, 'r') as data_tar:
-            ds = xray.open_dataset(
+            ds = xr.open_dataset(
                 data_tar.extractfile(self.file_name[dtype_out_time]),
                 engine='scipy'
             )
@@ -800,11 +804,11 @@ class Calc(object):
     def _get_data_subset(self, data, region=False, time=False,
                          vert=False, lat=False, lon=False, n=0):
         """Subset the data array to the specified time/level/lat/lon, etc."""
-        if region:
+        # if region:
             # if type(region) is str:
                 # data = data[region]
             # elif type(region) is Region:
-            data = data[region.name]
+            # data = data[region.name]
         if np.any(time):
             data = data[time]
             if 'monthly_from_' in self.dtype_in_time:
@@ -837,13 +841,14 @@ class Calc(object):
         except (AttributeError, KeyError):
             # Otherwise get from disk.  Try scratch first, then archive.
             try:
-                data = self._load_from_scratch(dtype_out_time, dtype_out_vert)
+                data = self._load_from_scratch(dtype_out_time, dtype_out_vert,
+                                               region=region)
             except IOError:
                 data = self._load_from_archive(dtype_out_time, dtype_out_vert)
         # Copy the array to self.data_out for ease of future access.
         self._update_data_out(data, dtype_out_time)
         # Subset the array and convert units as desired.
-        if any((region, time, vert, lat, lon)):
+        if any((time, vert, lat, lon)):
             data = self._get_data_subset(data, region=region, time=time,
                                          vert=vert, lat=lat, lon=lon)
         # Apply desired plotting/cleanup methods.

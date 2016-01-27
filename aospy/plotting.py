@@ -3,7 +3,7 @@ import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
-import xray
+import xarray as xr
 
 from .__config__ import default_colormap
 from .calc import Calc, CalcInterface
@@ -590,16 +590,16 @@ class Plot(object):
 
     def prep_data_for_basemap(self):
         # if self.ax.shiftgrid_start:
-        #     lon0 = 180
+        #     lon0 = 181.25
         # else:
         #     lon0 = self.ax.shiftgrid_start
-        lon0 = 180
+        lon0 = 181.25
         self.lons = self.x_data
         self.lats = self.y_data
 
         self.plot_data = []
 
-        if isinstance(self.data, xray.Dataset):
+        if isinstance(self.data, xr.Dataset):
             loop_data = [self.data[self.var[0].name].values]
         else:
             loop_data = self.data
