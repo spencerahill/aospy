@@ -45,7 +45,7 @@ class Region(object):
         try:
             land_mask = data.land_mask
         except:
-            return 1.
+            return 1. # S. Clark 2016-01-28: Aquaplanet models have no landmask
             # S. Hill 2015-10-14: Eventually aospy will have a built-in land
             # mask array that it can use in case the object doesn't have one
             # of its own.  For now the object /must/ have one.
@@ -56,7 +56,7 @@ class Region(object):
             return 1. - land_mask
         if do_land_mask in ('strict_land', 'strict_ocean'):
             raise NotImplementedError
-        return 1.
+        return 1
 
     @staticmethod
     def _sum_over_lat_lon(arr):
