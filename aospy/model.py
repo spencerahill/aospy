@@ -153,7 +153,7 @@ class Model(object):
         for name_int, names_ext in grid_attrs.items():
             for name in names_ext:
                 grid_attr = self._get_grid_attr(grid_objs, name)
-                if np.any(grid_attr):
+                if grid_attr is not None:
                     # Rename coordinates to aospy's internal names.
                     renamed_attrs = self._rename_coords(grid_attr)
                     setattr(self, name_int, renamed_attrs)
