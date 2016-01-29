@@ -45,7 +45,6 @@ class Region(object):
         try:
             land_mask = data.land_mask
         except:
-            return 1. # S. Clark 2016-01-28: Aquaplanet models have no landmask
             # S. Hill 2015-10-14: Eventually aospy will have a built-in land
             # mask array that it can use in case the object doesn't have one
             # of its own.  For now the object /must/ have one.
