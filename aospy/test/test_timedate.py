@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Test suite for aospy.utils module."""
+"""Test suite for aospy.timedate module."""
 import sys
 import unittest
 
@@ -12,7 +12,6 @@ from aospy.timedate import TimeManager
 
 class AospyTimeManagerTestCase(unittest.TestCase):
     def setUp(self):
-#        self.tm = TimeManager()
         pass
 
     def tearDown(self):
