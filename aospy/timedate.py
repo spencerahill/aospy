@@ -44,11 +44,19 @@ class TimeManager(object):
         if isinstance(months, int):
             return [months]
         if months.lower() == 'ann':
-            return range(1, 13)
-        first_letter = 'jfmamjjasond'*2
+            return np.arange(1, 13)
+        first_letter = 'jfmamjjasond' * 2
         # Python indexing starts at 0; month indices start at 1 for January.
-        st_ind = first_letter.find(months.lower()) + 1
-        return range(st_ind, st_ind + len(months))
+        count = first_letter.count(months)
+        if (count == 0) or (count > 2):
+            message = ("The user must provide a unique pattern of consecutive "
+                       "first letters of months within '{}'. The provided "
+                       "string '{}' does not comply."
+                       "  For individual months use integers."
+                       "".format(first_letter, months))
+            raise RuntimeError(message)
+        st_ind = first_letter.find(months.lower())
+        return np.arange(st_ind, st_ind + len(months)) % 12 + 1
 
     def __init__(self, start_date, end_date, months):
         """Instantiate a TimeManager object."""
