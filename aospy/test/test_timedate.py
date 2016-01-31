@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """Test suite for aospy.timedate module."""
-import sys
 import unittest
 
 import numpy as np
@@ -50,7 +49,7 @@ class TestTimeManager(AospyTimeManagerTestCase):
 
     def test_construct_month_conditional(self):
         test = pd.date_range('2000-01-01', '2000-03-01', freq='M')
-        test = xr.DataArray(test, dims=['time'], coords=[test])
+        test = xr.DataArray(test, dims=[TIME_STR], coords=[test])
         result_jan = TimeManager._construct_month_conditional(test, [1])
         np.testing.assert_array_equal(result_jan, np.array([True, False]))
 
