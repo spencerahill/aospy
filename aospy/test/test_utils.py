@@ -65,6 +65,14 @@ class TestUtils(AospyUtilsTestCase):
             self.assertTrue(np.all([identical(d, a) for (d, a) in
                                     zip(desired, actual)]))
 
+    def test_monthly_mean_ts_single_month(self):
+        time = pd.date_range('2000-01-01', freq='6H', periods=4*31)
+        arr = xr.DataArray(np.random.random(time.shape), dims=[TIME_STR],
+                           coords={TIME_STR: time})
+        desired = arr.mean(TIME_STR)
+        actual = au.monthly_mean_ts(arr)
+        np.testing.assert_allclose(actual, desired)
+
     def test_monthly_mean_ts_submonthly(self):
         time = pd.date_range('2000-01-01', freq='1D', periods=365*3)
         arr = xr.DataArray(np.random.random(time.shape), dims=[TIME_STR],
