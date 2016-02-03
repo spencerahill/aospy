@@ -44,6 +44,27 @@ class TestUtils(AospyUtilsTestCase):
         for scalar in [0.5, (1+4j), 1, Constant(1.234, 'units')]:
             self.assertEqual(scalar, au.monthly_mean_ts(scalar))
 
+    def test_monthly_mean_ts_collection(self):
+        time = pd.date_range('2000-01-01', freq='1M', periods=120)
+        arr = xr.DataArray(np.random.random(time.shape), dims=[TIME_STR],
+                           coords={TIME_STR: time})
+        params = [1.5, arr]
+        desired = [au.monthly_mean_ts(params[0]),
+                   au.monthly_mean_ts(params[1])]
+
+        def identical(a, b):
+            try:
+                return a.identical(b)
+            except AttributeError:
+                return a == b
+
+        containers = [list, tuple]
+        for container in containers:
+            actual = au.monthly_mean_ts(container(params))
+            self.assertTrue(isinstance(actual, container))
+            self.assertTrue(np.all([identical(d, a) for (d, a) in
+                                    zip(desired, actual)]))
+
     def test_monthly_mean_ts_submonthly(self):
         time = pd.date_range('2000-01-01', freq='1D', periods=365*3)
         arr = xr.DataArray(np.random.random(time.shape), dims=[TIME_STR],
