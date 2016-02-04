@@ -162,7 +162,7 @@ def to_hpa(arr):
 
 def phalf_from_ps(bk, pk, ps):
     """Compute pressure of half levels of hybrid sigma-pressure coordinates."""
-    return (ps*bk + pk)
+    return ps*bk + pk
 
 
 def replace_coord(arr, old_dim, new_dim, new_coord):
