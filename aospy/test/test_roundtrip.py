@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 """
-02-04-2016 SKC: Set of end-to-end tests of aospy.  Currently set up to test for
+Set of end-to-end tests of aospy.  Currently set up to test for
 runtime errors, but could be extended to test the numerical results.
 """
 import unittest
-
-import numpy as np
-import xarray as xr
-import pandas as pd
-from datetime import datetime
+from os.path import isfile
 
 from aospy.calc import Calc, CalcInterface
 from test_objs.projects import aospy_test
@@ -26,6 +22,11 @@ class AospyTestCase(unittest.TestCase):
 
 
 class TestAospy(AospyTestCase):
+    @unittest.skipIf(not all([isfile(grid_file)
+                              for grid_file in am2.grid_file_paths]),
+                     'Model grid files cannot be located; note this '
+                     'test can only be completed on the GFDL '
+                     'filesystems.')
     def test_am2_annual_mean(self):
         calc_int = CalcInterface(proj=aospy_test,
                                  model=am2,
@@ -44,5 +45,4 @@ class TestAospy(AospyTestCase):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestAospy)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.main()
