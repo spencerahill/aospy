@@ -42,8 +42,11 @@ def apply_time_offset(time, months=0, days=0, hours=0):
 # 2015-11-16 S. Hill: This time-related function should be moved to time module
 def monthly_mean_ts(arr):
     """Convert a sub-monthly time-series into one of monthly means."""
-    if isinstance(arr, (float, int, Constant)):
+    if isinstance(arr, (float, complex, int, Constant)):
         return arr
+    if isinstance(arr, (list, tuple)):
+        arr_type = type(arr)
+        return arr_type([monthly_mean_ts(a) for a in arr])
     try:
         return arr.resample('1M', TIME_STR, how='mean').dropna(TIME_STR)
     except KeyError:
