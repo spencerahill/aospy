@@ -22,8 +22,6 @@ skip_message = ('Model grid files cannot be located; note this '
 
 class AospyTestCase(unittest.TestCase):
     def setUp(self):
-        self.am2_files_exist = all([isfile(grid_file)
-                                    for grid_file in am2.grid_file_paths])
         self.am2_olr_test_params = {'proj': aospy_test,
                                     'model': am2,
                                     'run': test_am2,
