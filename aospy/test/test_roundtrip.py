@@ -15,6 +15,8 @@ from test_objs.regions import nh, sahel, nh_ocean
 
 am2_files_exist = all([isfile(grid_file)
                        for grid_file in am2.grid_file_paths])
+idealized_files_exist = all([isfile(grid_file)
+                             for grid_file in idealized_moist.grid_file_paths])
 skip_message = ('Model grid files cannot be located; note this '
                 'test can only be completed on the GFDL '
                 'filesystems.')
@@ -141,6 +143,7 @@ class TestAM2(AM2TestCase):
         calc.compute()
 
 
+@unittest.skipIf(not idealized_files_exist, skip_message)
 class TestIdealized(TestAM2):
     def setUp(self):
         self.olr_test_params = {'proj': aospy_test,
