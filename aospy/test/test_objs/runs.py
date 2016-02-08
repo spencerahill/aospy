@@ -24,5 +24,5 @@ test_idealized_moist = Run(
                   'gfdl.ncrc2-default-prod/1x0m720d_32pe/history',
     data_in_dir_struc='one_dir',
     data_in_files={'20-day': {v: '00000.1x20days.nc'
-                              for v in ['olr', 'temp']}},
+                              for v in ['olr', 'temp', 'ps']}},
 )
