@@ -22,7 +22,8 @@ skip_message = ('Model grid files cannot be located; note this '
                 'filesystems.')
 
 
-class AM2TestCase(unittest.TestCase):
+@unittest.skipIf(not am2_files_exist, skip_message)
+class TestAM2(unittest.TestCase):
     def setUp(self):
         self.olr_test_params = {'proj': aospy_test,
                                 'model': am2,
@@ -47,9 +48,6 @@ class AM2TestCase(unittest.TestCase):
     def tearDown(self):
         pass
 
-
-@unittest.skipIf(not am2_files_exist, skip_message)
-class TestAM2(AM2TestCase):
     def test_annual_mean(self):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='av',
