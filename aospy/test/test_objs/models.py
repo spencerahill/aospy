@@ -17,3 +17,15 @@ am2 = Model(
     runs=[runs.test_am2],
     default_runs=[runs.test_am2]
 )
+
+
+idealized_moist = Model(
+    name='idealized_moist',
+    grid_file_paths=(
+        ('/archive/skc/idealized_moist_alb_T42/control_gaussian_T42/'
+         'gfdl.ncrc2-default-prod/1x0m720d_32pe/history/00000.1x20days.nc'),
+        '/home/skc/inputdata/aquaplanet.land_mask.nc',
+    ),
+    runs=[runs.test_idealized_moist],
+    default_runs=[runs.test_idealized_moist],
+)
