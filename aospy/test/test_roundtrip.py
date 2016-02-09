@@ -8,21 +8,35 @@ from os.path import isfile
 
 from aospy.calc import Calc, CalcInterface
 from test_objs.projects import aospy_test
-from test_objs.models import am2, idealized_moist
-from test_objs.runs import test_am2, test_idealized_moist
+from test_objs.models import am2, idealized_moist, am3, hiram, cesm1_cam5
+from test_objs.runs import (test_am2, test_idealized_moist, test_am3,
+                            test_hiram, test_amip)
 from test_objs.variables import olr, temp
 from test_objs.regions import nh, sahel, nh_ocean
 
-am2_files_exist = all([isfile(grid_file)
-                       for grid_file in am2.grid_file_paths])
-idealized_files_exist = all([isfile(grid_file)
-                             for grid_file in idealized_moist.grid_file_paths])
+
+def model_files_exist(model):
+    """Returns True if the grid files specified in the given model
+    can be found on the filesystem.
+
+    Parameters
+    ----------
+    model : Model
+        aospy Model object to check
+
+    Returns
+    -------
+    files_exist : bool
+        True if grid files in specified in model exist
+    """
+    return all([isfile(grid_file)
+                for grid_file in model.grid_file_paths])
 skip_message = ('Model grid files cannot be located; note this '
                 'test can only be completed on the GFDL '
                 'filesystems.')
 
 
-@unittest.skipIf(not am2_files_exist, skip_message)
+@unittest.skipIf(not model_files_exist(am2), skip_message)
 class TestAM2(unittest.TestCase):
     def setUp(self):
         self.olr_test_params = {'proj': aospy_test,
@@ -141,7 +155,7 @@ class TestAM2(unittest.TestCase):
         calc.compute()
 
 
-@unittest.skipIf(not idealized_files_exist, skip_message)
+@unittest.skipIf(not model_files_exist(idealized_moist), skip_message)
 class TestIdealized(TestAM2):
     def setUp(self):
         self.olr_test_params = {'proj': aospy_test,
@@ -183,6 +197,90 @@ class TestIdealized(TestAM2):
     @unittest.skip('not valid in idealized moist model')
     def test_vert_int_pressure(self):
         pass
+
+
+@unittest.skipIf(not model_files_exist(am3), skip_message)
+class TestAM3(TestAM2):
+    def setUp(self):
+        self.olr_test_params = {'proj': aospy_test,
+                                'model': am3,
+                                'run': test_am3,
+                                'var': olr,
+                                'date_range': ('1981-01-01', '2010-12-31'),
+                                'intvl_in': 'monthly',
+                                'dtype_in_time': 'ts',
+                                'dtype_in_vert': 'pressure',
+                                'dtype_out_vert': False,
+                                'level': False}
+        self.temp_test_params = {'proj': aospy_test,
+                                 'model': am3,
+                                 'run': test_am3,
+                                 'var': temp,
+                                 'date_range': ('1981-01-01',
+                                                '2010-12-31'),
+                                 'intvl_in': 'monthly',
+                                 'dtype_in_time': 'ts',
+                                 'level': False}
+
+
+@unittest.skipIf(not model_files_exist(hiram), skip_message)
+class TestHiRAM(TestAM2):
+    def setUp(self):
+        self.olr_test_params = {'proj': aospy_test,
+                                'model': hiram,
+                                'run': test_hiram,
+                                'var': olr,
+                                'date_range': ('1979-01-01', '1995-12-31'),
+                                'intvl_in': 'monthly',
+                                'dtype_in_time': 'ts',
+                                'dtype_in_vert': 'pressure',
+                                'dtype_out_vert': False,
+                                'level': False}
+        self.temp_test_params = {'proj': aospy_test,
+                                 'model': hiram,
+                                 'run': test_hiram,
+                                 'var': temp,
+                                 'date_range': ('1979-01-01',
+                                                '1995-12-31'),
+                                 'intvl_in': 'monthly',
+                                 'dtype_in_time': 'ts',
+                                 'level': False}
+
+    @unittest.skip(('could not immediately find a case with temperature'
+                    ' output on sigma levels in CMIP5 archive'))
+    def test_vert_int_sigma(self):
+        pass
+
+
+# cesm1_cam5 has no grid files so just use hiram's to test to skip
+@unittest.skipIf(not model_files_exist(hiram), skip_message)
+class TestCMIP5(TestAM2):
+    def setUp(self):
+        self.olr_test_params = {'proj': aospy_test,
+                                'model': cesm1_cam5,
+                                'run': test_amip,
+                                'var': olr,
+                                'date_range': ('1979-01-01', '2008-12-31'),
+                                'intvl_in': 'monthly',
+                                'dtype_in_time': 'ts',
+                                'dtype_in_vert': 'pressure',
+                                'dtype_out_vert': False,
+                                'level': False}
+        self.temp_test_params = {'proj': aospy_test,
+                                 'model': cesm1_cam5,
+                                 'run': test_amip,
+                                 'var': temp,
+                                 'date_range': ('1979-01-01',
+                                                '2008-12-31'),
+                                 'intvl_in': 'monthly',
+                                 'dtype_in_time': 'ts',
+                                 'level': False}
+
+    @unittest.skip(('could not immediately find a case with temperature'
+                    ' output on sigma levels in CMIP5 archive'))
+    def test_vert_int_sigma(self):
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()
