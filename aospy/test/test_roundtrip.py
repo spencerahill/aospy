@@ -246,14 +246,14 @@ class TestHiRAM(TestAM2):
                                  'dtype_in_time': 'ts',
                                  'level': False}
 
-    @unittest.skip(('could not immediately find a case with temperature'
-                    ' output on sigma levels in CMIP5 archive'))
+    @unittest.skip('no HiRAM output readily at hand exists on sigma levels')
     def test_vert_int_sigma(self):
         pass
 
 
 # cesm1_cam5 has no grid files so just use hiram's to test to skip
 @unittest.skipIf(not model_files_exist(hiram), skip_message)
+@unittest.expectedFailure
 class TestCMIP5(TestAM2):
     def setUp(self):
         self.olr_test_params = {'proj': aospy_test,
@@ -276,8 +276,8 @@ class TestCMIP5(TestAM2):
                                  'dtype_in_time': 'ts',
                                  'level': False}
 
-    @unittest.skip(('could not immediately find a case with temperature'
-                    ' output on sigma levels in CMIP5 archive'))
+    @unittest.skip(('This repo does not contain any output'
+                    ' on sigma levels.'))
     def test_vert_int_sigma(self):
         pass
 
