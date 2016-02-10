@@ -4,5 +4,5 @@ import models
 
 aospy_test = Proj(
     name='aospy_test',
-    models=(models.am2,)
+    models=(models.am2, models.idealized_moist, models.am3)
 )
