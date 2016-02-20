@@ -785,7 +785,7 @@ class Calc(object):
                            region=False):
         """Load aospy data saved on scratch file system."""
         ds = xr.open_dataset(self.path_scratch[dtype_out_time],
-                               engine='scipy')
+                             engine='scipy')
         if region:
             return ds[region.name]
         return ds[self.name]

@@ -14,10 +14,10 @@ from .utils import to_hpa
 fig_specs = (
     'fig_title', 'n_row', 'n_col', 'row_size', 'col_size', 'n_ax',
     'subplot_lims', 'do_colorbar', 'cbar_ax_lim', 'cbar_ticks',
-    'cbar_ticklabels', 'cbar_label', 'verbose'
+    'cbar_ticklabels', 'cbar_label', 'cbar_labelpad', 'verbose'
 )
 ax_specs = (
-    'n_plot', 'ax_title', 'do_ax_label',
+    'n_plot', 'ax_title', 'ax_label', 'ax_label_coords',
     'ax_left_label', 'ax_left_label_coords', 'ax_left_label_kwargs',
     'ax_right_label', 'ax_right_label_coords', 'ax_right_label_kwargs',
     'map_proj', 'map_corners',
@@ -41,7 +41,7 @@ plot_specs = (
 data_specs = (
     'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'date_range',
     'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert',
-    'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean'
+    'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean', 'mask_unphysical'
 )
 specs = fig_specs + ax_specs + plot_specs + data_specs
 
@@ -76,7 +76,8 @@ class Fig(object):
         for key, val in kwargs.items():
             setattr(self, key, val)
 
-        self.do_ax_label = True if self.n_ax > 1 else False
+        if self.ax_label == 'auto':
+            self.do_ax_label = True if self.n_ax > 1 else False
 
         self._expand_attrs_over_tree()
         self._make_ax_objs()
@@ -165,6 +166,7 @@ class Fig(object):
             self.cbar.set_ticklabels(self.cbar_ticklabels)
         self.cbar.ax.tick_params(labelsize='x-small')
         if self.cbar_label:
+            labelpad = getattr(self, 'cbar_labelpad', 0.5)
             var = self.var[0][0][0]
             if self.cbar_label == 'units':
                 if self.dtype_out_vert[0][0][0] == 'vert_int':
@@ -174,12 +176,12 @@ class Fig(object):
             else:
                 label = self.cbar_label
             self.cbar.set_label(label, fontsize='x-small',
-                                labelpad=0.5)
+                                labelpad=labelpad)
 
     def create_fig(self):
         """Create the figure and set up the subplots."""
         self.fig = plt.figure(figsize=(self.n_col*self.col_size,
-                                                     self.n_row*self.row_size))
+                                       self.n_row*self.row_size))
         self.fig.subplots_adjust(**self.subplot_lims)
         if self.fig_title:
             self.fig.suptitle(self.fig_title, fontsize=12)
@@ -326,11 +328,12 @@ class Ax(object):
         if self.ax_title:
             self.ax.set_title(self.ax_title, fontsize='small')
         # Axis panel labels, i.e. (a), (b), (c), etc.
-        if self.do_ax_label:
+        if self.ax_label:
             self.panel_label = self.ax.text(
-                0.04, 0.9, '(%s)' % tuple('abcdefghijklmnopqrs')[self.ax_num],
+                self.ax_label_coords[0], self.ax_label_coords[1],
+                '(%s)' % tuple('abcdefghijklmnopqrs')[self.ax_num],
                 fontsize='small', transform=self.ax.transAxes
-                )
+            )
         # Labels to left and/or right of Axis.
         if self.ax_left_label:
             # if self.ax_left_label_rot == 'horizontal':
@@ -542,7 +545,7 @@ class Plot(object):
                          dtype_out_vert=self.dtype_out_vert[n],
                          region=self.region[n], time=False, vert=self.level[n],
                          lat=False, lon=False, plot_units=True,
-                         mask_unphysical=True)
+                         mask_unphysical=self.mask_unphysical)
                  for cl in calc.objects]
             )
             # Combine masks of the two inputs.
@@ -559,7 +562,7 @@ class Plot(object):
             return tuple(
                 [cl.load(dto, dtype_out_vert=dtv, region=reg, time=False,
                          vert=lev, lat=False, lon=False, plot_units=True,
-                         mask_unphysical=True)
+                         mask_unphysical=self.mask_unphysical)
                  for cl, dto, dtv, reg, lev in zip(
                          calc, self.dtype_out_time, self.dtype_out_vert,
                          self.region, self.level
@@ -573,8 +576,7 @@ class Plot(object):
                              lat=False,
                              lon=False,
                              plot_units=True,
-                             mask_unphysical=True)
-
+                             mask_unphysical=self.mask_unphysical)
     def _subtract_mean(self, data):
         return np.subtract(data, np.mean(data))
 
