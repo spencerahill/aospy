@@ -2,7 +2,7 @@
 import logging
 import warnings
 
-from infinite_diff import FiniteDiff
+from infinite_diff import CenDiff
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -218,7 +218,7 @@ def d_deta_from_pfull(arr):
     increment by 1 from 0 at the surface upwards.  The data to be differenced
     is assumed to be defined at full pressure levels.
     """
-    deriv = FiniteDiff.cen_diff(arr, PFULL_STR, do_edges_one_sided=True) / 2.
+    deriv = CenDiff(arr, PFULL_STR, fill_edge=True).diff() / 2.
     # Edges use 1-sided differencing, so only spanning one level, not two.
     deriv[{PFULL_STR: 0}] = deriv[{PFULL_STR: 0}] * 2.
     deriv[{PFULL_STR: -1}] = deriv[{PFULL_STR: -1}] * 2.
