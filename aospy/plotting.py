@@ -14,7 +14,10 @@ from .utils import to_hpa
 fig_specs = (
     'fig_title', 'n_row', 'n_col', 'row_size', 'col_size', 'n_ax',
     'subplot_lims', 'do_colorbar', 'cbar_ax_lim', 'cbar_ticks',
-    'cbar_ticklabels', 'cbar_label', 'cbar_labelpad', 'verbose'
+    'cbar_ticklabels', 'cbar_label', 'cbar_label_kwargs',
+    'cbar_left_label', 'cbar_left_label_coords', 'cbar_left_label_kwargs',
+    'cbar_right_label', 'cbar_right_label_coords', 'cbar_right_label_kwargs',
+    'verbose'
 )
 ax_specs = (
     'n_plot', 'ax_title', 'ax_label', 'ax_label_coords',
@@ -150,6 +153,10 @@ class Fig(object):
         self.ax = [Ax(self, n, self._locate_ax(n))
                    for n in range(self.n_ax)]
 
+    @staticmethod
+    def __add_text(ax, coords, string, kwargs):
+        ax.text(coords[0], coords[1], string, **kwargs)
+
     def _make_colorbar(self):
         """Create colorbar for multi panel plots."""
         # Goes at bottom center if for all panels.
@@ -159,14 +166,14 @@ class Fig(object):
             cax=self.cbar_ax, orientation='horizontal', drawedges=False,
             spacing='proportional', extend=self.contours_extend
         )
-        # Set tick and label properties.
+        # Set tick properties.
         if np.any(self.cbar_ticks):
             self.cbar.set_ticks(self.cbar_ticks)
         if self.cbar_ticklabels not in (None, False):
             self.cbar.set_ticklabels(self.cbar_ticklabels)
         self.cbar.ax.tick_params(labelsize='x-small')
+        # Add center, left, and right labels as desired.
         if self.cbar_label:
-            labelpad = getattr(self, 'cbar_labelpad', 0.5)
             var = self.var[0][0][0]
             if self.cbar_label == 'units':
                 if self.dtype_out_vert[0][0][0] == 'vert_int':
@@ -175,8 +182,18 @@ class Fig(object):
                     label = var.units.plot_units
             else:
                 label = self.cbar_label
-            self.cbar.set_label(label, fontsize='x-small',
-                                labelpad=labelpad)
+            self.cbar.set_label(label, **self.cbar_label_kwargs)
+
+        def make_cbar_label_args(obj, string):
+            return [obj.cbar_ax] + [
+                    getattr(obj, 'cbar_' + string + '_label' + suffix, False)
+                    for suffix in ('_coords', '', '_kwargs')
+            ]
+
+        if self.cbar_left_label:
+            self.__add_text(*make_cbar_label_args(self, 'left'))
+        if self.cbar_right_label:
+            self.__add_text(*make_cbar_label_args(self, 'right'))
 
     def create_fig(self):
         """Create the figure and set up the subplots."""
@@ -625,12 +642,12 @@ class Plot(object):
     def plot_rectangle(self, x_min, x_max, y_min, y_max, **kwargs):
         xs = [x_min, x_max, x_max, x_min, x_min]
         ys = [y_min, y_min, y_max, y_max, y_min]
-        return self.backend.plot(xs, ys, latlon=True, **kwargs)
+        return self.backend.plot(xs, ys, latlon=True, linewidth=0.8, **kwargs)
 
     def apply_basemap(self, basemap):
         """Apply basemap extras: coastlines, etc."""
-        basemap.drawcoastlines(linewidth=0.3, color='k')
-        basemap.drawmapboundary(linewidth=0.3, fill_color='0.85')
+        basemap.drawcoastlines(linewidth=0.1, color='k')
+        basemap.drawmapboundary(linewidth=0.1, fill_color='0.85')
         if self.latlon_rect:
             self.plot_rectangle(*self.latlon_rect)
 
