@@ -187,9 +187,7 @@ class Calc(object):
 
     def _print_verbose(self, *args):
         """Print diagnostic message."""
-        if not self.verbose:
-            pass
-        else:
+        if self.verbose:
             try:
                 print('{} {}'.format(args[0], args[1]),
                       '({})'.format(time.ctime()))
@@ -509,9 +507,6 @@ class Calc(object):
             if self.dtype_in_vert == ETA_STR:
                 if self.dtype_in_time == 'inst':
                     data = self._correct_gfdl_inst_time(data)
-                    self._pfull_data = self._correct_gfdl_inst_time(
-                        self._pfull_data
-                    )
                 return self._to_desired_dates(data)
             return data
         # Get grid, time, etc. arrays directly from model object
