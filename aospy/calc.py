@@ -583,6 +583,8 @@ class Calc(object):
         if self.dtype_in_time == 'inst':
             dt = xr.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
                               dims=[TIME_STR], coords=[local_ts[TIME_STR]])
+            if not hasattr(self, 'dt'):
+                self.dt = dt
         else:
             dt = self.dt
         if monthly_mean:
@@ -808,14 +810,15 @@ class Calc(object):
             arr = ds[region.name]
             # Use region-specific pressure values if available.
             if self.dtype_in_vert == ETA_STR and not dtype_out_vert:
-                # try:
-                    arr[PFULL_STR].values = arr[region.name +
-                                                '_pressure'].values
-                # except KeyError:
-                    # return ds[region.name]
-                # else:
-                    return arr.drop([r for r in arr.coords.iterkeys()
-                                     if r != PFULL_STR])
+                try:
+                    reg_pfull_str = region.name + '_pressure'
+                    arr = arr.drop([r for r in arr.coords.iterkeys()
+                                    if r not in (PFULL_STR, reg_pfull_str)])
+                except ValueError:
+                    return arr
+                else:
+                    arr = arr.rename({PFULL_STR: PFULL_STR + '_ref'})
+                    return arr.rename({reg_pfull_str: PFULL_STR})
         return ds[self.name]
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
@@ -868,7 +871,6 @@ class Calc(object):
             try:
                 data = self._load_from_scratch(dtype_out_time, dtype_out_vert,
                                                region=region)
-                print(data)
             except IOError:
                 data = self._load_from_archive(dtype_out_time, dtype_out_vert)
         # Copy the array to self.data_out for ease of future access.
