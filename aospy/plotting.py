@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
 import xarray as xr
 
-from .__config__ import default_colormap
+from .__config__ import default_colormap, PFULL_STR
 from .calc import Calc, CalcInterface
 from .io import to_dup_list
 from .operator import Operator
@@ -555,8 +555,24 @@ class Plot(object):
             urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat
         )
 
+    @staticmethod
+    def _regrid_to_avg_coords(arr1, arr2, dim):
+        """Average the coordinate arrays of two DataArrays or Dataset."""
+        avg = 0.5*(arr1[dim] + arr2[dim])
+        arr1[dim] = avg
+        arr2[dim] = avg
+        return arr1, arr2
+
+    @classmethod
+    def _perform_oper(cls, arr1, arr2, operator, region=False):
+        if region:
+            arr1, arr2 = cls._regrid_to_avg_coords(arr1, arr2, PFULL_STR)
+        print arr1.pfull, arr2.pfull
+        return eval('arr1' + operator + 'arr2')
+
     def _load_data(self, calc, n):
         if isinstance(calc, Operator):
+            region = self.region[n]
             data = tuple(
                 [cl.load(self.dtype_out_time[n],
                          dtype_out_vert=self.dtype_out_vert[n],
@@ -565,8 +581,9 @@ class Plot(object):
                          mask_unphysical=self.mask_unphysical)
                  for cl in calc.objects]
             )
+            ans = self._perform_oper(data[0], data[1], calc.operator,
+                                     region=region,)
             # Combine masks of the two inputs.
-            ans = eval('data[0]' + calc.operator + 'data[1]')
             try:
                 joint_mask = (np.ma.mask_or(data[0].mask, data[1].mask),)
             except AttributeError:
@@ -574,8 +591,7 @@ class Plot(object):
             else:
                 return (np.ma.array(ans, mask=joint_mask),)
 
-
-        elif isinstance(calc, (list, tuple)):
+        if isinstance(calc, (list, tuple)):
             return tuple(
                 [cl.load(dto, dtype_out_vert=dtv, region=reg, time=False,
                          vert=lev, lat=False, lon=False, plot_units=True,
@@ -585,15 +601,15 @@ class Plot(object):
                          self.region, self.level
                  )]
             )
-        else:
-            return calc.load(self.dtype_out_time[n],
-                             dtype_out_vert=self.dtype_out_vert[n],
-                             region=self.region[n], time=False,
-                             vert=self.level[n],
-                             lat=False,
-                             lon=False,
-                             plot_units=True,
-                             mask_unphysical=self.mask_unphysical)
+        return calc.load(self.dtype_out_time[n],
+                         dtype_out_vert=self.dtype_out_vert[n],
+                         region=self.region[n], time=False,
+                         vert=self.level[n],
+                         lat=False,
+                         lon=False,
+                         plot_units=True,
+                         mask_unphysical=self.mask_unphysical)
+
     def _subtract_mean(self, data):
         return np.subtract(data, np.mean(data))
 
