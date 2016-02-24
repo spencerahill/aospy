@@ -79,9 +79,6 @@ class Fig(object):
         for key, val in kwargs.items():
             setattr(self, key, val)
 
-        if self.ax_label == 'auto':
-            self.do_ax_label = True if self.n_ax > 1 else False
-
         self._expand_attrs_over_tree()
         self._make_ax_objs()
 
@@ -320,7 +317,7 @@ class Ax(object):
             self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
         if self.x_label:
             self.ax.set_xlabel(self.x_label,
-                               fontsize='small', labelpad=1)
+                               fontsize='x-small', labelpad=1)
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
         if self.do_mark_x0 and self.x_lim[0] < 0 and self.x_lim[1] > 0:
@@ -328,9 +325,9 @@ class Ax(object):
         if self.y_ticks:
             self.ax.set_yticks(self.y_ticks)
         if self.y_ticklabels:
-            self.ax.set_yticklabels(self.y_ticklabels, fontsize='small')
+            self.ax.set_yticklabels(self.y_ticklabels, fontsize='x-small')
         if self.y_label:
-            self.ax.set_ylabel(self.y_label, fontsize='small', labelpad=-2)
+            self.ax.set_ylabel(self.y_label, fontsize='x-small', labelpad=-2)
 
         self.ax.tick_params(labelsize='x-small')
         if not (self.x_dim == 'lon' and self.y_dim == 'lat'):
@@ -346,10 +343,13 @@ class Ax(object):
             self.ax.set_title(self.ax_title, fontsize='small')
         # Axis panel labels, i.e. (a), (b), (c), etc.
         if self.ax_label:
+            if self.ax_label == 'auto':
+                text = '({})'.format(tuple('abcdefghijklmnop')[self.ax_num])
+            else:
+                text = self.ax_label
             self.panel_label = self.ax.text(
                 self.ax_label_coords[0], self.ax_label_coords[1],
-                '(%s)' % tuple('abcdefghijklmnopqrs')[self.ax_num],
-                fontsize='small', transform=self.ax.transAxes
+                text, fontsize='small', transform=self.ax.transAxes
             )
         # Labels to left and/or right of Axis.
         if self.ax_left_label:
@@ -567,7 +567,6 @@ class Plot(object):
     def _perform_oper(cls, arr1, arr2, operator, region=False):
         if region:
             arr1, arr2 = cls._regrid_to_avg_coords(arr1, arr2, PFULL_STR)
-        print arr1.pfull, arr2.pfull
         return eval('arr1' + operator + 'arr2')
 
     def _load_data(self, calc, n):
