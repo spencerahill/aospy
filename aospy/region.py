@@ -1,4 +1,6 @@
 """region.py: Region class and region_inst()."""
+import logging
+
 from . import LAT_STR, LON_STR
 
 
@@ -42,20 +44,28 @@ class Region(object):
 
     @staticmethod
     def _get_land_mask(data, do_land_mask):
+        if not do_land_mask:
+            return 1
         try:
             land_mask = data.land_mask
-        except:
-            # S. Hill 2015-10-14: Eventually aospy will have a built-in land
-            # mask array that it can use in case the object doesn't have one
-            # of its own.  For now the object /must/ have one.
-            raise
+        except AttributeError:
+            # TODO: Implement aospy built-in land mask to default to.
+            msg = ("No land mask found.  Using empty mask, which amounts to "
+                   "no land or ocean mask being applied.  Regions that use a "
+                   "land or ocean mask will therefore NOT be accurately "
+                   "computed.")
+            logging.debug(msg)
+            return 1
         if do_land_mask in (True, 'land'):
             return land_mask
         if do_land_mask == 'ocean':
             return 1. - land_mask
         if do_land_mask in ('strict_land', 'strict_ocean'):
             raise NotImplementedError
-        return 1
+        msg = ("'do_land_mask' value of '{1}' is not one of the valid "
+               "choices: [True, False, 'land', 'ocean', 'strict_land', "
+               "'strict_ocean']".format(do_land_mask))
+        raise ValueError(msg)
 
     @staticmethod
     def _sum_over_lat_lon(arr):
