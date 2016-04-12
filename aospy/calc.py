@@ -69,17 +69,20 @@ class CalcInterface(object):
                  dtype_out_vert=None, level=None, chunk_len=False,
                  verbose=True):
         """Create the CalcInterface object with the given parameters."""
-        if run not in model.runs.values():
-            raise AttributeError("Model '{}' has no run '{}'.  Calc object "
-                                 "will not be generated.".format(model, run))
         # 2015-10-13 S. Hill: This tuple-izing is for support of calculations
         # where variables come from different runs.  However, this is a very
         # fragile way of implementing that functionality.  Eventually it will
         # be replaced with something better.
-        proj = tuple([proj])
-        model = tuple([model])
         if not isinstance(run, (list, tuple)):
             run = tuple([run])
+        for r in run:
+            msg = ("Model '{}' has no run '{}'.  Calc object "
+                   "will not be generated.".format(model, run))
+            if r not in model.runs.values():
+                raise AttributeError(msg)
+        proj = tuple([proj])
+        model = tuple([model])
+
         # Make tuples the same length.
         if len(proj) == 1 and (len(model) > 1 or len(run) > 1):
             proj = tuple(list(proj)*len(run))
@@ -175,7 +178,8 @@ class Calc(object):
         yr_lbl = _yr_label((self.start_date.year,
                             self.end_date.year))
         return '.'.join(
-            [self.name, out_lbl, in_lbl, self.model_str, self.run_str_full,
+            # [self.name, out_lbl, in_lbl, self.model_str, self.run_str_full,
+            [self.name, out_lbl, in_lbl, self.model_str, self.run_str,
              ens_lbl, yr_lbl, extension]
         ).replace('..', '.')
 
@@ -687,7 +691,7 @@ class Calc(object):
                 reduced.update({reduc: self._time_reduce(data, func)})
         return reduced
 
-    def compute(self):
+    def compute(self, save_to_scratch=True, save_to_archive=True):
         """Perform all desired calculations on the data and save externally."""
         # Load the input data from disk.
         data_in = self._prep_data(self._get_all_data(self.start_date,
@@ -731,7 +735,8 @@ class Calc(object):
         # Save to disk.
         self._print_verbose("Writing desired gridded outputs to disk.")
         for dtype_time, data in reduced.items():
-            self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert)
+            self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
+                      scratch=save_to_scratch, archive=save_to_archive)
 
     def _save_to_scratch(self, data, dtype_out_time):
         """Save the data to the scratch filesystem."""
@@ -810,15 +815,16 @@ class Calc(object):
             arr = ds[region.name]
             # Use region-specific pressure values if available.
             if self.dtype_in_vert == ETA_STR and not dtype_out_vert:
-                try:
-                    reg_pfull_str = region.name + '_pressure'
-                    arr = arr.drop([r for r in arr.coords.iterkeys()
-                                    if r not in (PFULL_STR, reg_pfull_str)])
-                except ValueError:
-                    return arr
-                else:
-                    arr = arr.rename({PFULL_STR: PFULL_STR + '_ref'})
+                reg_pfull_str = region.name + '_pressure'
+                arr = arr.drop([r for r in arr.coords.iterkeys()
+                                if r not in (PFULL_STR, reg_pfull_str)])
+                # Rename pfull to pfull_ref always.
+                arr = arr.rename({PFULL_STR: PFULL_STR + '_ref'})
+                # Rename region_pfull to pfull if its there.
+                if hasattr(arr, reg_pfull_str):
                     return arr.rename({reg_pfull_str: PFULL_STR})
+                return arr
+            return arr
         return ds[self.name]
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
@@ -842,7 +848,9 @@ class Calc(object):
             if 'monthly_from_' in self.dtype_in_time:
                 data = np.mean(data, axis=0)[np.newaxis, :]
         if np.any(vert):
-            if self.dtype_in_vert != ETA_STR:
+            if self.dtype_in_vert == ETA_STR:
+                data = data[{PFULL_STR: vert}]
+            else:
                 if np.max(self.model[n].level) > 1e4:
                     # Convert from Pa to hPa.
                     lev_hpa = self.model[n].level*1e-2
@@ -877,7 +885,7 @@ class Calc(object):
         self._update_data_out(data, dtype_out_time)
         # Subset the array and convert units as desired.
         if any((time, vert, lat, lon)):
-            data = self._get_data_subset(data, region=region, time=time,
+            data = self._get_data_subset(data, region=False, time=time,
                                          vert=vert, lat=lat, lon=lon)
         # Apply desired plotting/cleanup methods.
         if mask_unphysical:
