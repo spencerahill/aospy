@@ -276,12 +276,10 @@ class Calc(object):
             dtype = self.dtype_in_time
         direc = os.path.join(data_in_direc, domain, dtype_lbl, self.intvl_in,
                              str(self.data_in_dur[n]) + 'yr')
-
         files = [os.path.join(direc, data_in_name_gfdl(
                  name, domain, dtype, self.intvl_in, year, self.intvl_out,
                  self.data_in_start_date[n].year, self.data_in_dur[n]
                  )) for year in range(start_year, end_year + 1)]
-
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
@@ -335,10 +333,12 @@ class Calc(object):
                 raise ValueError("Specified directory type not supported"
                                  ": {}".format(self.data_in_dir_struc[n]))
         else:
-            raise IOError("netCDF files for variable `{}`, year range {}-{}, "
-                          "in directory {}, not found".format(var, start_date,
-                                                              end_date,
-                                                              data_in_direc))
+            msg = (
+                "netCDF files for variable `{0}`, year range {1}-{2}, in "
+                "directory {3}, not found".format(var, start_date, end_date,
+                                                  data_in_direc)
+            )
+            raise IOError(msg)
         paths = list(set(files))
         paths.sort()
         return paths
@@ -384,6 +384,7 @@ class Calc(object):
                     warnings.warn(msg)
             else:
                 # Bring in coord from model object if it exists.
+                ds = ds.load()
                 if model_attr is not None:
                     ds[name_int] = model_attr
                     ds = ds.set_coords(name_int)
@@ -404,7 +405,7 @@ class Calc(object):
         ds_chunks = []
         for file_ in paths:
             test = xr.open_dataset(file_, decode_cf=False,
-                                   drop_variables=['time_bounds', 'nv',
+                                   drop_variables=['time_bounds', 'nv', 'bnds',
                                                    'average_T1', 'average_T2'])
             # Workaround for years < 1678 causing overflows.
             if start_date.year < 1678:
@@ -590,7 +591,16 @@ class Calc(object):
             if not hasattr(self, 'dt'):
                 self.dt = dt
         else:
-            dt = self.dt
+            if hasattr(self, 'dt'):
+                dt = self.dt
+            else:
+                # TODO: Calculate length of each month and use as dt.
+                warnings.warn("dt array not found.  Assuming equally spaced "
+                              "values in time, even though this may not be "
+                              "the case")
+                dt = xr.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
+                                  dims=[TIME_STR], coords=[local_ts[TIME_STR]])
+                self.dt = dt
         if monthly_mean:
             dt = monthly_mean_ts(dt)
         return local_ts, dt
