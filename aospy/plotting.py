@@ -13,7 +13,7 @@ from .utils import to_hpa
 
 fig_specs = (
     'fig_title', 'n_row', 'n_col', 'row_size', 'col_size', 'n_ax',
-    'subplot_lims', 'do_colorbar', 'cbar_ax_lim', 'cbar_ticks',
+    'subplot_lims', 'cbar_ax_lim', 'cbar_ticks',
     'cbar_ticklabels', 'cbar_label', 'cbar_label_kwargs',
     'cbar_left_label', 'cbar_left_label_coords', 'cbar_left_label_kwargs',
     'cbar_right_label', 'cbar_right_label_coords', 'cbar_right_label_kwargs',
@@ -39,12 +39,13 @@ plot_specs = (
     'num_cntr', 'contours_extend', 'latlon_rect', 'do_mask_oceans',
     'contour_labels', 'contour_kwargs', 'contourf_kwargs', 'plot_kwargs',
     'quiver_kwargs', 'quiver_n_lon', 'quiver_n_lat', 'do_quiverkey',
-    'quiverkey_args', 'quiverkey_kwargs', 'scatter_kwargs'
+    'quiverkey_args', 'quiverkey_kwargs', 'scatter_kwargs', 'do_colorbar'
 )
 data_specs = (
     'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'date_range',
     'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert',
-    'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean', 'mask_unphysical'
+    'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean', 'do_mult_factor',
+    'mask_unphysical'
 )
 specs = fig_specs + ax_specs + plot_specs + data_specs
 
@@ -154,14 +155,17 @@ class Fig(object):
     def __add_text(ax, coords, string, kwargs):
         ax.text(coords[0], coords[1], string, **kwargs)
 
-    def _make_colorbar(self):
+    def _make_colorbar(self, ax):
         """Create colorbar for multi panel plots."""
+        # Don't make if already made.
+        if hasattr(self, 'cbar'):
+            return
         # Goes at bottom center if for all panels.
         self.cbar_ax = self.fig.add_axes(self.cbar_ax_lim)
         self.cbar = self.fig.colorbar(
-            self.ax[0].Plot[0].handle,
-            cax=self.cbar_ax, orientation='horizontal', drawedges=False,
-            spacing='proportional', extend=self.contours_extend
+            ax.Plot[0].handle, cax=self.cbar_ax, orientation='horizontal',
+            drawedges=False, spacing='proportional',
+            extend=self.contours_extend
         )
         # Set tick properties.
         if np.any(self.cbar_ticks):
@@ -207,8 +211,6 @@ class Fig(object):
         """Render the plots in every Ax."""
         for n in range(self.n_ax):
             self.ax[n].make_plots()
-        if self.do_colorbar:
-            self._make_colorbar()
 
     def savefig(self, *args, **kwargs):
         """Save the Fig using matplotlib's built-in 'savefig' method."""
@@ -309,8 +311,8 @@ class Ax(object):
                 self.x_ticks = range(1, 13)
                 self.x_ticklabels = tuple('JFMAMJJASOND')
             self.ax.set_xlim(self.x_lim)
-        if self.do_mark_y0 and self.y_lim[0] < 0 and self.y_lim[1] > 0:
-            self.ax.hlines(0, self.x_lim[0], self.x_lim[1], colors='0.5')
+        if self.do_mark_y0:
+            self.ax.axhline(color='0.5')
         if self.x_ticks:
             self.ax.set_xticks(self.x_ticks)
         if self.x_ticklabels:
@@ -320,8 +322,8 @@ class Ax(object):
                                fontsize='x-small', labelpad=1)
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
-        if self.do_mark_x0 and self.x_lim[0] < 0 and self.x_lim[1] > 0:
-            self.ax.vlines(0, self.y_lim[0], self.y_lim[1], colors='0.5')
+        if self.do_mark_x0:
+            self.ax.axvline(color='0.5')
         if self.y_ticks:
             self.ax.set_yticks(self.y_ticks)
         if self.y_ticklabels:
@@ -531,7 +533,7 @@ class Plot(object):
                     array = getattr(self.calc[i][0].model[0],
                                     array_names[array_key])
 
-            if array_key == 'p':
+            if array_key == 'p' and array is not None:
                 array = to_hpa(array)
 
             if array_key == 'time' and lim == 'ann_cycle':
@@ -556,17 +558,26 @@ class Plot(object):
         )
 
     @staticmethod
-    def _regrid_to_avg_coords(arr1, arr2, dim):
+    def regrid_to_avg_coords(dim, *arrs):
         """Average the coordinate arrays of two DataArrays or Dataset."""
-        avg = 0.5*(arr1[dim] + arr2[dim])
-        arr1[dim] = avg
-        arr2[dim] = avg
-        return arr1, arr2
+        template = arrs[0][dim]
+        avg = xr.DataArray(np.zeros(template.shape), dims=template.dims,
+                           coords=template.coords)
+        for arr in arrs:
+            avg += arr[dim]
+        avg /= len(arrs)
+        for arr in arrs:
+            arr[dim] = avg
+        return arrs
 
     @classmethod
     def _perform_oper(cls, arr1, arr2, operator, region=False):
         if region:
-            arr1, arr2 = cls._regrid_to_avg_coords(arr1, arr2, PFULL_STR)
+            try:
+                arr1, arr2 = cls.regrid_to_avg_coords(PFULL_STR, arr1, arr2)
+            except KeyError:
+                arr1, arr2 = cls.regrid_to_avg_coords(PFULL_STR + '_ref',
+                                                      arr1, arr2)
         return eval('arr1' + operator + 'arr2')
 
     def _load_data(self, calc, n):
@@ -720,6 +731,9 @@ class Contour(Plot):
             self.prep_data_for_basemap()
         else:
             self.plot_data = self.data[0]
+        if self.do_mult_factor[0]:
+            self.plot_data = np.multiply(float(self.do_mult_factor[0]),
+                                         self.plot_data)
 
     def plot(self):
         self._prep_data()
@@ -729,6 +743,8 @@ class Contour(Plot):
             plt.gca().clabel(self.handle, fontsize=7, fmt='%1d')
         if self.colormap:
             self.apply_colormap(self.colormap)
+        if self.do_colorbar:
+            self.fig._make_colorbar(self.ax)
         if self.basemap:
             self.apply_basemap(self.basemap)
 
@@ -739,7 +755,6 @@ class Contourf(Contour):
         Contour.__init__(self, plot_interface)
         self.plot_func = self.backend.contourf
         self.plot_func_kwargs = self.contourf_kwargs
-
 
 class Line(Plot):
     def __init__(self, plot_interface):
@@ -779,8 +794,9 @@ class Quiver(Plot):
         if not self.quiver_n_lat:
             self.quiver_n_lat = self.lats.size
         return self.backend.transform_vector(
-            self.plot_data[0], self.plot_data[1], self.plot_lons, self.lats,
-            self.quiver_n_lon, self.quiver_n_lat, returnxy=True
+            self.plot_data[0], self.plot_data[1], self.plot_lons,
+            self.lats.values, self.quiver_n_lon, self.quiver_n_lat,
+            returnxy=True
         )
 
     def plot(self):
