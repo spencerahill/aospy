@@ -13,22 +13,19 @@ def to_dup_list(x, n, single_to_list=True):
     the input is a list with length-n, leave it the same.  If the
     input is any other data type, replicate it as a length-n list.
     """
+
     if isinstance(x, list):
         if len(x) == n:
             return x
         elif len(x) == 1:
             return x*n
-        else:
-            raise ValueError("Input %s must have length 1 or %d : len(%s) = %d"
-                             % (x, n, x, len(x)))
-    else:
-        if n == 1:
-            if single_to_list:
-                return [x]
-            else:
-                return x
-        else:
-            return [x]*n
+        msg = "Input {0} must have length 1 or {1}: len({0})= {2}"
+        raise ValueError(msg.format(x, n, len(x)))
+    if n == 1:
+        if single_to_list:
+            return [x]
+        return x
+    return [x]*n
 
 
 def _var_label(var, level):

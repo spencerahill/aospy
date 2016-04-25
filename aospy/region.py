@@ -62,9 +62,9 @@ class Region(object):
             return 1. - land_mask
         if do_land_mask in ('strict_land', 'strict_ocean'):
             raise NotImplementedError
-        msg = ("'do_land_mask' value of '{1}' is not one of the valid "
+        msg = ("'do_land_mask' value of '{0}' is not one of the valid "
                "choices: [True, False, 'land', 'ocean', 'strict_land', "
-               "'strict_ocean']".format(do_land_mask))
+               "'strict_ocean']").format(do_land_mask)
         raise ValueError(msg)
 
     @staticmethod
