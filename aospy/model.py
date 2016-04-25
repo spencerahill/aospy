@@ -30,6 +30,8 @@ class Model(object):
         self.data_in_direc = data_in_direc
         self.data_in_dir_struc = data_in_dir_struc
         self.data_in_dur = data_in_dur
+        # TODO: Accept dates as strings or time-related objects.
+        #       Currently only years as integers supported.
         self.data_in_start_date = data_in_start_date
         self.data_in_end_date = data_in_end_date
         self.default_date_range = default_date_range
@@ -74,8 +76,12 @@ class Model(object):
 
     def _get_grid_files(self):
         """Get the files holding grid data for an aospy object."""
+        if self.proj.name == 'cmip5':
+            grid_file_paths = tuple(self.find_data_in_direc_repo())
+        else:
+            grid_file_paths = self.grid_file_paths
         datasets = []
-        for path in self.grid_file_paths:
+        for path in grid_file_paths:
             try:
                 ds = xr.open_dataset(path, decode_times=False)
             except TypeError:
@@ -219,7 +225,6 @@ class Model(object):
             except AttributeError:
                 sfc_area = self.grid_sfc_area(self.lon, self.lat)
             self.sfc_area = sfc_area
-        # print('\n\n', 'sfc_area', self.sfc_area, '\n\n')
         try:
             self.levs_thick = level_thickness(self.level)
         except AttributeError:
