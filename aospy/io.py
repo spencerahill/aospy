@@ -199,6 +199,9 @@ def hsmget_nc(files_list):
 
 def get_data_in_direc_repo(data_in_direc, var_name, version=-1):
     """Determine the directory containing the needed netCDF files."""
+    # Catch if version was specified as False or None.
+    if version is None:
+        version = -1
     dir_prefix = os.path.realpath(data_in_direc)
     dirs_after = [os.path.join(dir_prefix, name)
                   for name in os.listdir(dir_prefix) if
