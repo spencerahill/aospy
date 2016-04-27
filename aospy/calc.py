@@ -1,11 +1,11 @@
 """calc.py: classes for performing specified calculations on aospy data"""
 from __future__ import print_function
+import logging
 import os
 import shutil
 import subprocess
 import tarfile
 import time
-import warnings
 
 import numpy as np
 import xarray as xr
@@ -13,12 +13,12 @@ import xarray as xr
 from . import Constant, Var
 from .__config__ import (LAT_STR, LON_STR, LAT_BOUNDS_STR, LON_BOUNDS_STR,
                          PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, YEAR_STR,
-                         ETA_STR)
+                         ETA_STR, BOUNDS_STR)
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, apply_time_offset, monthly_mean_ts,
-                    monthly_mean_at_each_ind, pfull_from_ps, to_hpa,
+                    monthly_mean_at_each_ind, pfull_from_ps,
                     to_pfull_from_phalf, dp_from_ps, dp_from_p, int_dp_g)
 
 
@@ -244,8 +244,8 @@ class Calc(object):
             elif os.path.isfile(full):
                 paths.append(full)
             else:
-                warnings.warn("Warning: specified netCDF file `{}` "
-                              "not found".format(nc))
+                logging.warning("Warning: specified netCDF file `{}` "
+                                "not found".format(nc))
         # Remove duplicate entries.
         files = list(set(paths))
         files.sort()
@@ -333,12 +333,10 @@ class Calc(object):
                 raise ValueError("Specified directory type not supported"
                                  ": {}".format(self.data_in_dir_struc[n]))
         else:
-            msg = (
-                "netCDF files for variable `{0}`, year range {1}-{2}, in "
-                "directory {3}, not found".format(var, start_date, end_date,
-                                                  data_in_direc)
-            )
-            raise IOError(msg)
+            msg = ("netCDF files for calc object `{0}`, variable `{1}`, year "
+                   "range {2}-{3}, in directory {4}, not found")
+            raise IOError(msg.format(self, var, start_date, end_date,
+                                     data_in_direc))
         paths = list(set(files))
         paths.sort()
         return paths
@@ -381,7 +379,7 @@ class Calc(object):
                     msg = ("Model coordinates for '{}' do not match those in "
                            "Run: {} vs. {}".format(name_int, ds[name_int],
                                                    model_attr))
-                    warnings.warn(msg)
+                    logging.info(msg)
             else:
                 # Bring in coord from model object if it exists.
                 ds = ds.load()
@@ -392,11 +390,42 @@ class Calc(object):
                 self.pressure = ds.level
         return ds
 
+    @staticmethod
+    def dt_from_time_bnds(ds):
+        """Compute the timestep durations from the time bounds array."""
+        for name in ['time_bounds', 'time_bnds']:
+            try:
+                bounds = ds[name]
+            except KeyError:
+                pass
+            else:
+                break
+        dt = bounds.diff(BOUNDS_STR).squeeze().drop(BOUNDS_STR)
+        # Convert from # of days as a float to np.timedelta64 in seconds.
+        # TODO: Check that units are indeed days, as the next line assumes.
+        dt.values = np.array([np.timedelta64(int(d), 'D') for d in dt.values])
+        return dt / np.timedelta64(1, 's')
+
+    def _get_dt(self, ds):
+        """Find or create the array of timestep durations."""
+        for name in ['average_DT']:
+            try:
+                dt = ds[name]
+            except KeyError:
+                pass
+            else:
+                # Convert from nanoseconds to seconds (prevent overflow)
+                return self._to_desired_dates(dt) / np.timedelta64(1, 's')
+        return self._to_desired_dates(self.dt_from_time_bnds(ds))
+
     def _create_input_data_obj(self, var, start_date=False,
                                end_date=False, n=0, set_dt=False,
                                set_pfull=False):
         """Create xarray.DataArray for the Var from files on disk."""
-        paths = self._get_input_data_paths(var, start_date, end_date, n)
+        try:
+            paths = self._get_input_data_paths(var, start_date, end_date, n)
+        except IOError as e:
+            raise IOError(e)
         # 2015-10-15 S. Hill: This `dmget` call, which is unique to the
         # filesystem at the NOAA GFDL computing cluster, should be factored out
         # of this function.  A config setting or some other user input should
@@ -428,16 +457,7 @@ class Calc(object):
             raise KeyError('Variable not found: {}'.format(var))
         # At least one variable has to get us the dt array also.
         if set_dt:
-            for name in ['average_DT']:
-                try:
-                    dt = ds[name]
-                except KeyError:
-                    pass
-                else:
-                    # Convert from nanoseconds to seconds (prevent overflow)
-                    self.dt = (self._to_desired_dates(dt) /
-                               np.timedelta64(1, 's'))
-                    break
+            self.dt = self._get_dt(ds)
         # At least one variable has to get us the pfull array, if it's needed.
         if set_pfull:
             try:
@@ -594,10 +614,9 @@ class Calc(object):
             if hasattr(self, 'dt'):
                 dt = self.dt
             else:
-                # TODO: Calculate length of each month and use as dt.
-                warnings.warn("dt array not found.  Assuming equally spaced "
-                              "values in time, even though this may not be "
-                              "the case")
+                logging.warning("dt array not found.  Assuming equally spaced "
+                                "values in time, even though this may not be "
+                                "the case")
                 dt = xr.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
                                   dims=[TIME_STR], coords=[local_ts[TIME_STR]])
                 self.dt = dt
