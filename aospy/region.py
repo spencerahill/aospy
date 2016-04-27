@@ -47,15 +47,21 @@ class Region(object):
         if not do_land_mask:
             return 1
         try:
-            land_mask = data.land_mask
+            land_mask = data.land_mask.copy()
         except AttributeError:
             # TODO: Implement aospy built-in land mask to default to.
             msg = ("No land mask found.  Using empty mask, which amounts to "
                    "no land or ocean mask being applied.  Regions that use a "
                    "land or ocean mask will therefore NOT be accurately "
                    "computed.")
-            logging.debug(msg)
+            logging.warning(msg)
             return 1
+        try:
+            percent_bool = land_mask.units.lower() in ('%', 'percent')
+        except AttributeError:
+            percent_bool = land_mask.max() == 100
+        if percent_bool:
+            land_mask *= 0.01
         if do_land_mask in (True, 'land'):
             return land_mask
         if do_land_mask == 'ocean':
