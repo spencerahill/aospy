@@ -22,6 +22,8 @@ from .utils import (get_parent_attr, apply_time_offset, monthly_mean_ts,
                     to_pfull_from_phalf, dp_from_ps, dp_from_p, int_dp_g)
 
 
+logging.basicConfig(level=logging.INFO)
+
 dp = Var(
     name='dp',
     units='Pa',
@@ -191,16 +193,17 @@ class Calc(object):
 
     def _print_verbose(self, *args):
         """Print diagnostic message."""
-        if self.verbose:
-            try:
-                print('{} {}'.format(args[0], args[1]),
-                      '({})'.format(time.ctime()))
-            except IndexError:
-                print('{}'.format(args[0]), '({})'.format(time.ctime()))
+        try:
+            return ('{} {}'.format(args[0], args[1]),
+                    '({})'.format(time.ctime()))
+        except IndexError:
+            return '{}'.format(args[0]), '({})'.format(time.ctime())
 
     def __init__(self, calc_interface):
         self.__dict__ = vars(calc_interface)
-        self._print_verbose('Initializing Calc instance:', self.__str__())
+        logging.info(self._print_verbose(
+            'Initializing Calc instance:', self.__str__()
+        ))
 
         [mod.set_grid_data() for mod in self.model]
 
@@ -244,8 +247,7 @@ class Calc(object):
             elif os.path.isfile(full):
                 paths.append(full)
             else:
-                logging.warning("Warning: specified netCDF file `{}` "
-                                "not found".format(nc))
+                logging.info("Specified netCDF file `{}` not found".format(nc))
         # Remove duplicate entries.
         files = list(set(paths))
         files.sort()
@@ -295,7 +297,7 @@ class Calc(object):
 
     def _get_input_data_paths(self, var, start_date=False,
                               end_date=False, n=0):
-        """Create xarray.DataArray of the variable from its netCDF files on disk.
+        """Create xarray.DataArray of the variable from its netCDF files.
 
         Files chosen depend on the specified variables and time interval and
         the attributes of the netCDF files.
@@ -515,7 +517,7 @@ class Calc(object):
 
     def _get_input_data(self, var, start_date, end_date, n):
         """Get the data for a single variable over the desired date range."""
-        self._print_verbose("Getting input data:", var)
+        logging.info(self._print_verbose("Getting input data:", var))
         # If only 1 run, use it to load all data.  Otherwise assume that num
         # runs equals num vars to load.
         if len(self.run) == 1:
@@ -727,8 +729,10 @@ class Calc(object):
                                                      self.end_date),
                                   self.var.func_input_dtype)
         # Compute only the needed timeseries.
-        self._print_verbose('\n', 'Computing desired timeseries for '
-                            '{} -- {}.'.format(self.start_date, self.end_date))
+        logging.info(self._print_verbose(
+            '\n', 'Computing desired timeseries for '
+            '{} -- {}.'.format(self.start_date, self.end_date)
+        ))
         bool_monthly = (['monthly_from' in self.dtype_in_time] +
                         ['time-mean' in dout for dout in self.dtype_out_time])
         bool_eddy = ['eddy' in dout for dout in self.dtype_out_time]
@@ -756,13 +760,17 @@ class Calc(object):
             eddy_ts = self._full_to_yearly_ts(eddy_ts, full_dt)
         # Apply time reduction methods.
         if self.def_time:
-            self._print_verbose("Applying desired time-reduction methods.")
+            logging.info(self._print_verbose(
+                "Applying desired time-reduction methods."
+            ))
             reduced = self._apply_all_time_reductions(full_ts, monthly_ts,
                                                       eddy_ts)
         else:
             reduced = {'': full_ts}
         # Save to disk.
-        self._print_verbose("Writing desired gridded outputs to disk.")
+        logging.info(self._print_verbose(
+            "Writing desired gridded outputs to disk."
+        ))
         for dtype_time, data in reduced.items():
             self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
                       scratch=save_to_scratch, archive=save_to_archive)
