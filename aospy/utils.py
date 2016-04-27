@@ -1,6 +1,5 @@
 """aospy.utils: utility functions for the aospy module."""
 import logging
-import warnings
 
 from infinite_diff import CenDiff
 import numpy as np
@@ -129,14 +128,14 @@ def to_radians(arr, is_delta=False):
         if units.lower().startswith('degrees'):
             warn_msg = ("Conversion applied: degrees -> radians to array: "
                         "{}".format(arr))
-            warnings.warn(warn_msg, UserWarning)
+            logging.debug(warn_msg)
             return np.deg2rad(arr)
     # Otherwise, assume degrees if the values are sufficiently large.
     threshold = 0.1*np.pi if is_delta else 4*np.pi
     if np.max(np.abs(arr)) > threshold:
         warn_msg = ("Conversion applied: degrees -> radians to array: "
                     "{}".format(arr))
-        warnings.warn(warn_msg, UserWarning)
+        logging.debug(warn_msg)
         return np.deg2rad(arr)
     return arr
 
@@ -146,7 +145,7 @@ def to_pascal(arr, is_dp=False):
     threshold = 400 if is_dp else 1200
     if np.max(np.abs(arr)) < threshold:
         warn_msg = "Conversion applied: hPa -> Pa to array: {}".format(arr)
-        warnings.warn(warn_msg, UserWarning)
+        logging.debug(warn_msg)
         return arr*100.
     return arr
 
@@ -155,7 +154,7 @@ def to_hpa(arr):
     """Convert pressure array from Pa to hPa (if needed)."""
     if np.max(np.abs(arr)) > 1200.:
         warn_msg = "Conversion applied: Pa -> hPa to array: {}".format(arr)
-        warnings.warn(warn_msg, UserWarning)
+        logging.debug(warn_msg)
         return arr / 100.
     return arr
 
