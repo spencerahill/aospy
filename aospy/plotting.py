@@ -1,4 +1,6 @@
 """Classes for creating multi-panel figures using data generated via aospy."""
+import logging
+
 import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
@@ -346,7 +348,7 @@ class Ax(object):
         # Axis panel labels, i.e. (a), (b), (c), etc.
         if self.ax_label:
             if self.ax_label == 'auto':
-                text = '({})'.format(tuple('abcdefghijklmnop')[self.ax_num])
+                text = '({})'.format(tuple('abcdefghijklmnopqrs')[self.ax_num])
             else:
                 text = self.ax_label
             self.panel_label = self.ax.text(
@@ -358,12 +360,26 @@ class Ax(object):
             # if self.ax_left_label_rot == 'horizontal':
                 # horiz_frac = -0.17
             # else:
+            if not self.ax_left_label_kwargs:
+                self.ax_left_label_kwargs = dict()
+            if not self.ax_left_label_coords:
+                default_left_label_coords = (-0.1, 0.5)
+                logging.debug("Using default ax_left_label_coords: "
+                              "{}".format(default_left_label_coords))
+                self.ax_left_label_coords = default_left_label_coords
             self.ax.text(
                 self.ax_left_label_coords[0], self.ax_left_label_coords[1],
                 self.ax_left_label, transform=self.ax.transAxes,
                 **self.ax_left_label_kwargs
             )
         if self.ax_right_label:
+            if not self.ax_right_label_kwargs:
+                self.ax_right_label_kwargs = dict()
+            if not self.ax_right_label_coords:
+                default_right_label_coords = (1.1, 0.5)
+                logging.debug("Using default ax_right_label_coords: "
+                              "{}".format(default_right_label_coords))
+                self.ax_right_label_coords = default_right_label_coords
             self.ax.text(
                 self.ax_right_label_coords[0], self.ax_right_label_coords[1],
                 self.ax_right_label, transform=self.ax.transAxes,
