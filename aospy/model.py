@@ -203,8 +203,8 @@ class Model(object):
                 grid_attr = self._get_grid_attr(grid_objs, name)
                 if grid_attr is not None:
                     # Rename coordinates to aospy's internal names.
-                    renamed_attrs = self._rename_coords(grid_attr)
-                    setattr(self, name_int, renamed_attrs)
+                    renamed_attr = self._rename_coords(grid_attr)
+                    setattr(self, name_int, renamed_attr)
                     break
 
     @staticmethod
