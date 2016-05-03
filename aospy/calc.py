@@ -134,8 +134,13 @@ class CalcInterface(object):
         self.region = region
 
         self.months = TimeManager.month_indices(intvl_out)
-        self.start_date = TimeManager.str_to_datetime(date_range[0])
-        self.end_date = TimeManager.str_to_datetime(date_range[-1])
+        if date_range in (None, 'default'):
+            # TODO: account for different defaults ranges when there are
+            #       multiple input runs
+            self.start_date, self.end_date = self.default_date_range[0]
+        else:
+            self.start_date = TimeManager.str_to_datetime(date_range[0])
+            self.end_date = TimeManager.str_to_datetime(date_range[-1])
         tm = TimeManager(self.start_date, self.end_date, intvl_out)
         self.date_range = tm.create_time_array()
 
