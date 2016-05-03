@@ -236,6 +236,17 @@ def integrate(arr, ddim, dim=False, is_pressure=False):
     return (arr*ddim).sum(dim=dim)
 
 
+def get_dim_name(arr, names):
+    """Determine if an object has an attribute name matching a given list."""
+    for name in names:
+        # TODO: raise warning/exception when multiple names arr attrs.
+        if hasattr(arr, name):
+            return name
+    raise AttributeError("No attributes of the object `{0}` match the "
+                         "specified names of `{1}`".format(arr, names))
+
+
+# TODO: Re-write using get_dim_name
 def vert_coord_name(dp):
     for name in [PLEVEL_STR, PFULL_STR]:
         if name in dp.coords:
