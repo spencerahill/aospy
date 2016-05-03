@@ -310,8 +310,8 @@ class Calc(object):
                     files = self._get_input_data_paths_one_dir(
                         name, data_in_direc, n=n
                     )
-                except KeyError:
-                    pass
+                except KeyError as e:
+                    logging.debug(str(repr(e)))
                 else:
                     break
             elif self.data_in_dir_struc[n].lower() == 'gfdl':
@@ -327,8 +327,8 @@ class Calc(object):
             elif self.data_in_dir_struc[n].lower() == 'gfdl_repo':
                 try:
                     files = self._get_input_data_paths_gfdl_repo(name, n=n)
-                except IOError:
-                    pass
+                except IOError as e:
+                    logging.debug(str(repr(e)))
                 else:
                     break
             else:
@@ -388,8 +388,9 @@ class Calc(object):
                 if model_attr is not None:
                     ds[name_int] = model_attr
                     ds = ds.set_coords(name_int)
-            if self.dtype_in_vert == 'pressure' and 'level' in ds.coords:
+            if self.dtype_in_vert == 'pressure' and PLEVEL_STR in ds.coords:
                 self.pressure = ds.level
+
         return ds
 
     @staticmethod
@@ -469,6 +470,7 @@ class Calc(object):
         return arr
 
     def _get_pressure_from_p_coords(self, ps, name='p', n=0):
+        """Get pressure or pressure thickness array for data on p-coords."""
         if np.any(self.pressure):
             pressure = self.pressure
         else:
@@ -481,6 +483,7 @@ class Calc(object):
                          "'{}'".format(name))
 
     def _get_pressure_from_eta_coords(self, ps, name='p', n=0):
+        """Get pressure (p) or p thickness array for data on model coords."""
         bk = self.model[n].bk
         pk = self.model[n].pk
         pfull_coord = self.model[n].pfull
