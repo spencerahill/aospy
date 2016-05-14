@@ -276,7 +276,8 @@ def dp_from_p(p, ps, p_top=0., p_bot=1.1e5):
     level's upper edge.  This masks out more levels than the
 
     """
-    p_vals = to_pascal(p.values)
+    p_str = get_dim_name(p, (PLEVEL_STR, 'plev'))
+    p_vals = to_pascal(p.values.copy())
 
     # Layer edges are halfway between the given pressure levels.
     p_edges_interior = 0.5*(p_vals[:-1] + p_vals[1:])
@@ -287,31 +288,30 @@ def dp_from_p(p, ps, p_top=0., p_bot=1.1e5):
     if not all(np.sign(dp)):
         raise ValueError("dp array not all > 0 : {}".format(dp))
     # Pressure difference between ps and the upper edge of each pressure level.
-    p_edge_above_xarray = xr.DataArray(p_edge_above, dims=p.dims,
-                                       coords=p.coords)
-    dp_to_sfc = ps - p_edge_above_xarray
+    p_edge_above_xr = xr.DataArray(p_edge_above, dims=p.dims, coords=p.coords)
+    dp_to_sfc = ps - p_edge_above_xr
     # Find the level adjacent to the masked, under-ground levels.
     change = xr.DataArray(np.zeros(dp_to_sfc.shape), dims=dp_to_sfc.dims,
-                            coords=dp_to_sfc.coords)
-    change[{PLEVEL_STR: slice(1, None)}] = np.diff(
+                          coords=dp_to_sfc.coords)
+    change[{p_str: slice(1, None)}] = np.diff(
         np.sign(ps - to_pascal(p.copy()))
     )
     dp_combined = xr.DataArray(np.where(change, dp_to_sfc, dp),
-                                 dims=dp_to_sfc.dims, coords=dp_to_sfc.coords)
+                               dims=dp_to_sfc.dims, coords=dp_to_sfc.coords)
     # Mask levels that are under ground.
     above_ground = ps > to_pascal(p.copy())
-    above_ground[PLEVEL_STR].values = p.values
+    above_ground[p_str] = p[p_str]
     dp_with_ps = dp_combined.where(above_ground)
     # Revert to original dim order.
     possible_dim_orders = [
-        (TIME_STR, PLEVEL_STR, LAT_STR, LON_STR),
-        (TIME_STR, PLEVEL_STR, LAT_STR),
-        (TIME_STR, PLEVEL_STR, LON_STR),
-        (TIME_STR, PLEVEL_STR),
-        (PLEVEL_STR, LAT_STR, LON_STR),
-        (PLEVEL_STR, LAT_STR),
-        (PLEVEL_STR, LON_STR),
-        (PLEVEL_STR,),
+        (TIME_STR, p_str, LAT_STR, LON_STR),
+        (TIME_STR, p_str, LAT_STR),
+        (TIME_STR, p_str, LON_STR),
+        (TIME_STR, p_str),
+        (p_str, LAT_STR, LON_STR),
+        (p_str, LAT_STR),
+        (p_str, LON_STR),
+        (p_str,),
     ]
     for dim_order in possible_dim_orders:
         try:
@@ -323,7 +323,7 @@ def dp_from_p(p, ps, p_top=0., p_bot=1.1e5):
         return dp_with_ps
 
 
-def level_thickness(p):
+def level_thickness(p, p_top=0., p_bot=1.01325e5):
     """
     Calculates the thickness, in Pa, of each pressure level.
 
@@ -331,18 +331,20 @@ def level_thickness(p):
     level, except for the lowest value (typically 1000 hPa), which is the
     bottom boundary. The uppermost level extends to 0 hPa.
 
+    Unlike `dp_from_p`, this does not incorporate the surface pressure.
+
     """
-    # Bottom level extends from p[0] to halfway betwen p[0]
-    # and p[1].
-    p = to_pascal(p)
-    dp = [0.5*(p[0] - p[1])]
+    p_vals = to_pascal(p.values.copy())
+    dp_vals = np.empty_like(p_vals)
+    # Bottom level extends from p[0] to halfway betwen p[0] and p[1].
+    dp_vals[0] = p_bot - 0.5*(p_vals[0] + p_vals[1])
     # Middle levels extend from halfway between [k-1], [k] and [k], [k+1].
-    for k in range(1, p.size-1):
-        dp.append(0.5*(p[k-1] - p[k+1]))
+    dp_vals[1:-1] = 0.5*(p_vals[0:-2] - p_vals[2:])
     # Top level extends from halfway between top two levels to 0 hPa.
-    dp.append(0.5*(p[-2] + p[-1]))
-    # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
-    return xr.DataArray(dp, coords=[p/100.0], dims=['level'])
+    dp_vals[-1] = 0.5*(p_vals[-2] + p_vals[-1]) - p_top
+    dp = p.copy()
+    dp.values = dp_vals
+    return dp
 
 
 def does_coord_increase_w_index(arr):
