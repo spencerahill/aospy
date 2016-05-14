@@ -16,20 +16,25 @@ class TimeManager(object):
     YEAROFFSET = 1899
 
     @classmethod
-    def to_datetime(cls, obj):
+    def to_datetime(cls, obj, end_of_year=False):
         """Create datetime object from the inputted object."""
         if isinstance(obj, bool):
             return obj
         if isinstance(obj, datetime.datetime):
             return obj
         if isinstance(obj, int):
-            return datetime.datetime(obj, 1, 1)
+            if end_of_year:
+                month, day = 12, 31
+            else:
+                month, day = 1, 1
+            return datetime.datetime(obj, month, day)
         if isinstance(obj, str):
             return cls.str_to_datetime(obj)
         try:
             return datetime.datetime(obj)
         except:
-            return cls.str_to_datetime(obj.__str__)
+            raise
+            # return cls.str_to_datetime(obj.__str__)
 
     @staticmethod
     def month_indices(months):
