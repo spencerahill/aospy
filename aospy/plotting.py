@@ -3,6 +3,8 @@ import logging
 
 import scipy.stats
 import numpy as np
+from matplotlib import cm
+from matplotlib.collections import PathCollection
 import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
 import xarray as xr
@@ -15,22 +17,21 @@ from .utils import to_hpa
 
 fig_specs = (
     'fig_title', 'n_row', 'n_col', 'row_size', 'col_size', 'n_ax',
-    'subplot_lims', 'cbar_ax_lim', 'cbar_ticks',
+    'subplot_lims', 'cbar_ax_lim', 'cbar_kwargs', 'cbar_ticks',
     'cbar_ticklabels', 'cbar_label', 'cbar_label_kwargs',
     'cbar_left_label', 'cbar_left_label_coords', 'cbar_left_label_kwargs',
     'cbar_right_label', 'cbar_right_label_coords', 'cbar_right_label_kwargs',
     'verbose'
 )
 ax_specs = (
-    'n_plot', 'ax_title', 'ax_label', 'ax_label_coords',
-    'ax_left_label', 'ax_left_label_coords', 'ax_left_label_kwargs',
-    'ax_right_label', 'ax_right_label_coords', 'ax_right_label_kwargs',
-    'map_proj', 'map_corners',
-    'map_res', 'shiftgrid_start', 'shiftgrid_cyclic', 'do_legend',
-    'legend_labels', 'legend_loc', 'x_dim', 'x_lim', 'x_ticks', 'x_ticklabels',
-    'x_label', 'y_dim', 'y_lim', 'y_ticks', 'y_ticklabels', 'y_label',
-    'lat_lim', 'lat_ticks', 'lat_ticklabels', 'lat_label', 'lon_lim',
-    'lon_ticks', 'lon_ticklabels', 'lon_label', 'p_lim', 'p_ticks',
+    'n_plot', 'ax_title', 'ax_label', 'ax_label_coords', 'ax_left_label',
+    'ax_left_label_coords', 'ax_left_label_kwargs', 'ax_right_label',
+    'ax_right_label_coords', 'ax_right_label_kwargs', 'map_proj',
+    'map_corners', 'map_res', 'shiftgrid_start', 'shiftgrid_cyclic',
+    'do_legend', 'legend_labels', 'legend_kwargs', 'x_dim', 'x_lim', 'x_ticks',
+    'x_ticklabels', 'x_label', 'y_dim', 'y_lim', 'y_ticks', 'y_ticklabels',
+    'y_label', 'lat_lim', 'lat_ticks', 'lat_ticklabels', 'lat_label',
+    'lon_lim', 'lon_ticks', 'lon_ticklabels', 'lon_label', 'p_lim', 'p_ticks',
     'p_ticklabels', 'p_label', 'sigma_lim', 'sigma_ticks', 'sigma_ticklabels',
     'sigma_label', 'time_lim', 'time_ticks', 'time_ticklabels', 'time_label',
     'do_mark_x0', 'do_mark_y0'
@@ -38,8 +39,8 @@ ax_specs = (
 plot_specs = (
     'plot_type', 'do_best_fit_line', 'print_best_fit_slope',
     'print_corr_coeff', 'cntr_lvls', 'colormap', 'min_cntr', 'max_cntr',
-    'num_cntr', 'contours_extend', 'latlon_rect', 'do_mask_oceans',
-    'contour_labels', 'contour_kwargs', 'contourf_kwargs', 'plot_kwargs',
+    'num_cntr', 'latlon_rect', 'do_mask_oceans', 'contour_labels',
+    'contour_kwargs', 'contourf_kwargs', 'plot_kwargs',
     'quiver_kwargs', 'quiver_n_lon', 'quiver_n_lat', 'do_quiverkey',
     'quiverkey_args', 'quiverkey_kwargs', 'scatter_kwargs', 'do_colorbar'
 )
@@ -162,13 +163,9 @@ class Fig(object):
         # Don't make if already made.
         if hasattr(self, 'cbar'):
             return
-        # Goes at bottom center if for all panels.
         self.cbar_ax = self.fig.add_axes(self.cbar_ax_lim)
-        self.cbar = self.fig.colorbar(
-            ax.Plot[0].handle, cax=self.cbar_ax, orientation='horizontal',
-            drawedges=False, spacing='proportional',
-            extend=self.contours_extend
-        )
+        self.cbar = self.fig.colorbar(ax.Plot[0].handle, cax=self.cbar_ax,
+                                      **self.cbar_kwargs)
         # Set tick properties.
         if np.any(self.cbar_ticks):
             self.cbar.set_ticks(self.cbar_ticks)
@@ -411,13 +408,20 @@ class Ax(object):
         self._make_plot_objs()
         self._set_axes_props()
         self._set_axes_labels()
+        self._handles = []
 
+        # Get the handles for use in the legend.
+        # Facilitates excluding extra elements (e.g. x=0 line) from legend.
         for n in range(self.n_plot):
-            self.Plot[n].plot()
+            handle = self.Plot[n].plot()
+            if not isinstance(handle, PathCollection):
+                self._handles.append(handle[0])
+            else:
+                self._handles.append(handle)
 
         if self.do_legend:
-            self.ax.legend(self.legend_labels, loc=self.legend_loc,
-                           frameon=False, fontsize='small')
+            self.ax.legend(self._handles, self.legend_labels,
+                           **self.legend_kwargs)
 
 
 class PlotInterface(object):
@@ -471,8 +475,11 @@ class Plot(object):
         data_shape = np.shape(self.data)
         if data_shape[0] == 1:
             self.data = self.data[0]
-        elif data_shape[0] == 2 and data_shape[1] == 1:
-            self.data = np.squeeze(self.data)
+        elif data_shape[0] == 2:
+            if len(data_shape) == 1:
+                self.data = np.squeeze(self.data)
+            elif data_shape[1] == 1:
+                self.data = np.squeeze(self.data)
         # _set_coord_arrays() below needs Calc, not Operator, objects.
         for i, calc in enumerate(self.calc):
             if isinstance(calc, Operator):
@@ -549,7 +556,14 @@ class Plot(object):
                     array = getattr(self.calc[i][0].model[0],
                                     array_names[array_key])
 
-            if array_key == 'p' and array is not None:
+            if array_key == 'p':
+                # Hack to get pressure data if not found previously.
+                # TODO: clean this up.
+                if array is None:
+                    try:
+                        array = self.x_data.level
+                    except AttributeError:
+                        array = self.y_data.level
                 array = to_hpa(array)
 
             if array_key == 'time' and lim == 'ann_cycle':
@@ -588,7 +602,9 @@ class Plot(object):
 
     @classmethod
     def _perform_oper(cls, arr1, arr2, operator, region=False):
-        if region:
+        # Only regrid data on model-native coordinates, not pressure.
+        if region and any([getattr(arr, pfs, False) for arr in (arr1, arr2)
+                           for pfs in (PFULL_STR, PFULL_STR + '_ref')]):
             try:
                 arr1, arr2 = cls.regrid_to_avg_coords(PFULL_STR, arr1, arr2)
             except KeyError:
@@ -732,6 +748,17 @@ class Plot(object):
                             transform=self.ax.ax.transAxes, fontsize='x-small')
         return best_fit
 
+    def _get_color_from_cmap(self, value):
+        """Get a color along some specified fraction of a colormap."""
+        if isinstance(self.colormap, str):
+            try:
+                self.colormap = getattr(cm, self.colormap)
+            except AttributeError:
+                logging.warning("Desired colormap '{0}' not found.  Using "
+                                "'RdBu_r' by default.".format(self.colormap))
+                self.colormap = cm.RdBu_r
+        return self.colormap(value)
+
 
 class Contour(Plot):
     def __init__(self, plot_interface):
@@ -764,22 +791,36 @@ class Contour(Plot):
         if self.basemap:
             self.apply_basemap(self.basemap)
 
+        return self.handle
+
 
 class Contourf(Contour):
+    """Filled contour ('contourf') plot."""
     def __init__(self, plot_interface):
-        """Filled contour ('contourf') plot."""
         Contour.__init__(self, plot_interface)
         self.plot_func = self.backend.contourf
         self.plot_func_kwargs = self.contourf_kwargs
 
+
 class Line(Plot):
+    """Line plot."""
     def __init__(self, plot_interface):
-        """Line plot."""
         Plot.__init__(self, plot_interface)
 
     def plot(self):
-        self.handle = self.backend.plot(self.x_data, self.y_data,
-                                        **self.plot_kwargs)
+        """Plot the line plot."""
+        plot_kwargs = self.plot_kwargs.copy()
+        if self.colormap:
+            rgba = self._get_color_from_cmap(plot_kwargs['color'])
+        else:
+            rgba = plot_kwargs['color']
+        plot_kwargs.pop('color', None)
+        self.handle = self.backend.plot(self.x_data, self.y_data, color=rgba,
+                                        **plot_kwargs)
+        if self.do_colorbar:
+            self.fig._make_colorbar(self.ax)
+
+        return self.handle
 
 
 class Scatter(Plot):
@@ -790,18 +831,29 @@ class Scatter(Plot):
         self._apply_data_transforms()
 
     def plot(self):
-        self.handle = self.backend.scatter(self.x_data, self.y_data,
-                                           **self.scatter_kwargs)
+        scatter_kwargs = self.scatter_kwargs.copy()
+        if self.colormap == 'norm':
+            rgba = self._get_color_from_cmap(scatter_kwargs['c'])
+        else:
+            rgba = scatter_kwargs['c']
+        scatter_kwargs.pop('c', None)
+        self.handle = self.backend.scatter(self.x_data, self.y_data, c=rgba,
+                                           **scatter_kwargs)
         if self.do_best_fit_line:
             self.best_fit_line(print_slope=self.print_best_fit_slope)
 
         if self.print_corr_coeff:
             self.corr_coeff(self.x_data, self.y_data)
 
+        if self.do_colorbar:
+            self.fig._make_colorbar(self.ax)
+
+        return self.handle
+
 
 class Quiver(Plot):
+    """Quiver (i.e. vector) plot."""
     def __init__(self, plot_interface):
-        """Quiver (i.e. vector) plot."""
         Plot.__init__(self, plot_interface)
 
     def prep_quiver(self):
@@ -829,3 +881,8 @@ class Quiver(Plot):
                                            **self.quiverkey_kwargs)
         if self.basemap:
             self.apply_basemap(self.basemap)
+
+        if self.do_colorbar:
+            self.fig._make_colorbar(self.ax)
+
+        return self.handle
