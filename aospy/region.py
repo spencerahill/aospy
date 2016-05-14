@@ -59,6 +59,7 @@ class Region(object):
         try:
             percent_bool = land_mask.units.lower() in ('%', 'percent')
         except AttributeError:
+            # Wrong for the edge case where no grid cell is 100% land.
             percent_bool = land_mask.max() == 100
         if percent_bool:
             land_mask *= 0.01
