@@ -1,11 +1,10 @@
 """calc.py: classes for performing specified calculations on aospy data"""
-from __future__ import print_function
 import logging
 import os
 import shutil
 import subprocess
 import tarfile
-import time
+from time import ctime
 
 import numpy as np
 import xarray as xr
@@ -185,7 +184,6 @@ class Calc(object):
         yr_lbl = _yr_label((self.start_date.year,
                             self.end_date.year))
         return '.'.join(
-            # [self.name, out_lbl, in_lbl, self.model_str, self.run_str_full,
             [self.name, out_lbl, in_lbl, self.model_str, self.run_str,
              ens_lbl, yr_lbl, extension]
         ).replace('..', '.')
@@ -199,10 +197,9 @@ class Calc(object):
     def _print_verbose(self, *args):
         """Print diagnostic message."""
         try:
-            return ('{} {}'.format(args[0], args[1]),
-                    '({})'.format(time.ctime()))
+            return '{0} {1} ({2})'.format(args[0], args[1], ctime())
         except IndexError:
-            return '{}'.format(args[0]), '({})'.format(time.ctime())
+            return '{0} ({1})'.format(args[0], ctime())
 
     def __init__(self, calc_interface):
         self.__dict__ = vars(calc_interface)
@@ -849,7 +846,7 @@ class Calc(object):
             self._save_to_scratch(data, dtype_out_time)
         if archive:
             self._save_to_archive(dtype_out_time)
-        print('\t', '{}'.format(self.path_scratch[dtype_out_time]))
+        logging.info('\t{}'.format(self.path_scratch[dtype_out_time]))
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False,
                            region=False):
@@ -916,6 +913,10 @@ class Calc(object):
              time=False, vert=False, lat=False, lon=False, plot_units=False,
              mask_unphysical=False):
         """Load the data from the object if possible or from disk."""
+        msg = ("Loading data from disk for object={0}, dtype_out_time={1}, "
+               "dtype_out_vert={2}, and region="
+               "{3}".format(self, dtype_out_time, dtype_out_vert, region))
+        logging.info(msg + ' ({})'.format(ctime()))
         # Grab from the object if its there.
         try:
             data = self.data_out[dtype_out_time]
