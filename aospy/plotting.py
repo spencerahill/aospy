@@ -1,5 +1,6 @@
 """Classes for creating multi-panel figures using data generated via aospy."""
 import logging
+from time import ctime
 
 import scipy.stats
 import numpy as np
@@ -390,7 +391,10 @@ class Ax(object):
             plot_interface = PlotInterface(ax=self, plot_num=n,
                                            plot_type=plot_type)
             if plot_type == 'scatter':
-                self.Plot.append(Scatter(plot_interface))
+                try:
+                    self.Plot.append(Scatter(plot_interface))
+                except KeyError:
+                    self.Plot.append(None)
             elif plot_type == 'contour':
                 self.Plot.append(Contour(plot_interface))
             elif plot_type == 'contourf':
@@ -413,11 +417,14 @@ class Ax(object):
         # Get the handles for use in the legend.
         # Facilitates excluding extra elements (e.g. x=0 line) from legend.
         for n in range(self.n_plot):
-            handle = self.Plot[n].plot()
-            if not isinstance(handle, PathCollection):
-                self._handles.append(handle[0])
-            else:
-                self._handles.append(handle)
+            try:
+                handle = self.Plot[n].plot()
+                if not isinstance(handle, PathCollection):
+                    self._handles.append(handle[0])
+                else:
+                    self._handles.append(handle)
+            except:
+                pass
 
         if self.do_legend:
             self.ax.legend(self._handles, self.legend_labels,
@@ -472,14 +479,10 @@ class Plot(object):
         self.data = [self._load_data(calc, n)
                      for n, calc in enumerate(self.calc)]
         # Strip extra dimensions as necessary.
-        data_shape = np.shape(self.data)
-        if data_shape[0] == 1:
+        if len(self.data) == 1:
             self.data = self.data[0]
-        elif data_shape[0] == 2:
-            if len(data_shape) == 1:
-                self.data = np.squeeze(self.data)
-            elif data_shape[1] == 1:
-                self.data = np.squeeze(self.data)
+        else:
+            self.data = [d.squeeze() for d in self.data()]
         # _set_coord_arrays() below needs Calc, not Operator, objects.
         for i, calc in enumerate(self.calc):
             if isinstance(calc, Operator):
@@ -681,11 +684,11 @@ class Plot(object):
         else:
             loop_data = self.data
         for data in loop_data:
-            pd, self.plot_lons = mpl_toolkits.basemap.shiftgrid(
+            d, self.plot_lons = mpl_toolkits.basemap.shiftgrid(
                 lon0, data, self.x_data,
                 start=self.ax.shiftgrid_start, cyclic=self.ax.shiftgrid_cyclic
             )
-            self.plot_data.append(pd)
+            self.plot_data.append(d)
         if len(self.plot_data) == 1:
             self.plot_data = self.plot_data[0]
 
