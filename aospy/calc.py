@@ -278,8 +278,12 @@ class Calc(object):
             dtype_lbl = dtype
         else:
             dtype = self.dtype_in_time
-        direc = os.path.join(data_in_direc, domain, dtype_lbl, self.intvl_in,
-                             str(self.data_in_dur[n]) + 'yr')
+        dur_str = str(self.data_in_dur[n]) + 'yr'
+        if self.dtype_in_time == 'av':
+            subdir = self.intvl_in + '_' + dur_str
+        else:
+            subdir = os.path.join(self.intvl_in, dur_str)
+        direc = os.path.join(data_in_direc, domain, dtype_lbl, subdir)
         files = [os.path.join(direc, data_in_name_gfdl(
                  name, domain, dtype, self.intvl_in, year, self.intvl_out,
                  self.data_in_start_date[n].year, self.data_in_dur[n]
@@ -437,16 +441,23 @@ class Calc(object):
         # specify what method to call to access the files on the filesystem.
         dmget(paths)
         ds_chunks = []
+        vars_to_drop = ['time_bounds', 'nv', 'bnds',
+                        'average_T1', 'average_T2']
         for file_ in paths:
             test = xr.open_dataset(file_, decode_cf=False,
-                                   drop_variables=['time_bounds', 'nv', 'bnds',
-                                                   'average_T1', 'average_T2'])
+                                   drop_variables=vars_to_drop)
             # Workaround for years < 1678 causing overflows.
             if start_date.year < 1678:
                 for v in [TIME_STR]:
                     test[v].attrs['units'] = ('days since 1900-01-01 '
                                               '00:00:00')
                 test[TIME_STR].attrs['calendar'] = 'noleap'
+            # 'climatology_bounds' causes the ValueError b/c 'bnds' removed.
+            if self.dtype_in_time == 'av':
+                try:
+                    test = test.drop('climatology_bounds')
+                except ValueError:
+                    pass
             test = xr.decode_cf(test)
             ds_chunks.append(test)
         ds = xr.concat(ds_chunks, dim=TIME_STR, data_vars='minimal')
@@ -560,7 +571,8 @@ class Calc(object):
             if self.dtype_in_time == 'inst':
                 data = self._correct_gfdl_inst_time(data)
             # Restrict to the desired dates within each year.
-            return self._to_desired_dates(data)
+            if self.dtype_in_time != 'av':
+                return self._to_desired_dates(data)
         return data
 
     def _prep_data(self, data, func_input_dtype):
@@ -665,6 +677,8 @@ class Calc(object):
 
     def _time_reduce(self, arr, reduction):
         """Perform the specified time reduction on a local time-series."""
+        if self.dtype_in_time == 'av':
+            return arr
         reductions = {
             'None': lambda xarr: xarr,
             'ts': lambda xarr: xarr,
@@ -710,6 +724,9 @@ class Calc(object):
         return reg_dat
 
     def _apply_all_time_reductions(self, full_ts, monthly_ts, eddy_ts):
+        """Apply all requested time reductions to the data."""
+        logging.info(self._print_verbose("Applying desired time-"
+                                         "reduction methods."))
         # Determine which are regional, eddy, time-mean.
         reduc_specs = [r.split('.') for r in self.dtype_out_time]
         reduced = {}
@@ -727,55 +744,45 @@ class Calc(object):
                 reduced.update({reduc: self._time_reduce(data, func)})
         return reduced
 
-    def compute(self, save_to_scratch=True, save_to_archive=True):
-        """Perform all desired calculations on the data and save externally."""
-        # Load the input data from disk.
-        data_in = self._prep_data(self._get_all_data(self.start_date,
-                                                     self.end_date),
-                                  self.var.func_input_dtype)
-        # Compute only the needed timeseries.
-        logging.info(self._print_verbose(
-            '\n', 'Computing desired timeseries for '
-            '{} -- {}.'.format(self.start_date, self.end_date)
-        ))
+    def _make_full_mean_eddy_ts(self, data_in):
+        """Create full, monthly-mean, and eddy timeseries of data."""
         bool_monthly = (['monthly_from' in self.dtype_in_time] +
                         ['time-mean' in dout for dout in self.dtype_out_time])
         bool_eddy = ['eddy' in dout for dout in self.dtype_out_time]
         if not all(bool_monthly):
-            full_ts, full_dt = self._compute_full_ts(data_in,
-                                                     monthly_mean=False)
+            full, full_dt = self._compute_full_ts(data_in,
+                                                  monthly_mean=False)
         else:
-            full_ts = False
+            full = False
         if any(bool_eddy) or any(bool_monthly):
-            monthly_ts, monthly_dt = self._compute_full_ts(data_in,
-                                                           monthly_mean=True)
+            monthly, monthly_dt = self._compute_full_ts(data_in,
+                                                        monthly_mean=True)
         else:
-            monthly_ts = False
+            monthly = False
         if any(bool_eddy):
-            eddy_ts = full_ts - monthly_mean_at_each_ind(monthly_ts, full_ts)
+            eddy = full - monthly_mean_at_each_ind(monthly, full)
         else:
-            eddy_ts = False
+            eddy = False
 
         # Average within each year.
         if not all(bool_monthly):
-            full_ts = self._full_to_yearly_ts(full_ts, full_dt)
+            full = self._full_to_yearly_ts(full, full_dt)
         if any(bool_monthly):
-            monthly_ts = self._full_to_yearly_ts(monthly_ts, monthly_dt)
+            monthly = self._full_to_yearly_ts(monthly, monthly_dt)
         if any(bool_eddy):
-            eddy_ts = self._full_to_yearly_ts(eddy_ts, full_dt)
-        # Apply time reduction methods.
-        if self.def_time:
-            logging.info(self._print_verbose(
-                "Applying desired time-reduction methods."
-            ))
-            reduced = self._apply_all_time_reductions(full_ts, monthly_ts,
-                                                      eddy_ts)
-        else:
-            reduced = {'': full_ts}
-        # Save to disk.
-        logging.info(self._print_verbose(
-            "Writing desired gridded outputs to disk."
-        ))
+            eddy = self._full_to_yearly_ts(eddy, full_dt)
+        return full, monthly, eddy
+
+    def compute(self, save_to_scratch=True, save_to_archive=True):
+        """Perform all desired calculations on the data and save externally."""
+        data_in = self._prep_data(self._get_all_data(self.start_date,
+                                                     self.end_date),
+                                  self.var.func_input_dtype)
+        logging.info('Computing timeseries for {0} -- '
+                     '{1}.'.format(self.start_date, self.end_date))
+        full, monthly, eddy = self._make_full_mean_eddy_ts(data_in)
+        reduced = self._apply_all_time_reductions(full, monthly, eddy)
+        logging.info("Writing desired gridded outputs to disk.")
         for dtype_time, data in reduced.items():
             self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
                       scratch=save_to_scratch, archive=save_to_archive)
@@ -783,7 +790,6 @@ class Calc(object):
     def _save_to_scratch(self, data, dtype_out_time):
         """Save the data to the scratch filesystem."""
         path = self.path_scratch[dtype_out_time]
-        # Drop undefined coords.
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
         if 'reg' in dtype_out_time:

@@ -107,12 +107,21 @@ def _time_label(intvl, return_val=True):
         value = np.array([intvl])
     # Seasonal and annual time labels are short strings.
     else:
-        labels = {'jfm': (1, 2, 3), 'fma': (2, 3, 4), 'mam': (3,  4,  5),
-                  'amj': (4, 5, 6), 'mjj': (5, 6, 7), 'jja': (6,  7,  8),
-                  'jas': (7, 8, 9), 'aso': (8, 9,10), 'son': (9, 10, 11),
-                  'ond':(10,11,12), 'ndj': (11,12,1), 'djf': (1,  2, 12),
-                  'jjas': (6,7,8,9), 'djfm': (12, 1, 2, 3),
-                  'ann': range(1,13)}
+        labels = {'jfm': (1, 2, 3),
+                  'fma': (2, 3, 4),
+                  'mam': (3, 4, 5),
+                  'amj': (4, 5, 6),
+                  'mjj': (5, 6, 7),
+                  'jja': (6,  7,  8),
+                  'jas': (7, 8, 9),
+                  'aso': (8, 9, 10),
+                  'son': (9, 10, 11),
+                  'ond': (10, 11, 12),
+                  'ndj': (11, 12, 1),
+                  'djf': (1, 2, 12),
+                  'jjas': (6, 7, 8, 9),
+                  'djfm': (12, 1, 2, 3),
+                  'ann': range(1, 13)}
         for lbl, vals in labels.items():
             if intvl == lbl or set(intvl) == set(vals):
                 label = lbl
@@ -126,7 +135,7 @@ def _time_label(intvl, return_val=True):
 
 def data_in_name_gfdl(name, domain, data_type, intvl_type, data_yr,
                       intvl, data_in_start_yr, data_in_dur):
-    """Determines the filename of GFDL model data output."""
+    """Determine the filename of GFDL model data output."""
     # Determine starting year of netCDF file to be accessed.
     extra_yrs = (data_yr - data_in_start_yr) % data_in_dur
     data_in_yr = data_yr - extra_yrs
@@ -135,19 +144,19 @@ def data_in_name_gfdl(name, domain, data_type, intvl_type, data_yr,
         if intvl_type == 'annual':
             if data_in_dur == 1:
                 filename = '.'.join([domain, '{:04d}'.format(data_in_yr),
-                                      name, 'nc'])
+                                     name, 'nc'])
             else:
                 filename = '.'.join([domain, '{:04d}-{:04d}'.format(
                     data_in_yr, data_in_yr + data_in_dur - 1
                 ), name, 'nc'])
         elif intvl_type == 'monthly':
             filename = (domain + '.{:04d}'.format(data_in_yr) + '01-' +
-                         '{:04d}'.format(int(data_in_yr+data_in_dur-1)) +
-                         '12.' + name + '.nc')
+                        '{:04d}'.format(int(data_in_yr+data_in_dur-1)) +
+                        '12.' + name + '.nc')
         elif intvl_type == 'daily':
             filename = (domain + '.{:04d}'.format(data_in_yr) + '0101-' +
-                         '{:04d}'.format(int(data_in_yr+data_in_dur-1)) +
-                         '1231.' + name + '.nc')
+                        '{:04d}'.format(int(data_in_yr+data_in_dur-1)) +
+                        '1231.' + name + '.nc')
         elif 'hr' in intvl_type:
             filename = '.'.join(
                 [domain, '{:04d}010100-{:04d}123123'.format(
@@ -165,14 +174,16 @@ def data_in_name_gfdl(name, domain, data_type, intvl_type, data_yr,
         elif intvl_type in ['monthly', 'mon']:
             label, val = _time_label(intvl)
         if data_in_dur == 1:
-            filename = domain + '.{:04d}'.format(data_in_yr) + '.' + label + '.nc'
+            filename = (domain + '.{:04d}'.format(data_in_yr) +
+                        '.' + label + '.nc')
         else:
             filename = (domain + '.{:04d}'.format(data_in_yr) + '-' +
-                         '{:04d}'.format(int(data_in_yr+data_in_dur-1)) +
-                         '.' + label + '.nc')
+                        '{:04d}'.format(int(data_in_yr+data_in_dur-1)) +
+                        '.' + label + '.nc')
     elif data_type == 'av_ts':
         filename = (domain + '.{:04d}'.format(data_in_yr) + '-' +
-                     '{:04d}'.format(int(data_in_yr+data_in_dur-1)) + '.01-12.nc')
+                    '{:04d}'.format(int(data_in_yr+data_in_dur-1)) +
+                    '.01-12.nc')
     return filename
 
 
