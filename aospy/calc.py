@@ -1,4 +1,5 @@
 """calc.py: classes for performing specified calculations on aospy data"""
+from collections import OrderedDict
 import logging
 import os
 import shutil
@@ -151,6 +152,21 @@ class Calc(object):
     """Class for executing, saving, and loading a single computation."""
 
     ARR_XARRAY_NAME = 'aospy_result'
+
+    _grid_attrs = OrderedDict([
+        (LAT_STR,        ('lat', 'latitude', 'LATITUDE', 'y', 'yto')),
+        (LAT_BOUNDS_STR, ('latb', 'lat_bnds', 'lat_bounds')),
+        (LON_STR,        ('lon', 'longitude', 'LONGITUDE', 'x', 'xto')),
+        (LON_BOUNDS_STR, ('lonb', 'lon_bnds', 'lon_bounds')),
+        ('zsurf',        ('zsurf',)),
+        ('sfc_area',     ('area', 'sfc_area')),
+        ('land_mask',    ('land_mask',)),
+        ('pk',           ('pk',)),
+        ('bk',           ('bk',)),
+        (PHALF_STR,      ('phalf',)),
+        (PFULL_STR,      ('pfull',)),
+        (PLEVEL_STR,     ('level', 'lev', 'plev')),
+    ])
 
     def __str__(self):
         """String representation of the object."""
@@ -357,21 +373,7 @@ class Calc(object):
 
     def _add_grid_attributes(self, ds, n=0):
         """Add model grid attributes to a dataset"""
-        grid_attrs = {
-            LAT_STR:        ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-            LAT_BOUNDS_STR: ('latb', 'lat_bnds', 'lat_bounds'),
-            LON_STR:        ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-            LON_BOUNDS_STR: ('lonb', 'lon_bnds', 'lon_bounds'),
-            PLEVEL_STR:     ('level', 'lev', 'plev'),
-            'sfc_area':     ('area', 'sfc_area'),
-            'zsurf':        ('zsurf',),
-            'land_mask':    ('land_mask',),
-            'pk':           ('pk',),
-            'bk':           ('bk',),
-            PHALF_STR:      ('phalf',),
-            PFULL_STR:      ('pfull',),
-            }
-        for name_int, names_ext in grid_attrs.items():
+        for name_int, names_ext in self._grid_attrs.items():
             ds_coord_name = set(names_ext).intersection(set(ds.coords) |
                                                         set(ds.data_vars))
             model_attr = getattr(self.model[n], name_int, None)
@@ -384,10 +386,20 @@ class Calc(object):
                     ds = ds
                 ds = ds.set_coords(name_int)
                 if not np.array_equal(ds[name_int], model_attr):
-                    msg = ("Model coordinates for '{}' do not match those in "
-                           "Run: {} vs. {}".format(name_int, ds[name_int],
-                                                   model_attr))
-                    logging.info(msg)
+                    if np.allclose(ds[name_int], model_attr):
+                        msg = ("Values for '{0}' are nearly (but not exactly) "
+                               "the same in the Run {1} and the Model {2}.  "
+                               "Therefore replacing Run's values with the "
+                               "model's.".format(name_int, self.run[n],
+                                                 self.model[n]))
+                        logging.info(msg)
+                        ds[name_int].values = model_attr.values
+                    else:
+                        msg = ("Model coordinates for '{}' do not match those "
+                               "in Run: {0} vs. {1}"
+                               "".format(name_int, ds[name_int], model_attr))
+                        logging.info(msg)
+
             else:
                 # Bring in coord from model object if it exists.
                 ds = ds.load()
@@ -396,7 +408,6 @@ class Calc(object):
                     ds = ds.set_coords(name_int)
             if self.dtype_in_vert == 'pressure' and PLEVEL_STR in ds.coords:
                 self.pressure = ds.level
-
         return ds
 
     @staticmethod
@@ -408,12 +419,14 @@ class Calc(object):
             except KeyError:
                 pass
             else:
-                break
-        dt = bounds.diff(BOUNDS_STR).squeeze().drop(BOUNDS_STR)
-        # Convert from # of days as a float to np.timedelta64 in seconds.
-        # TODO: Check that units are indeed days, as the next line assumes.
-        dt.values = np.array([np.timedelta64(int(d), 'D') for d in dt.values])
-        return dt / np.timedelta64(1, 's')
+                dt = bounds.diff(BOUNDS_STR).squeeze().drop(BOUNDS_STR)
+                # Convert from float # of days to np.timedelta64 in seconds.
+                # TODO: Explicitly check that units are days.
+                dt.values = np.array([np.timedelta64(int(d), 'D')
+                                      for d in dt.values])
+                return dt / np.timedelta64(1, 's')
+        raise ValueError("Time bound data cannot be found in the dataset.\n"
+                         "{0}".format(ds))
 
     def _get_dt(self, ds):
         """Find or create the array of timestep durations."""
@@ -421,9 +434,10 @@ class Calc(object):
             try:
                 dt = ds[name]
             except KeyError:
-                pass
+                logging.debug("dt array not found for nonexistent key name "
+                              "`{0}`".format(name))
             else:
-                # Convert from nanoseconds to seconds (prevent overflow)
+                # Convert to seconds
                 return self._to_desired_dates(dt) / np.timedelta64(1, 's')
         return self._to_desired_dates(self.dt_from_time_bnds(ds))
 
@@ -473,7 +487,10 @@ class Calc(object):
             raise KeyError('Variable not found: {}'.format(var))
         # At least one variable has to get us the dt array also.
         if set_dt:
-            self.dt = self._get_dt(ds)
+            try:
+                self.dt = self._get_dt(ds)
+            except ValueError:
+                pass
         # At least one variable has to get us the pfull array, if it's needed.
         if set_pfull:
             try:
@@ -625,7 +642,7 @@ class Calc(object):
             data_in = data_monthly
         local_ts = self._local_ts(*data_in)
         if self.dtype_in_time == 'inst':
-            dt = xr.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
+            dt = xr.DataArray(np.ones_like(local_ts[TIME_STR]),
                               dims=[TIME_STR], coords=[local_ts[TIME_STR]])
             if not hasattr(self, 'dt'):
                 self.dt = dt
