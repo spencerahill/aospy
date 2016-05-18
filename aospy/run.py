@@ -34,7 +34,7 @@ class Run(object):
                                                         end_of_year=True)
         try:
             self.default_date_range = tuple([
-                TimeManager.to_datetime(d, ed_of_year=eoy)
+                TimeManager.to_datetime(d, end_of_year=eoy)
                 for d, eoy in zip(default_date_range, [False, True])]
             )
         except TypeError:
