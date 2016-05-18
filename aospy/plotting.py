@@ -48,8 +48,8 @@ plot_specs = (
 data_specs = (
     'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'date_range',
     'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert',
-    'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean', 'do_mult_factor',
-    'mask_unphysical'
+    'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean', 'mult_factor',
+    'mask_unphysical', 'smooth_data'
 )
 specs = fig_specs + ax_specs + plot_specs + data_specs
 
@@ -417,14 +417,11 @@ class Ax(object):
         # Get the handles for use in the legend.
         # Facilitates excluding extra elements (e.g. x=0 line) from legend.
         for n in range(self.n_plot):
-            try:
-                handle = self.Plot[n].plot()
-                if not isinstance(handle, PathCollection):
-                    self._handles.append(handle[0])
-                else:
-                    self._handles.append(handle)
-            except:
-                pass
+            handle = self.Plot[n].plot()
+            if not isinstance(handle, PathCollection):
+                self._handles.append(handle[0])
+            else:
+                self._handles.append(handle)
 
         if self.do_legend:
             self.ax.legend(self._handles, self.legend_labels,
@@ -482,7 +479,7 @@ class Plot(object):
         if len(self.data) == 1:
             self.data = self.data[0]
         else:
-            self.data = [d.squeeze() for d in self.data()]
+            self.data = [d.squeeze() for d in self.data]
         # _set_coord_arrays() below needs Calc, not Operator, objects.
         for i, calc in enumerate(self.calc):
             if isinstance(calc, Operator):
@@ -537,7 +534,8 @@ class Plot(object):
     def _set_coord_arrays(self):
         """Set the arrays holding the x- and y-coordinates."""
         array_names = {'lat': 'lat', 'lon': 'lon', 'p': 'level',
-                       'sigma': 'pfull', 'time': 'time', 'x': 'x', 'y': 'y'}
+                       'sigma': 'pfull', 'time': 'time_bounds',
+                       'x': 'x', 'y': 'y'}
         if self.n_data == 1:
             mod_inds = (0, 0)
         else:
@@ -546,18 +544,28 @@ class Plot(object):
                                      ('x_lim', 'y_lim'), mod_inds):
             array_key = getattr(self.ax, dim)
 
+            if isinstance(self.calc[i], Calc):
+                calc = self.calc[i]
+            elif isinstance(self.calc[i][0], Calc):
+                calc = self.calc[i][0]
+            else:
+                msg = ("Couldn't find the Calc object for the plot "
+                       "object `{}`".format(self))
+                raise ValueError(msg)
+
             if array_key in ('x', 'y'):
                 if len(self.data) == 1:
                     array = self.data[0]
                 else:
                     array = self.data
+            elif array_key == 'time':
+                # Hack to get timeseries plotted.
+                # TODO: clean this up.
+                array = np.arange(calc.start_date.year, calc.end_date.year + 1)
+                if lim == 'ann_cycle':
+                    array = np.arange(1, 13)
             else:
-                try:
-                    array = getattr(self.calc[i].model[0],
-                                    array_names[array_key])
-                except AttributeError:
-                    array = getattr(self.calc[i][0].model[0],
-                                    array_names[array_key])
+                array = getattr(calc.model[0], array_names[array_key], None)
 
             if array_key == 'p':
                 # Hack to get pressure data if not found previously.
@@ -568,9 +576,6 @@ class Plot(object):
                     except AttributeError:
                         array = self.y_data.level
                 array = to_hpa(array)
-
-            if array_key == 'time' and lim == 'ann_cycle':
-                array = np.arange(1, 13)
 
             setattr(self, data, array)
 
@@ -777,8 +782,8 @@ class Contour(Plot):
             self.prep_data_for_basemap()
         else:
             self.plot_data = self.data[0]
-        if self.do_mult_factor[0]:
-            self.plot_data = np.multiply(float(self.do_mult_factor[0]),
+        if self.mult_factor[0]:
+            self.plot_data = np.multiply(float(self.mult_factor[0]),
                                          self.plot_data)
 
     def plot(self):
@@ -812,13 +817,32 @@ class Line(Plot):
 
     def plot(self):
         """Plot the line plot."""
+        x_data = self.x_data.copy()
+        y_data = self.y_data.copy()
+        # TODO: refactor to avoid repetitive code.
+        if self.mult_factor[0]:
+            if self.ax.x_dim == 'x':
+                x_data = np.multiply(float(self.mult_factor[0]), x_data)
+            if self.ax.y_dim == 'y':
+                y_data = np.multiply(float(self.mult_factor[0]), y_data)
+        # TODO: generalize this beyond time-data (c.f. 'year=...')
+        if self.smooth_data[0]:
+            if self.ax.x_dim == 'x':
+                x_data = x_data.rolling(center=True,
+                                        year=self.smooth_data[0]).mean()
+            if self.ax.y_dim == 'y':
+                y_data = y_data.rolling(center=True,
+                                        year=self.smooth_data[0]).mean()
+
+        if not self.plot_kwargs:
+            self.plot_kwargs = {}
         plot_kwargs = self.plot_kwargs.copy()
         if self.colormap:
             rgba = self._get_color_from_cmap(plot_kwargs['color'])
         else:
-            rgba = plot_kwargs['color']
+            rgba = plot_kwargs.get('color', 'blue')
         plot_kwargs.pop('color', None)
-        self.handle = self.backend.plot(self.x_data, self.y_data, color=rgba,
+        self.handle = self.backend.plot(x_data, y_data, color=rgba,
                                         **plot_kwargs)
         if self.do_colorbar:
             self.fig._make_colorbar(self.ax)
