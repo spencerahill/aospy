@@ -208,18 +208,26 @@ class Model(object):
                     break
 
     @staticmethod
-    def bounds_from_array(arr, bounds_name):
+    def bounds_from_array(arr, dim_name, bounds_name):
         """Get the bounds of an array given its center values.
 
         E.g. if lat-lon grid center lat/lon values are known, but not the
         bounds of each grid box.  The algorithm assumes that the bounds
         are simply halfway between each pair of center values.
         """
-        bounds_interior = np.diff(arr)
-        bound_0 = arr[0] - (bounds_interior[0] - arr[0])
-        bound_last = arr[-1] + (arr[-1] - bounds_interior[-1])
-        bounds = xr.concat([bound_0, bounds_interior, bound_last])
-        return bounds.rename(bounds_name)
+        # TODO: don't assume needed dimension is in axis=0
+        # TODO: refactor to get rid of repetitive code
+        spacing = arr.diff(dim_name).values
+        lower = xr.DataArray(np.empty_like(arr), dims=arr.dims,
+                             coords=arr.coords)
+        lower.values[:-1] = arr.values[:-1] - 0.5*spacing
+        lower.values[-1] = arr.values[-1] - 0.5*spacing[-1]
+        upper = xr.DataArray(np.empty_like(arr), dims=arr.dims,
+                             coords=arr.coords)
+        upper.values[:-1] = arr.values[:-1] + 0.5*spacing
+        upper.values[-1] = arr.values[-1] + 0.5*spacing[-1]
+        bounds = xr.concat([lower, upper], dim='bounds')
+        return bounds.T
 
     @staticmethod
     def diff_bounds(bounds, coord):
@@ -235,9 +243,9 @@ class Model(object):
         """Calculate surface area of each grid cell in a lon-lat grid."""
         # Compute the bounds if not given.
         if lon_bounds is None:
-            lon_bounds = cls.bounds_from_array(lon, LON_BOUNDS_STR)
+            lon_bounds = cls.bounds_from_array(lon, LON_STR, LON_BOUNDS_STR)
         if lat_bounds is None:
-            lat_bounds = cls.bounds_from_array(lat, LAT_BOUNDS_STR)
+            lat_bounds = cls.bounds_from_array(lat, LAT_STR, LAT_BOUNDS_STR)
         # Compute the surface area.
         dlon = cls.diff_bounds(to_radians(lon_bounds, is_delta=True), lon)
         sinlat_bounds = np.sin(to_radians(lat_bounds, is_delta=True))
