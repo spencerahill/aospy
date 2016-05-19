@@ -424,6 +424,8 @@ class Ax(object):
                 self._handles.append(handle)
 
         if self.do_legend:
+            if not self.legend_kwargs:
+                self.legend_kwargs = dict()
             self.ax.legend(self._handles, self.legend_labels,
                            **self.legend_kwargs)
 
