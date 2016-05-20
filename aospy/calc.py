@@ -10,16 +10,17 @@ from time import ctime
 import numpy as np
 import xarray as xr
 
-from . import Constant, Var
 from .__config__ import (LAT_STR, LON_STR, LAT_BOUNDS_STR, LON_BOUNDS_STR,
                          PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, YEAR_STR,
                          ETA_STR, BOUNDS_STR)
+from .constants import Constant, grav
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, apply_time_offset, monthly_mean_ts,
                     monthly_mean_at_each_ind, pfull_from_ps,
                     to_pfull_from_phalf, dp_from_ps, dp_from_p, int_dp_g)
+from .var import Var
 
 
 logging.basicConfig(level=logging.INFO)
@@ -672,11 +673,14 @@ class Calc(object):
         if zonal_asym:
             full_ts = full_ts - full_ts.mean(LON_STR)
         # Vertically integrate.
-        if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
+        vert_types = ('vert_int', 'vert_av')
+        if self.dtype_out_vert in vert_types and self.var.def_vert:
             # Here we need file read-in dates (NOT xarray dates)
             full_ts = self._vert_int(full_ts, self._get_pressure_vals(
                 dp, self.start_date, self.end_date
             ))
+            if self.dtype_out_vert == 'vert_av':
+                full_ts *= (grav.value / self._to_desired_dates(self._ps_data))
         return full_ts, dt
 
     def _avg_by_year(self, arr, dt):
@@ -738,7 +742,7 @@ class Calc(object):
                         **{reg.name + '_pressure': coord}
                     )
             reg_dat.update(**{reg.name: data_out})
-        return reg_dat
+        return OrderedDict(sorted(reg_dat.items(), key=lambda t: t[0]))
 
     def _apply_all_time_reductions(self, full_ts, monthly_ts, eddy_ts):
         """Apply all requested time reductions to the data."""
@@ -759,7 +763,7 @@ class Calc(object):
                 reduced.update({reduc: self.region_calcs(data, func)})
             else:
                 reduced.update({reduc: self._time_reduce(data, func)})
-        return reduced
+        return OrderedDict(sorted(reduced.items(), key=lambda t: t[0]))
 
     def _make_full_mean_eddy_ts(self, data_in):
         """Create full, monthly-mean, and eddy timeseries of data."""
