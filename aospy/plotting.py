@@ -1,11 +1,11 @@
 """Classes for creating multi-panel figures using data generated via aospy."""
 import logging
-from time import ctime
 
 import scipy.stats
 import numpy as np
 from matplotlib import cm
 from matplotlib.collections import PathCollection
+from matplotlib.contour import QuadContourSet
 import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
 import xarray as xr
@@ -418,7 +418,8 @@ class Ax(object):
         # Facilitates excluding extra elements (e.g. x=0 line) from legend.
         for n in range(self.n_plot):
             handle = self.Plot[n].plot()
-            if not isinstance(handle, PathCollection):
+            index_cond = isinstance(handle, (PathCollection, QuadContourSet))
+            if not index_cond:
                 self._handles.append(handle[0])
             else:
                 self._handles.append(handle)
