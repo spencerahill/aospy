@@ -1,6 +1,5 @@
 """aospy.utils: utility functions for the aospy module."""
 import logging
-import warnings
 
 from infinite_diff import CenDiff
 import numpy as np
@@ -12,17 +11,7 @@ from .__config__ import (PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR,
 from .constants import grav, Constant
 
 
-def coord_to_new_dataarray(arr, dim):
-    """Create a DataArray comprising the coord for the specified dim.
-
-    Useful, for example, when wanting to resample in time, because at least
-    for xarray 0.6.0 and prior, the `resample` method doesn't work when applied
-    to coords.  The DataArray returned by this method lacks that limitation.
-    """
-    return xr.DataArray(arr[dim].values, coords=[arr[dim].values], dims=[dim])
-
-
-# 2015-11-16 S. Hill: This time-related function should be moved to time module
+# TODO: Move this to timedate module
 def apply_time_offset(time, months=0, days=0, hours=0):
     """Apply the given offset to the given time array.
 
@@ -39,7 +28,7 @@ def apply_time_offset(time, months=0, days=0, hours=0):
                                           hours=hours))
 
 
-# 2015-11-16 S. Hill: This time-related function should be moved to time module
+# TODO: Move this to timedate module
 def monthly_mean_ts(arr):
     """Convert a sub-monthly time-series into one of monthly means."""
     if isinstance(arr, (float, complex, int, Constant)):
@@ -54,7 +43,7 @@ def monthly_mean_ts(arr):
                        "label `{}`.".format(arr, TIME_STR))
 
 
-# 2015-11-16 S. Hill: This time-related function should be moved to time module
+# TODO: Move this to timedate module
 def monthly_mean_at_each_ind(arr_mon, arr_sub):
     """Copy monthly mean over each time index in that month."""
     time = arr_mon[TIME_STR]
@@ -129,14 +118,14 @@ def to_radians(arr, is_delta=False):
         if units.lower().startswith('degrees'):
             warn_msg = ("Conversion applied: degrees -> radians to array: "
                         "{}".format(arr))
-            warnings.warn(warn_msg, UserWarning)
+            logging.debug(warn_msg)
             return np.deg2rad(arr)
     # Otherwise, assume degrees if the values are sufficiently large.
     threshold = 0.1*np.pi if is_delta else 4*np.pi
     if np.max(np.abs(arr)) > threshold:
         warn_msg = ("Conversion applied: degrees -> radians to array: "
                     "{}".format(arr))
-        warnings.warn(warn_msg, UserWarning)
+        logging.debug(warn_msg)
         return np.deg2rad(arr)
     return arr
 
@@ -146,7 +135,7 @@ def to_pascal(arr, is_dp=False):
     threshold = 400 if is_dp else 1200
     if np.max(np.abs(arr)) < threshold:
         warn_msg = "Conversion applied: hPa -> Pa to array: {}".format(arr)
-        warnings.warn(warn_msg, UserWarning)
+        logging.debug(warn_msg)
         return arr*100.
     return arr
 
@@ -155,7 +144,7 @@ def to_hpa(arr):
     """Convert pressure array from Pa to hPa (if needed)."""
     if np.max(np.abs(arr)) > 1200.:
         warn_msg = "Conversion applied: Pa -> hPa to array: {}".format(arr)
-        warnings.warn(warn_msg, UserWarning)
+        logging.debug(warn_msg)
         return arr / 100.
     return arr
 
@@ -168,12 +157,8 @@ def phalf_from_ps(bk, pk, ps):
 def replace_coord(arr, old_dim, new_dim, new_coord):
     """Replace a coordinate with new one; new and old must have same shape."""
     new_arr = arr.rename({old_dim: new_dim})
-    # new_arr[new_dim] = new_coord
-    # 2016-01-25 S. Hill: Temporary workaround to deal with xarray 0.7.0 bug.
-    # new_arr[new_dim].values = new_coord.values
-    ds = new_arr.to_dataset(name='new_arr')
-    ds[new_dim] = new_coord
-    return ds['new_arr']
+    new_arr[new_dim] = new_coord
+    return new_arr
 
 
 def to_pfull_from_phalf(arr, pfull_coord):
@@ -237,6 +222,17 @@ def integrate(arr, ddim, dim=False, is_pressure=False):
     return (arr*ddim).sum(dim=dim)
 
 
+def get_dim_name(arr, names):
+    """Determine if an object has an attribute name matching a given list."""
+    for name in names:
+        # TODO: raise warning/exception when multiple names arr attrs.
+        if hasattr(arr, name):
+            return name
+    raise AttributeError("No attributes of the object `{0}` match the "
+                         "specified names of `{1}`".format(arr, names))
+
+
+# TODO: Re-write using get_dim_name
 def vert_coord_name(dp):
     for name in [PLEVEL_STR, PFULL_STR]:
         if name in dp.coords:
@@ -266,7 +262,8 @@ def dp_from_p(p, ps, p_top=0., p_bot=1.1e5):
     level's upper edge.  This masks out more levels than the
 
     """
-    p_vals = to_pascal(p.values)
+    p_str = get_dim_name(p, (PLEVEL_STR, 'plev'))
+    p_vals = to_pascal(p.values.copy())
 
     # Layer edges are halfway between the given pressure levels.
     p_edges_interior = 0.5*(p_vals[:-1] + p_vals[1:])
@@ -277,31 +274,30 @@ def dp_from_p(p, ps, p_top=0., p_bot=1.1e5):
     if not all(np.sign(dp)):
         raise ValueError("dp array not all > 0 : {}".format(dp))
     # Pressure difference between ps and the upper edge of each pressure level.
-    p_edge_above_xarray = xr.DataArray(p_edge_above, dims=p.dims,
-                                       coords=p.coords)
-    dp_to_sfc = ps - p_edge_above_xarray
+    p_edge_above_xr = xr.DataArray(p_edge_above, dims=p.dims, coords=p.coords)
+    dp_to_sfc = ps - p_edge_above_xr
     # Find the level adjacent to the masked, under-ground levels.
     change = xr.DataArray(np.zeros(dp_to_sfc.shape), dims=dp_to_sfc.dims,
-                            coords=dp_to_sfc.coords)
-    change[{PLEVEL_STR: slice(1, None)}] = np.diff(
+                          coords=dp_to_sfc.coords)
+    change[{p_str: slice(1, None)}] = np.diff(
         np.sign(ps - to_pascal(p.copy()))
     )
     dp_combined = xr.DataArray(np.where(change, dp_to_sfc, dp),
-                                 dims=dp_to_sfc.dims, coords=dp_to_sfc.coords)
+                               dims=dp_to_sfc.dims, coords=dp_to_sfc.coords)
     # Mask levels that are under ground.
     above_ground = ps > to_pascal(p.copy())
-    above_ground[PLEVEL_STR].values = p.values
+    above_ground[p_str] = p[p_str]
     dp_with_ps = dp_combined.where(above_ground)
     # Revert to original dim order.
     possible_dim_orders = [
-        (TIME_STR, PLEVEL_STR, LAT_STR, LON_STR),
-        (TIME_STR, PLEVEL_STR, LAT_STR),
-        (TIME_STR, PLEVEL_STR, LON_STR),
-        (TIME_STR, PLEVEL_STR),
-        (PLEVEL_STR, LAT_STR, LON_STR),
-        (PLEVEL_STR, LAT_STR),
-        (PLEVEL_STR, LON_STR),
-        (PLEVEL_STR,),
+        (TIME_STR, p_str, LAT_STR, LON_STR),
+        (TIME_STR, p_str, LAT_STR),
+        (TIME_STR, p_str, LON_STR),
+        (TIME_STR, p_str),
+        (p_str, LAT_STR, LON_STR),
+        (p_str, LAT_STR),
+        (p_str, LON_STR),
+        (p_str,),
     ]
     for dim_order in possible_dim_orders:
         try:
@@ -313,7 +309,7 @@ def dp_from_p(p, ps, p_top=0., p_bot=1.1e5):
         return dp_with_ps
 
 
-def level_thickness(p):
+def level_thickness(p, p_top=0., p_bot=1.01325e5):
     """
     Calculates the thickness, in Pa, of each pressure level.
 
@@ -321,18 +317,20 @@ def level_thickness(p):
     level, except for the lowest value (typically 1000 hPa), which is the
     bottom boundary. The uppermost level extends to 0 hPa.
 
+    Unlike `dp_from_p`, this does not incorporate the surface pressure.
+
     """
-    # Bottom level extends from p[0] to halfway betwen p[0]
-    # and p[1].
-    p = to_pascal(p)
-    dp = [0.5*(p[0] - p[1])]
+    p_vals = to_pascal(p.values.copy())
+    dp_vals = np.empty_like(p_vals)
+    # Bottom level extends from p[0] to halfway betwen p[0] and p[1].
+    dp_vals[0] = p_bot - 0.5*(p_vals[0] + p_vals[1])
     # Middle levels extend from halfway between [k-1], [k] and [k], [k+1].
-    for k in range(1, p.size-1):
-        dp.append(0.5*(p[k-1] - p[k+1]))
+    dp_vals[1:-1] = 0.5*(p_vals[0:-2] - p_vals[2:])
     # Top level extends from halfway between top two levels to 0 hPa.
-    dp.append(0.5*(p[-2] + p[-1]))
-    # Convert to numpy array and from hectopascals (hPa) to Pascals (Pa).
-    return xr.DataArray(dp, coords=[p/100.0], dims=['level'])
+    dp_vals[-1] = 0.5*(p_vals[-2] + p_vals[-1]) - p_top
+    dp = p.copy()
+    dp.values = dp_vals
+    return dp
 
 
 def does_coord_increase_w_index(arr):

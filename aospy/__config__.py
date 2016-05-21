@@ -13,6 +13,8 @@ PFULL_STR = 'pfull'
 PLEVEL_STR = 'level'
 TIME_STR = 'time'
 TIME_STR_IDEALIZED = 'year'
+TIME_BOUNDS_STR = 'time_bounds'
 YEAR_STR = 'year'
+BOUNDS_STR = 'bnds'
 
 del os
