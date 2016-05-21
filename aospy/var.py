@@ -7,7 +7,7 @@ from .units import Units
 class Var(object):
     """Physical variables."""
     def __init__(self, name, alt_names=False, func=False, variables=False,
-                 units=False, plot_units='', plot_units_conv=1, domain='atmos',
+                 units='', plot_units='', plot_units_conv=1, domain='atmos',
                  description='', def_time=False, def_vert=False, def_lat=False,
                  def_lon=False, in_nc_grid=False, math_str=False,
                  colormap='RdBu_r', valid_range=False,
