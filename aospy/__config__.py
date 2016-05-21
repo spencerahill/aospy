@@ -3,6 +3,7 @@ import os
 default_colormap = 'RdBu'
 user_path = os.path.join(os.getenv('HOME'), 'aospy_user', 'aospy_user')
 
+ETA_STR = 'sigma'
 LON_STR = 'lon'
 LAT_STR = 'lat'
 LON_BOUNDS_STR = 'lon_bounds'

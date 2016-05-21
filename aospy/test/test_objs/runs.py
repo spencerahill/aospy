@@ -20,11 +20,37 @@ test_idealized_moist = Run(
     description=(
         'Control case at T42 spectral resolution'
     ),
-    data_in_direc='/archive/skc/idealized_moist_alb_T42/control_gaussian_T42/'
+    data_in_direc='/archive/skc/idealized_moist_alb_T42/control_alb_T42/'
                   'gfdl.ncrc2-default-prod/1x0m720d_32pe/history',
     data_in_dir_struc='one_dir',
     data_in_files={'20-day': {v: '00000.1x20days.nc'
-                              for v in ['olr', 'temp', 'ps']}},
+                              for v in ['t_surf', 'temp', 'ps']},
+                   '3-hourly': {v: ['{}.8xday.nc'.format(v)]
+                                for v in ['ps', 'temp']}},
+)
+
+
+test_idealized_moist_rad = Run(
+    name='test_idealized_moist_rad',
+    description=(
+        'Control simulation of idealized moist run with realistic'
+        'radiative transfer.'
+    ),
+    data_in_direc=('/home/skc/archive/imr_skc/'
+                   'control/gfdl.ncrc3-default-repro/1/'
+                   'history'),
+    default_date_range=('0003-01-01', '0006-12-31'),
+    data_in_dir_struc='one_dir',
+    data_in_files={'monthly': {v: ['00010101.atmos_month.nc',
+                                   '00020101.atmos_month.nc',
+                                   '00030101.atmos_month.nc',
+                                   '00040101.atmos_month.nc',
+                                   '00050101.atmos_month.nc',
+                                   '00060101.atmos_month.nc']
+                               for v in ['t_surf', 'temp', 'ps']},
+                   '3-hourly': {v: ['000{}0101.atmos_8xday.{}.nc'.format(y, v)
+                                    for y in range(1, 7)]
+                                for v in ['temp', 'ps']}}
 )
 
 

@@ -77,12 +77,12 @@ dp = Var(
     func=calcs.dp,
     units=units.Pa,
 )
-olr = Var(
-    name='olr',
-    alt_names=('rlut',),
-    units=units.W_m2,
+t_surf = Var(
+    name='t_surf',
+    alt_names=('t_surf',),
+    units=units.K,
     domain='atmos',
-    description='All-sky outgoing longwave radiation at TOA.',
+    description='Surface temperature.',
     def_time=True,
     def_vert=False,
     def_lat=True,

@@ -8,10 +8,11 @@ from os.path import isfile
 
 from aospy.calc import Calc, CalcInterface
 from test_objs.projects import aospy_test
-from test_objs.models import am2, idealized_moist, am3, hiram, cesm1_cam5
+from test_objs.models import (am2, idealized_moist, am3, hiram, cesm1_cam5,
+                              idealized_moist_rad)
 from test_objs.runs import (test_am2, test_idealized_moist, test_am3,
-                            test_hiram, test_amip)
-from test_objs.variables import olr, temp
+                            test_hiram, test_amip, test_idealized_moist_rad)
+from test_objs.variables import temp, t_surf
 from test_objs.regions import nh, sahel, nh_ocean
 
 
@@ -39,25 +40,25 @@ skip_message = ('Model grid files cannot be located; note this '
 @unittest.skipIf(not model_files_exist(am2), skip_message)
 class TestAM2(unittest.TestCase):
     def setUp(self):
-        self.olr_test_params = {'proj': aospy_test,
-                                'model': am2,
-                                'run': test_am2,
-                                'var': olr,
-                                'date_range': ('0021-01-01', '0080-12-31'),
-                                'intvl_in': 'monthly',
-                                'dtype_in_time': 'ts',
-                                'dtype_in_vert': 'pressure',
-                                'dtype_out_vert': False,
-                                'level': False}
-        self.temp_test_params = {'proj': aospy_test,
-                                 'model': am2,
-                                 'run': test_am2,
-                                 'var': temp,
-                                 'date_range': ('0021-01-01',
-                                                '0080-12-31'),
-                                 'intvl_in': 'monthly',
-                                 'dtype_in_time': 'ts',
-                                 'level': False}
+        self.two_d_test_params = {'proj': aospy_test,
+                                  'model': am2,
+                                  'run': test_am2,
+                                  'var': t_surf,
+                                  'date_range': ('0021-01-01', '0080-12-31'),
+                                  'intvl_in': 'monthly',
+                                  'dtype_in_time': 'ts',
+                                  'dtype_in_vert': 'pressure',
+                                  'dtype_out_vert': False,
+                                  'level': False}
+        self.three_d_test_params = {'proj': aospy_test,
+                                    'model': am2,
+                                    'run': test_am2,
+                                    'var': temp,
+                                    'date_range': ('0021-01-01',
+                                                   '0080-12-31'),
+                                    'intvl_in': 'monthly',
+                                    'dtype_in_time': 'ts',
+                                    'level': False}
 
     def tearDown(self):
         pass
@@ -65,42 +66,42 @@ class TestAM2(unittest.TestCase):
     def test_annual_mean(self):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='av',
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
     def test_annual_ts(self):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='ts',
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
     def test_seasonal_mean(self):
         calc_int = CalcInterface(intvl_out='djf',
                                  dtype_out_time='av',
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
     def test_seasonal_ts(self):
         calc_int = CalcInterface(intvl_out='djf',
                                  dtype_out_time='ts',
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
     def test_monthly_mean(self):
         calc_int = CalcInterface(intvl_out=1,
                                  dtype_out_time='av',
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
     def test_monthly_ts(self):
         calc_int = CalcInterface(intvl_out=1,
                                  dtype_out_time='ts',
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
@@ -108,7 +109,7 @@ class TestAM2(unittest.TestCase):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.av',
                                  region={'nh': nh},
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
@@ -116,7 +117,7 @@ class TestAM2(unittest.TestCase):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.ts',
                                  region={'nh': nh},
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
@@ -124,7 +125,7 @@ class TestAM2(unittest.TestCase):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.av',
                                  region={'sahel': sahel},
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
@@ -132,7 +133,7 @@ class TestAM2(unittest.TestCase):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.av',
                                  region={'nh_ocean': nh_ocean},
-                                 **self.olr_test_params)
+                                 **self.two_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
@@ -141,7 +142,7 @@ class TestAM2(unittest.TestCase):
                                  dtype_out_time='av',
                                  dtype_out_vert='vert_int',
                                  dtype_in_vert='pressure',
-                                 **self.temp_test_params)
+                                 **self.three_d_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
@@ -150,33 +151,53 @@ class TestAM2(unittest.TestCase):
                                  dtype_out_time='av',
                                  dtype_out_vert='vert_int',
                                  dtype_in_vert='sigma',
-                                 **self.temp_test_params)
+                                 **self.three_d_test_params)
+        calc = Calc(calc_int)
+        calc.compute()
+
+    def test_sub_daily(self):
+        """Not tested for now in models other than idealized_moist.
+        and idealized_moist_rad."""
+        if not getattr(self, 'sub_daily_test_params', False):
+            self.skipTest("Sub-daily test parameters not provided")
+        calc_int = CalcInterface(intvl_out='ann',
+                                 dtype_out_time='av',
+                                 **self.sub_daily_test_params)
         calc = Calc(calc_int)
         calc.compute()
 
 
 @unittest.skipIf(not model_files_exist(idealized_moist), skip_message)
-class TestIdealized(TestAM2):
+class TestIdealizedMoist(TestAM2):
     def setUp(self):
-        self.olr_test_params = {'proj': aospy_test,
-                                'model': idealized_moist,
-                                'run': test_idealized_moist,
-                                'var': olr,
-                                'date_range': ('0001-12-27', '0002-12-22'),
-                                'intvl_in': '20-day',
-                                'dtype_in_time': 'ts',
-                                'dtype_in_vert': 'pressure',
-                                'dtype_out_vert': False,
-                                'level': False}
-        self.temp_test_params = {'proj': aospy_test,
-                                 'model': idealized_moist,
-                                 'run': test_idealized_moist,
-                                 'var': temp,
-                                 'date_range': ('0001-12-27',
-                                                '0002-12-22'),
-                                 'intvl_in': '20-day',
-                                 'dtype_in_time': 'ts',
-                                 'level': False}
+        self.two_d_test_params = {'proj': aospy_test,
+                                  'model': idealized_moist,
+                                  'run': test_idealized_moist,
+                                  'var': t_surf,
+                                  'date_range': ('0001-12-27', '0002-12-22'),
+                                  'intvl_in': '20-day',
+                                  'dtype_in_time': 'ts',
+                                  'dtype_in_vert': 'pressure',
+                                  'dtype_out_vert': False,
+                                  'level': False}
+        self.three_d_test_params = {'proj': aospy_test,
+                                    'model': idealized_moist,
+                                    'run': test_idealized_moist,
+                                    'var': temp,
+                                    'date_range': ('0001-12-27',
+                                                   '0002-12-22'),
+                                    'intvl_in': '20-day',
+                                    'dtype_in_time': 'ts',
+                                    'level': False}
+        self.sub_daily_test_params = {'proj': aospy_test,
+                                      'model': idealized_moist,
+                                      'run': test_idealized_moist,
+                                      'var': temp,
+                                      'date_range': ('0001-12-27',
+                                                     '0002-12-22'),
+                                      'intvl_in': '3-hourly',
+                                      'dtype_in_time': 'inst',
+                                      'level': False}
 
     @unittest.skip('not valid in idealized moist model')
     def test_seasonal_mean(self):
@@ -199,52 +220,84 @@ class TestIdealized(TestAM2):
         pass
 
 
+@unittest.skipIf(not model_files_exist(idealized_moist_rad), skip_message)
+class TestIdealizedMoistRad(TestIdealizedMoist):
+    def setUp(self):
+        self.two_d_test_params = {'proj': aospy_test,
+                                  'model': idealized_moist_rad,
+                                  'run': test_idealized_moist_rad,
+                                  'var': t_surf,
+                                  'date_range': ('0003-01-01', '0006-12-31'),
+                                  'intvl_in': 'monthly',
+                                  'dtype_in_time': 'ts',
+                                  'dtype_out_vert': False,
+                                  'level': False}
+        self.three_d_test_params = {'proj': aospy_test,
+                                    'model': idealized_moist_rad,
+                                    'run': test_idealized_moist_rad,
+                                    'var': temp,
+                                    'date_range': ('0003-01-01',
+                                                   '0006-12-31'),
+                                    'intvl_in': 'monthly',
+                                    'dtype_in_time': 'ts',
+                                    'level': False}
+        self.sub_daily_test_params = {'proj': aospy_test,
+                                      'model': idealized_moist_rad,
+                                      'run': test_idealized_moist_rad,
+                                      'var': temp,
+                                      'date_range': ('0003-01-01',
+                                                     '0006-12-31'),
+                                      'intvl_in': '3-hourly',
+                                      'dtype_in_time': 'inst',
+                                      'level': False}
+
+
 @unittest.skipIf(not model_files_exist(am3), skip_message)
 class TestAM3(TestAM2):
     def setUp(self):
-        self.olr_test_params = {'proj': aospy_test,
-                                'model': am3,
-                                'run': test_am3,
-                                'var': olr,
-                                'date_range': ('1981-01-01', '2010-12-31'),
-                                'intvl_in': 'monthly',
-                                'dtype_in_time': 'ts',
-                                'dtype_in_vert': 'pressure',
-                                'dtype_out_vert': False,
-                                'level': False}
-        self.temp_test_params = {'proj': aospy_test,
-                                 'model': am3,
-                                 'run': test_am3,
-                                 'var': temp,
-                                 'date_range': ('1981-01-01',
-                                                '2010-12-31'),
-                                 'intvl_in': 'monthly',
-                                 'dtype_in_time': 'ts',
-                                 'level': False}
+        self.two_d_test_params = {'proj': aospy_test,
+                                  'model': am3,
+                                  'run': test_am3,
+                                  'var': t_surf,
+                                  'date_range': ('1981-01-01', '2010-12-31'),
+                                  'intvl_in': 'monthly',
+                                  'dtype_in_time': 'ts',
+                                  'dtype_in_vert': 'pressure',
+                                  'dtype_out_vert': False,
+                                  'level': False}
+        self.three_d_test_params = {'proj': aospy_test,
+                                    'model': am3,
+                                    'run': test_am3,
+                                    'var': temp,
+                                    'date_range': ('1981-01-01',
+                                                   '2010-12-31'),
+                                    'intvl_in': 'monthly',
+                                    'dtype_in_time': 'ts',
+                                    'level': False}
 
 
 @unittest.skipIf(not model_files_exist(hiram), skip_message)
 class TestHiRAM(TestAM2):
     def setUp(self):
-        self.olr_test_params = {'proj': aospy_test,
-                                'model': hiram,
-                                'run': test_hiram,
-                                'var': olr,
-                                'date_range': ('1979-01-01', '1995-12-31'),
-                                'intvl_in': 'monthly',
-                                'dtype_in_time': 'ts',
-                                'dtype_in_vert': 'pressure',
-                                'dtype_out_vert': False,
-                                'level': False}
-        self.temp_test_params = {'proj': aospy_test,
-                                 'model': hiram,
-                                 'run': test_hiram,
-                                 'var': temp,
-                                 'date_range': ('1979-01-01',
-                                                '1995-12-31'),
-                                 'intvl_in': 'monthly',
-                                 'dtype_in_time': 'ts',
-                                 'level': False}
+        self.two_d_test_params = {'proj': aospy_test,
+                                  'model': hiram,
+                                  'run': test_hiram,
+                                  'var': t_surf,
+                                  'date_range': ('1979-01-01', '1995-12-31'),
+                                  'intvl_in': 'monthly',
+                                  'dtype_in_time': 'ts',
+                                  'dtype_in_vert': 'pressure',
+                                  'dtype_out_vert': False,
+                                  'level': False}
+        self.three_d_test_params = {'proj': aospy_test,
+                                    'model': hiram,
+                                    'run': test_hiram,
+                                    'var': temp,
+                                    'date_range': ('1979-01-01',
+                                                   '1995-12-31'),
+                                    'intvl_in': 'monthly',
+                                    'dtype_in_time': 'ts',
+                                    'level': False}
 
     @unittest.skip('no HiRAM output readily at hand exists on sigma levels')
     def test_vert_int_sigma(self):
@@ -256,25 +309,25 @@ class TestHiRAM(TestAM2):
 @unittest.expectedFailure
 class TestCMIP5(TestAM2):
     def setUp(self):
-        self.olr_test_params = {'proj': aospy_test,
-                                'model': cesm1_cam5,
-                                'run': test_amip,
-                                'var': olr,
-                                'date_range': ('1979-01-01', '2008-12-31'),
-                                'intvl_in': 'monthly',
-                                'dtype_in_time': 'ts',
-                                'dtype_in_vert': 'pressure',
-                                'dtype_out_vert': False,
-                                'level': False}
-        self.temp_test_params = {'proj': aospy_test,
-                                 'model': cesm1_cam5,
-                                 'run': test_amip,
-                                 'var': temp,
-                                 'date_range': ('1979-01-01',
-                                                '2008-12-31'),
-                                 'intvl_in': 'monthly',
-                                 'dtype_in_time': 'ts',
-                                 'level': False}
+        self.two_d_test_params = {'proj': aospy_test,
+                                  'model': cesm1_cam5,
+                                  'run': test_amip,
+                                  'var': t_surf,
+                                  'date_range': ('1979-01-01', '2008-12-31'),
+                                  'intvl_in': 'monthly',
+                                  'dtype_in_time': 'ts',
+                                  'dtype_in_vert': 'pressure',
+                                  'dtype_out_vert': False,
+                                  'level': False}
+        self.three_d_test_params = {'proj': aospy_test,
+                                    'model': cesm1_cam5,
+                                    'run': test_amip,
+                                    'var': temp,
+                                    'date_range': ('1979-01-01',
+                                                   '2008-12-31'),
+                                    'intvl_in': 'monthly',
+                                    'dtype_in_time': 'ts',
+                                    'level': False}
 
     @unittest.skip(('This repo does not contain any output'
                     ' on sigma levels.'))

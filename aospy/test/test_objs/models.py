@@ -24,7 +24,7 @@ am2 = Model(
 idealized_moist = Model(
     name='idealized_moist',
     grid_file_paths=(
-        ('/archive/skc/idealized_moist_alb_T42/control_gaussian_T42/'
+        ('/archive/skc/idealized_moist_alb_T42/control_alb_T42/'
          'gfdl.ncrc2-default-prod/1x0m720d_32pe/history/00000.1x20days.nc'),
         '/home/skc/inputdata/aquaplanet.land_mask.nc',
     ),
@@ -32,6 +32,17 @@ idealized_moist = Model(
     default_runs=[runs.test_idealized_moist],
 )
 
+idealized_moist_rad = Model(
+    name='idealized_moist_rad',
+    grid_file_paths=(
+         ('/home/skc/archive/testing_2015_12_22/idealized_moist_rad/'
+          'gfdl.ncrc2-default-repro/1x0m360d_32pe/history/'
+          '00010101.atmos_1x20day.nc'),
+         '/home/skc/inputdata/aquaplanet.land_mask.nc',
+    ),
+    runs=[runs.test_idealized_moist_rad],
+    default_runs=[runs.test_idealized_moist_rad],
+)
 
 # Lifted from Spencer Hill's obj library
 am3 = Model(
