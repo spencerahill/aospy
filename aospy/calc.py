@@ -486,7 +486,8 @@ class Calc(object):
             offset = -1*int(self.intvl_in[0])
         else:
             offset = 0
-        arr[TIME_STR] = apply_time_offset(arr[TIME_STR], hours=offset)
+        time = apply_time_offset(arr[TIME_STR], hours=offset)
+        arr[TIME_STR] = time
         return arr
 
     def _get_input_data(self, var, start_date, end_date, n):
