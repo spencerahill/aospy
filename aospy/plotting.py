@@ -1,6 +1,13 @@
 """Classes for creating multi-panel figures using data generated via aospy."""
+import logging
+import string
+
 import scipy.stats
 import numpy as np
+from matplotlib import cm
+import matplotlib.collections
+import matplotlib.contour
+import matplotlib.quiver
 import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
 import xarray as xr
@@ -13,22 +20,21 @@ from .utils import to_hpa
 
 fig_specs = (
     'fig_title', 'n_row', 'n_col', 'row_size', 'col_size', 'n_ax',
-    'subplot_lims', 'do_colorbar', 'cbar_ax_lim', 'cbar_ticks',
+    'subplot_lims', 'cbar_ax_lim', 'cbar_kwargs', 'cbar_ticks',
     'cbar_ticklabels', 'cbar_label', 'cbar_label_kwargs',
     'cbar_left_label', 'cbar_left_label_coords', 'cbar_left_label_kwargs',
     'cbar_right_label', 'cbar_right_label_coords', 'cbar_right_label_kwargs',
     'verbose'
 )
 ax_specs = (
-    'n_plot', 'ax_title', 'ax_label', 'ax_label_coords',
-    'ax_left_label', 'ax_left_label_coords', 'ax_left_label_kwargs',
-    'ax_right_label', 'ax_right_label_coords', 'ax_right_label_kwargs',
-    'map_proj', 'map_corners',
-    'map_res', 'shiftgrid_start', 'shiftgrid_cyclic', 'do_legend',
-    'legend_labels', 'legend_loc', 'x_dim', 'x_lim', 'x_ticks', 'x_ticklabels',
-    'x_label', 'y_dim', 'y_lim', 'y_ticks', 'y_ticklabels', 'y_label',
-    'lat_lim', 'lat_ticks', 'lat_ticklabels', 'lat_label', 'lon_lim',
-    'lon_ticks', 'lon_ticklabels', 'lon_label', 'p_lim', 'p_ticks',
+    'n_plot', 'ax_title', 'ax_label', 'ax_label_coords', 'ax_left_label',
+    'ax_left_label_coords', 'ax_left_label_kwargs', 'ax_right_label',
+    'ax_right_label_coords', 'ax_right_label_kwargs', 'map_proj',
+    'map_corners', 'map_res', 'shiftgrid_start', 'shiftgrid_cyclic',
+    'do_legend', 'legend_labels', 'legend_kwargs', 'x_dim', 'x_lim', 'x_ticks',
+    'x_ticklabels', 'x_label', 'y_dim', 'y_lim', 'y_ticks', 'y_ticklabels',
+    'y_label', 'lat_lim', 'lat_ticks', 'lat_ticklabels', 'lat_label',
+    'lon_lim', 'lon_ticks', 'lon_ticklabels', 'lon_label', 'p_lim', 'p_ticks',
     'p_ticklabels', 'p_label', 'sigma_lim', 'sigma_ticks', 'sigma_ticklabels',
     'sigma_label', 'time_lim', 'time_ticks', 'time_ticklabels', 'time_label',
     'do_mark_x0', 'do_mark_y0'
@@ -36,15 +42,16 @@ ax_specs = (
 plot_specs = (
     'plot_type', 'do_best_fit_line', 'print_best_fit_slope',
     'print_corr_coeff', 'cntr_lvls', 'colormap', 'min_cntr', 'max_cntr',
-    'num_cntr', 'contours_extend', 'latlon_rect', 'do_mask_oceans',
-    'contour_labels', 'contour_kwargs', 'contourf_kwargs', 'plot_kwargs',
+    'num_cntr', 'latlon_rect', 'do_mask_oceans', 'contour_labels',
+    'contour_kwargs', 'contourf_kwargs', 'plot_kwargs',
     'quiver_kwargs', 'quiver_n_lon', 'quiver_n_lat', 'do_quiverkey',
-    'quiverkey_args', 'quiverkey_kwargs', 'scatter_kwargs'
+    'quiverkey_args', 'quiverkey_kwargs', 'scatter_kwargs', 'do_colorbar'
 )
 data_specs = (
     'proj', 'model', 'run', 'ens_mem', 'var', 'level', 'region', 'date_range',
     'intvl_in', 'intvl_out', 'dtype_in_time', 'dtype_in_vert',
-    'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean', 'mask_unphysical'
+    'dtype_out_time', 'dtype_out_vert', 'do_subtract_mean', 'mult_factor',
+    'mask_unphysical', 'smooth_data'
 )
 specs = fig_specs + ax_specs + plot_specs + data_specs
 
@@ -78,9 +85,6 @@ class Fig(object):
         # Accept all other keyword arguments passed in as attrs.
         for key, val in kwargs.items():
             setattr(self, key, val)
-
-        if self.ax_label == 'auto':
-            self.do_ax_label = True if self.n_ax > 1 else False
 
         self._expand_attrs_over_tree()
         self._make_ax_objs()
@@ -157,15 +161,15 @@ class Fig(object):
     def __add_text(ax, coords, string, kwargs):
         ax.text(coords[0], coords[1], string, **kwargs)
 
-    def _make_colorbar(self):
+    def _make_colorbar(self, ax):
         """Create colorbar for multi panel plots."""
-        # Goes at bottom center if for all panels.
+        # Don't make if already made.
+        if hasattr(self, 'cbar'):
+            return
         self.cbar_ax = self.fig.add_axes(self.cbar_ax_lim)
-        self.cbar = self.fig.colorbar(
-            self.ax[0].Plot[0].handle,
-            cax=self.cbar_ax, orientation='horizontal', drawedges=False,
-            spacing='proportional', extend=self.contours_extend
-        )
+        kwargs = self.cbar_kwargs if self.cbar_kwargs else dict()
+        self.cbar = self.fig.colorbar(ax.Plot[0].handle, cax=self.cbar_ax,
+                                      **kwargs)
         # Set tick properties.
         if np.any(self.cbar_ticks):
             self.cbar.set_ticks(self.cbar_ticks)
@@ -210,8 +214,6 @@ class Fig(object):
         """Render the plots in every Ax."""
         for n in range(self.n_ax):
             self.ax[n].make_plots()
-        if self.do_colorbar:
-            self._make_colorbar()
 
     def savefig(self, *args, **kwargs):
         """Save the Fig using matplotlib's built-in 'savefig' method."""
@@ -312,25 +314,25 @@ class Ax(object):
                 self.x_ticks = range(1, 13)
                 self.x_ticklabels = tuple('JFMAMJJASOND')
             self.ax.set_xlim(self.x_lim)
-        if self.do_mark_y0 and self.y_lim[0] < 0 and self.y_lim[1] > 0:
-            self.ax.hlines(0, self.x_lim[0], self.x_lim[1], colors='0.5')
-        if self.x_ticks:
+        if self.do_mark_y0:
+            self.ax.axhline(color='0.5')
+        if self.x_ticks is not False:
             self.ax.set_xticks(self.x_ticks)
-        if self.x_ticklabels:
+        if self.x_ticklabels is not False:
             self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
         if self.x_label:
             self.ax.set_xlabel(self.x_label,
-                               fontsize='small', labelpad=1)
+                               fontsize='x-small', labelpad=1)
         if self.y_lim:
             self.ax.set_ylim(self.y_lim)
-        if self.do_mark_x0 and self.x_lim[0] < 0 and self.x_lim[1] > 0:
-            self.ax.vlines(0, self.y_lim[0], self.y_lim[1], colors='0.5')
+        if self.do_mark_x0:
+            self.ax.axvline(color='0.5')
         if self.y_ticks:
             self.ax.set_yticks(self.y_ticks)
         if self.y_ticklabels:
-            self.ax.set_yticklabels(self.y_ticklabels, fontsize='small')
+            self.ax.set_yticklabels(self.y_ticklabels, fontsize='x-small')
         if self.y_label:
-            self.ax.set_ylabel(self.y_label, fontsize='small', labelpad=-2)
+            self.ax.set_ylabel(self.y_label, fontsize='x-small', labelpad=-2)
 
         self.ax.tick_params(labelsize='x-small')
         if not (self.x_dim == 'lon' and self.y_dim == 'lat'):
@@ -346,22 +348,39 @@ class Ax(object):
             self.ax.set_title(self.ax_title, fontsize='small')
         # Axis panel labels, i.e. (a), (b), (c), etc.
         if self.ax_label:
+            if self.ax_label == 'auto':
+                text = '({})'.format(string.ascii_letters[self.ax_num])
+            else:
+                text = self.ax_label
             self.panel_label = self.ax.text(
                 self.ax_label_coords[0], self.ax_label_coords[1],
-                '(%s)' % tuple('abcdefghijklmnopqrs')[self.ax_num],
-                fontsize='small', transform=self.ax.transAxes
+                text, fontsize='small', transform=self.ax.transAxes
             )
         # Labels to left and/or right of Axis.
         if self.ax_left_label:
             # if self.ax_left_label_rot == 'horizontal':
                 # horiz_frac = -0.17
             # else:
+            if not self.ax_left_label_kwargs:
+                self.ax_left_label_kwargs = dict()
+            if not self.ax_left_label_coords:
+                default_left_label_coords = (-0.1, 0.5)
+                logging.debug("Using default ax_left_label_coords: "
+                              "{}".format(default_left_label_coords))
+                self.ax_left_label_coords = default_left_label_coords
             self.ax.text(
                 self.ax_left_label_coords[0], self.ax_left_label_coords[1],
                 self.ax_left_label, transform=self.ax.transAxes,
                 **self.ax_left_label_kwargs
             )
         if self.ax_right_label:
+            if not self.ax_right_label_kwargs:
+                self.ax_right_label_kwargs = dict()
+            if not self.ax_right_label_coords:
+                default_right_label_coords = (1.1, 0.5)
+                logging.debug("Using default ax_right_label_coords: "
+                              "{}".format(default_right_label_coords))
+                self.ax_right_label_coords = default_right_label_coords
             self.ax.text(
                 self.ax_right_label_coords[0], self.ax_right_label_coords[1],
                 self.ax_right_label, transform=self.ax.transAxes,
@@ -375,7 +394,10 @@ class Ax(object):
             plot_interface = PlotInterface(ax=self, plot_num=n,
                                            plot_type=plot_type)
             if plot_type == 'scatter':
-                self.Plot.append(Scatter(plot_interface))
+                try:
+                    self.Plot.append(Scatter(plot_interface))
+                except KeyError:
+                    self.Plot.append(None)
             elif plot_type == 'contour':
                 self.Plot.append(Contour(plot_interface))
             elif plot_type == 'contourf':
@@ -393,13 +415,32 @@ class Ax(object):
         self._make_plot_objs()
         self._set_axes_props()
         self._set_axes_labels()
+        self._handles = []
 
+        # Get the handles for use in the legend.
+        # Facilitates excluding extra elements (e.g. x=0 line) from legend.
         for n in range(self.n_plot):
-            self.Plot[n].plot()
+            try:
+                handle = self.Plot[n].plot()
+            except AttributeError as e:
+                logging.info("data not found; skipping this plot")
+                logging.debug(e)
+            else:
+                # Depending on matplotlib type, have to unpack or not.
+                index_cond = isinstance(handle,
+                                        (matplotlib.collections.PathCollection,
+                                         matplotlib.contour.QuadContourSet,
+                                         matplotlib.quiver.Quiver))
+                if index_cond:
+                    self._handles.append(handle)
+                else:
+                    self._handles.append(handle[0])
 
         if self.do_legend:
-            self.ax.legend(self.legend_labels, loc=self.legend_loc,
-                           frameon=False, fontsize='small')
+            if not self.legend_kwargs:
+                self.legend_kwargs = dict()
+            self.ax.legend(self._handles, self.legend_labels,
+                           **self.legend_kwargs)
 
 
 class PlotInterface(object):
@@ -450,11 +491,10 @@ class Plot(object):
         self.data = [self._load_data(calc, n)
                      for n, calc in enumerate(self.calc)]
         # Strip extra dimensions as necessary.
-        data_shape = np.shape(self.data)
-        if data_shape[0] == 1:
+        if len(self.data) == 1:
             self.data = self.data[0]
-        elif data_shape[0] == 2 and data_shape[1] == 1:
-            self.data = np.squeeze(self.data)
+        else:
+            self.data = [d.squeeze() for d in self.data]
         # _set_coord_arrays() below needs Calc, not Operator, objects.
         for i, calc in enumerate(self.calc):
             if isinstance(calc, Operator):
@@ -509,7 +549,8 @@ class Plot(object):
     def _set_coord_arrays(self):
         """Set the arrays holding the x- and y-coordinates."""
         array_names = {'lat': 'lat', 'lon': 'lon', 'p': 'level',
-                       'sigma': 'pfull', 'time': 'time', 'x': 'x', 'y': 'y'}
+                       'sigma': 'pfull', 'time': 'time_bounds',
+                       'x': 'x', 'y': 'y'}
         if self.n_data == 1:
             mod_inds = (0, 0)
         else:
@@ -518,24 +559,38 @@ class Plot(object):
                                      ('x_lim', 'y_lim'), mod_inds):
             array_key = getattr(self.ax, dim)
 
+            if isinstance(self.calc[i], Calc):
+                calc = self.calc[i]
+            elif isinstance(self.calc[i][0], Calc):
+                calc = self.calc[i][0]
+            else:
+                msg = ("Couldn't find the Calc object for the plot "
+                       "object `{}`".format(self))
+                raise ValueError(msg)
+
             if array_key in ('x', 'y'):
                 if len(self.data) == 1:
                     array = self.data[0]
                 else:
                     array = self.data
+            elif array_key == 'time':
+                # Hack to get timeseries plotted.
+                # TODO: clean this up.
+                array = np.arange(calc.start_date.year, calc.end_date.year + 1)
+                if lim == 'ann_cycle':
+                    array = np.arange(1, 13)
             else:
-                try:
-                    array = getattr(self.calc[i].model[0],
-                                    array_names[array_key])
-                except AttributeError:
-                    array = getattr(self.calc[i][0].model[0],
-                                    array_names[array_key])
+                array = getattr(calc.model[0], array_names[array_key], None)
 
             if array_key == 'p':
+                # Hack to get pressure data if not found previously.
+                # TODO: clean this up.
+                if array is None:
+                    try:
+                        array = self.x_data.level
+                    except AttributeError:
+                        array = self.y_data.level
                 array = to_hpa(array)
-
-            if array_key == 'time' and lim == 'ann_cycle':
-                array = np.arange(1, 13)
 
             setattr(self, data, array)
 
@@ -556,18 +611,28 @@ class Plot(object):
         )
 
     @staticmethod
-    def _regrid_to_avg_coords(arr1, arr2, dim):
+    def regrid_to_avg_coords(dim, *arrs):
         """Average the coordinate arrays of two DataArrays or Dataset."""
-        avg = 0.5*(arr1[dim] + arr2[dim])
-        arr1[dim] = avg
-        arr2[dim] = avg
-        return arr1, arr2
+        template = arrs[0][dim]
+        avg = xr.DataArray(np.zeros(template.shape), dims=template.dims,
+                           coords=template.coords)
+        for arr in arrs:
+            avg += arr[dim]
+        avg /= len(arrs)
+        for arr in arrs:
+            arr[dim] = avg
+        return arrs
 
     @classmethod
     def _perform_oper(cls, arr1, arr2, operator, region=False):
-        if region:
-            arr1, arr2 = cls._regrid_to_avg_coords(arr1, arr2, PFULL_STR)
-        print arr1.pfull, arr2.pfull
+        # Only regrid data on model-native coordinates, not pressure.
+        if region and any((getattr(arr, pfs, False) for arr in (arr1, arr2)
+                           for pfs in (PFULL_STR, PFULL_STR + '_ref'))):
+            try:
+                arr1, arr2 = cls.regrid_to_avg_coords(PFULL_STR, arr1, arr2)
+            except KeyError:
+                arr1, arr2 = cls.regrid_to_avg_coords(PFULL_STR + '_ref',
+                                                      arr1, arr2)
         return eval('arr1' + operator + 'arr2')
 
     def _load_data(self, calc, n):
@@ -639,11 +704,11 @@ class Plot(object):
         else:
             loop_data = self.data
         for data in loop_data:
-            pd, self.plot_lons = mpl_toolkits.basemap.shiftgrid(
+            d, self.plot_lons = mpl_toolkits.basemap.shiftgrid(
                 lon0, data, self.x_data,
                 start=self.ax.shiftgrid_start, cyclic=self.ax.shiftgrid_cyclic
             )
-            self.plot_data.append(pd)
+            self.plot_data.append(d)
         if len(self.plot_data) == 1:
             self.plot_data = self.plot_data[0]
 
@@ -706,6 +771,17 @@ class Plot(object):
                             transform=self.ax.ax.transAxes, fontsize='x-small')
         return best_fit
 
+    def _get_color_from_cmap(self, value):
+        """Get a color along some specified fraction of a colormap."""
+        if isinstance(self.colormap, str):
+            try:
+                self.colormap = getattr(cm, self.colormap)
+            except AttributeError:
+                logging.warning("Desired colormap '{0}' not found.  Using "
+                                "'RdBu_r' by default.".format(self.colormap))
+                self.colormap = cm.RdBu_r
+        return self.colormap(value)
+
 
 class Contour(Plot):
     def __init__(self, plot_interface):
@@ -721,6 +797,9 @@ class Contour(Plot):
             self.prep_data_for_basemap()
         else:
             self.plot_data = self.data[0]
+        if self.mult_factor[0]:
+            self.plot_data = np.multiply(float(self.mult_factor[0]),
+                                         self.plot_data)
 
     def plot(self):
         self._prep_data()
@@ -730,26 +809,60 @@ class Contour(Plot):
             plt.gca().clabel(self.handle, fontsize=7, fmt='%1d')
         if self.colormap:
             self.apply_colormap(self.colormap)
+        if self.do_colorbar:
+            self.fig._make_colorbar(self.ax)
         if self.basemap:
             self.apply_basemap(self.basemap)
 
+        return self.handle
+
 
 class Contourf(Contour):
+    """Filled contour ('contourf') plot."""
     def __init__(self, plot_interface):
-        """Filled contour ('contourf') plot."""
         Contour.__init__(self, plot_interface)
         self.plot_func = self.backend.contourf
         self.plot_func_kwargs = self.contourf_kwargs
 
 
 class Line(Plot):
+    """Line plot."""
     def __init__(self, plot_interface):
-        """Line plot."""
         Plot.__init__(self, plot_interface)
 
     def plot(self):
-        self.handle = self.backend.plot(self.x_data, self.y_data,
-                                        **self.plot_kwargs)
+        """Plot the line plot."""
+        x_data = self.x_data.copy()
+        y_data = self.y_data.copy()
+        # TODO: refactor to avoid repetitive code.
+        if self.mult_factor[0]:
+            if self.ax.x_dim == 'x':
+                x_data = np.multiply(float(self.mult_factor[0]), x_data)
+            if self.ax.y_dim == 'y':
+                y_data = np.multiply(float(self.mult_factor[0]), y_data)
+        # TODO: generalize this beyond time-data (c.f. 'year=...')
+        if self.smooth_data[0]:
+            if self.ax.x_dim == 'x':
+                x_data = x_data.rolling(center=True,
+                                        year=self.smooth_data[0]).mean()
+            if self.ax.y_dim == 'y':
+                y_data = y_data.rolling(center=True,
+                                        year=self.smooth_data[0]).mean()
+
+        if not self.plot_kwargs:
+            self.plot_kwargs = {}
+        plot_kwargs = self.plot_kwargs.copy()
+        if self.colormap:
+            rgba = self._get_color_from_cmap(plot_kwargs['color'])
+        else:
+            rgba = plot_kwargs.get('color', 'blue')
+        plot_kwargs.pop('color', None)
+        self.handle = self.backend.plot(x_data, y_data, color=rgba,
+                                        **plot_kwargs)
+        if self.do_colorbar:
+            self.fig._make_colorbar(self.ax)
+
+        return self.handle
 
 
 class Scatter(Plot):
@@ -760,18 +873,29 @@ class Scatter(Plot):
         self._apply_data_transforms()
 
     def plot(self):
-        self.handle = self.backend.scatter(self.x_data, self.y_data,
-                                           **self.scatter_kwargs)
+        scatter_kwargs = self.scatter_kwargs.copy()
+        if self.colormap == 'norm':
+            rgba = self._get_color_from_cmap(scatter_kwargs['c'])
+        else:
+            rgba = scatter_kwargs['c']
+        scatter_kwargs.pop('c', None)
+        self.handle = self.backend.scatter(self.x_data, self.y_data, c=rgba,
+                                           **scatter_kwargs)
         if self.do_best_fit_line:
             self.best_fit_line(print_slope=self.print_best_fit_slope)
 
         if self.print_corr_coeff:
             self.corr_coeff(self.x_data, self.y_data)
 
+        if self.do_colorbar:
+            self.fig._make_colorbar(self.ax)
+
+        return self.handle
+
 
 class Quiver(Plot):
+    """Quiver (i.e. vector) plot."""
     def __init__(self, plot_interface):
-        """Quiver (i.e. vector) plot."""
         Plot.__init__(self, plot_interface)
 
     def prep_quiver(self):
@@ -780,8 +904,9 @@ class Quiver(Plot):
         if not self.quiver_n_lat:
             self.quiver_n_lat = self.lats.size
         return self.backend.transform_vector(
-            self.plot_data[0], self.plot_data[1], self.plot_lons, self.lats,
-            self.quiver_n_lon, self.quiver_n_lat, returnxy=True
+            self.plot_data[0], self.plot_data[1], self.plot_lons,
+            self.lats.values, self.quiver_n_lon, self.quiver_n_lat,
+            returnxy=True
         )
 
     def plot(self):
@@ -798,3 +923,8 @@ class Quiver(Plot):
                                            **self.quiverkey_kwargs)
         if self.basemap:
             self.apply_basemap(self.basemap)
+
+        if self.do_colorbar:
+            self.fig._make_colorbar(self.ax)
+
+        return self.handle

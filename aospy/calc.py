@@ -1,26 +1,29 @@
 """calc.py: classes for performing specified calculations on aospy data"""
-from __future__ import print_function
+from collections import OrderedDict
+import logging
 import os
 import shutil
 import subprocess
 import tarfile
-import time
-import warnings
+from time import ctime
 
 import numpy as np
 import xarray as xr
 
-from . import Constant, Var
 from .__config__ import (LAT_STR, LON_STR, LAT_BOUNDS_STR, LON_BOUNDS_STR,
                          PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, YEAR_STR,
-                         ETA_STR)
+                         ETA_STR, BOUNDS_STR)
+from .constants import Constant, grav
 from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
                  data_in_name_gfdl)
 from .timedate import TimeManager, _get_time
 from .utils import (get_parent_attr, apply_time_offset, monthly_mean_ts,
-                    monthly_mean_at_each_ind, pfull_from_ps, to_hpa,
+                    monthly_mean_at_each_ind, pfull_from_ps,
                     to_pfull_from_phalf, dp_from_ps, dp_from_p, int_dp_g)
+from .var import Var
 
+
+logging.basicConfig(level=logging.INFO)
 
 dp = Var(
     name='dp',
@@ -69,17 +72,20 @@ class CalcInterface(object):
                  dtype_out_vert=None, level=None, chunk_len=False,
                  verbose=True):
         """Create the CalcInterface object with the given parameters."""
-        if run not in model.runs.values():
-            raise AttributeError("Model '{}' has no run '{}'.  Calc object "
-                                 "will not be generated.".format(model, run))
         # 2015-10-13 S. Hill: This tuple-izing is for support of calculations
         # where variables come from different runs.  However, this is a very
         # fragile way of implementing that functionality.  Eventually it will
         # be replaced with something better.
-        proj = tuple([proj])
-        model = tuple([model])
         if not isinstance(run, (list, tuple)):
             run = tuple([run])
+        for r in run:
+            msg = ("Model '{0}' has no run '{1}'.  Calc object "
+                   "will not be generated.".format(model, run))
+            if r not in model.runs.values():
+                raise AttributeError(msg)
+        proj = tuple([proj])
+        model = tuple([model])
+
         # Make tuples the same length.
         if len(proj) == 1 and (len(model) > 1 or len(run) > 1):
             proj = tuple(list(proj)*len(run))
@@ -129,8 +135,13 @@ class CalcInterface(object):
         self.region = region
 
         self.months = TimeManager.month_indices(intvl_out)
-        self.start_date = TimeManager.str_to_datetime(date_range[0])
-        self.end_date = TimeManager.str_to_datetime(date_range[-1])
+        if date_range in (None, 'default'):
+            # TODO: account for different defaults ranges when there are
+            #       multiple input runs
+            self.start_date, self.end_date = self.default_date_range[0]
+        else:
+            self.start_date = TimeManager.str_to_datetime(date_range[0])
+            self.end_date = TimeManager.str_to_datetime(date_range[-1])
         tm = TimeManager(self.start_date, self.end_date, intvl_out)
         self.date_range = tm.create_time_array()
 
@@ -142,6 +153,21 @@ class Calc(object):
     """Class for executing, saving, and loading a single computation."""
 
     ARR_XARRAY_NAME = 'aospy_result'
+
+    _grid_attrs = OrderedDict([
+        (LAT_STR,        ('lat', 'latitude', 'LATITUDE', 'y', 'yto')),
+        (LAT_BOUNDS_STR, ('latb', 'lat_bnds', 'lat_bounds')),
+        (LON_STR,        ('lon', 'longitude', 'LONGITUDE', 'x', 'xto')),
+        (LON_BOUNDS_STR, ('lonb', 'lon_bnds', 'lon_bounds')),
+        ('zsurf',        ('zsurf',)),
+        ('sfc_area',     ('area', 'sfc_area')),
+        ('land_mask',    ('land_mask',)),
+        ('pk',           ('pk',)),
+        ('bk',           ('bk',)),
+        (PHALF_STR,      ('phalf',)),
+        (PFULL_STR,      ('pfull',)),
+        (PLEVEL_STR,     ('level', 'lev', 'plev')),
+    ])
 
     def __str__(self):
         """String representation of the object."""
@@ -175,7 +201,7 @@ class Calc(object):
         yr_lbl = _yr_label((self.start_date.year,
                             self.end_date.year))
         return '.'.join(
-            [self.name, out_lbl, in_lbl, self.model_str, self.run_str_full,
+            [self.name, out_lbl, in_lbl, self.model_str, self.run_str,
              ens_lbl, yr_lbl, extension]
         ).replace('..', '.')
 
@@ -185,18 +211,19 @@ class Calc(object):
     def _path_archive(self):
         return os.path.join(self.dir_archive, 'data.tar')
 
-    def _print_verbose(self, *args):
+    @staticmethod
+    def _print_verbose(*args):
         """Print diagnostic message."""
-        if self.verbose:
-            try:
-                print('{} {}'.format(args[0], args[1]),
-                      '({})'.format(time.ctime()))
-            except IndexError:
-                print('{}'.format(args[0]), '({})'.format(time.ctime()))
+        try:
+            return '{0} {1} ({2})'.format(args[0], args[1], ctime())
+        except IndexError:
+            return '{0} ({1})'.format(args[0], ctime())
 
     def __init__(self, calc_interface):
         self.__dict__ = vars(calc_interface)
-        self._print_verbose('Initializing Calc instance:', self.__str__())
+        logging.info(self._print_verbose(
+            'Initializing Calc instance:', self.__str__()
+        ))
 
         [mod.set_grid_data() for mod in self.model]
 
@@ -240,8 +267,7 @@ class Calc(object):
             elif os.path.isfile(full):
                 paths.append(full)
             else:
-                warnings.warn("Warning: specified netCDF file `{}` "
-                              "not found".format(nc))
+                logging.info("Specified netCDF file `{}` not found".format(nc))
         # Remove duplicate entries.
         files = list(set(paths))
         files.sort()
@@ -270,14 +296,16 @@ class Calc(object):
             dtype_lbl = dtype
         else:
             dtype = self.dtype_in_time
-        direc = os.path.join(data_in_direc, domain, dtype_lbl, self.intvl_in,
-                             str(self.data_in_dur[n]) + 'yr')
-
+        dur_str = str(self.data_in_dur[n]) + 'yr'
+        if self.dtype_in_time == 'av':
+            subdir = self.intvl_in + '_' + dur_str
+        else:
+            subdir = os.path.join(self.intvl_in, dur_str)
+        direc = os.path.join(data_in_direc, domain, dtype_lbl, subdir)
         files = [os.path.join(direc, data_in_name_gfdl(
                  name, domain, dtype, self.intvl_in, year, self.intvl_out,
                  self.data_in_start_date[n].year, self.data_in_dur[n]
                  )) for year in range(start_year, end_year + 1)]
-
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
@@ -293,7 +321,7 @@ class Calc(object):
 
     def _get_input_data_paths(self, var, start_date=False,
                               end_date=False, n=0):
-        """Create xarray.DataArray of the variable from its netCDF files on disk.
+        """Create xarray.DataArray of the variable from its netCDF files.
 
         Files chosen depend on the specified variables and time interval and
         the attributes of the netCDF files.
@@ -306,8 +334,8 @@ class Calc(object):
                     files = self._get_input_data_paths_one_dir(
                         name, data_in_direc, n=n
                     )
-                except KeyError:
-                    pass
+                except KeyError as e:
+                    logging.debug(str(repr(e)))
                 else:
                     break
             elif self.data_in_dir_struc[n].lower() == 'gfdl':
@@ -323,18 +351,18 @@ class Calc(object):
             elif self.data_in_dir_struc[n].lower() == 'gfdl_repo':
                 try:
                     files = self._get_input_data_paths_gfdl_repo(name, n=n)
-                except IOError:
-                    pass
+                except IOError as e:
+                    logging.debug(str(repr(e)))
                 else:
                     break
             else:
                 raise ValueError("Specified directory type not supported"
                                  ": {}".format(self.data_in_dir_struc[n]))
         else:
-            raise IOError("netCDF files for variable `{}`, year range {}-{}, "
-                          "in directory {}, not found".format(var, start_date,
-                                                              end_date,
-                                                              data_in_direc))
+            msg = ("netCDF files for calc object `{0}`, variable `{1}`, year "
+                   "range {2}-{3}, in directory {4}, not found")
+            raise IOError(msg.format(self, var, start_date, end_date,
+                                     data_in_direc))
         paths = list(set(files))
         paths.sort()
         return paths
@@ -347,61 +375,89 @@ class Calc(object):
 
     def _add_grid_attributes(self, ds, n=0):
         """Add model grid attributes to a dataset"""
-        grid_attrs = {
-            LAT_STR:        ('lat', 'latitude', 'LATITUDE', 'y', 'yto'),
-            LAT_BOUNDS_STR: ('latb', 'lat_bnds', 'lat_bounds'),
-            LON_STR:        ('lon', 'longitude', 'LONGITUDE', 'x', 'xto'),
-            LON_BOUNDS_STR: ('lonb', 'lon_bnds', 'lon_bounds'),
-            PLEVEL_STR:     ('level', 'lev', 'plev'),
-            'sfc_area':     ('area', 'sfc_area'),
-            'zsurf':        ('zsurf',),
-            'land_mask':    ('land_mask',),
-            'pk':           ('pk',),
-            'bk':           ('bk',),
-            PHALF_STR:      ('phalf',),
-            PFULL_STR:      ('pfull',),
-            }
-        for name_int, names_ext in grid_attrs.items():
+        for name_int, names_ext in self._grid_attrs.items():
             ds_coord_name = set(names_ext).intersection(set(ds.coords) |
                                                         set(ds.data_vars))
             model_attr = getattr(self.model[n], name_int, None)
             if ds_coord_name:
-                # Check if coord is in dataset already.  If it is, then rename
-                # it so that it has the correct internal name.
-                try:
-                    ds = ds.rename({list(ds_coord_name)[0]: name_int})
-                except ValueError:
-                    ds = ds
+                # Force coords to have desired name.
+                ds = ds.rename({list(ds_coord_name)[0]: name_int})
                 ds = ds.set_coords(name_int)
                 if not np.array_equal(ds[name_int], model_attr):
-                    msg = ("Model coordinates for '{}' do not match those in "
-                           "Run: {} vs. {}".format(name_int, ds[name_int],
-                                                   model_attr))
-                    warnings.warn(msg)
+                    if np.allclose(ds[name_int], model_attr):
+                        msg = ("Values for '{0}' are nearly (but not exactly) "
+                               "the same in the Run {1} and the Model {2}.  "
+                               "Therefore replacing Run's values with the "
+                               "model's.".format(name_int, self.run[n],
+                                                 self.model[n]))
+                        logging.info(msg)
+                        ds[name_int].values = model_attr.values
+                    else:
+                        msg = ("Model coordinates for '{0}' do not match those"
+                               " in Run: {1} vs. {2}"
+                               "".format(name_int, ds[name_int], model_attr))
+                        logging.info(msg)
+
             else:
                 # Bring in coord from model object if it exists.
+                ds = ds.load()
                 if model_attr is not None:
                     ds[name_int] = model_attr
                     ds = ds.set_coords(name_int)
-            if self.dtype_in_vert == 'pressure' and 'level' in ds.coords:
+            if self.dtype_in_vert == 'pressure' and PLEVEL_STR in ds.coords:
                 self.pressure = ds.level
         return ds
+
+    @staticmethod
+    def dt_from_time_bnds(ds):
+        """Compute the timestep durations from the time bounds array."""
+        for name in ['time_bounds', 'time_bnds']:
+            try:
+                bounds = ds[name]
+            except KeyError:
+                pass
+            else:
+                dt = bounds.diff(BOUNDS_STR).squeeze().drop(BOUNDS_STR)
+                # Convert from float # of days to np.timedelta64 in seconds.
+                # TODO: Explicitly check that units are days.
+                dt.values = np.array([np.timedelta64(int(d), 'D')
+                                      for d in dt.values])
+                return dt / np.timedelta64(1, 's')
+        raise ValueError("Time bound data cannot be found in the dataset.\n"
+                         "{0}".format(ds))
+
+    def _get_dt(self, ds):
+        """Find or create the array of timestep durations."""
+        for name in ['average_DT']:
+            try:
+                dt = ds[name]
+            except KeyError:
+                logging.debug("dt array not found for nonexistent key name "
+                              "`{0}`".format(name))
+            else:
+                # Convert to seconds
+                return self._to_desired_dates(dt) / np.timedelta64(1, 's')
+        return self._to_desired_dates(self.dt_from_time_bnds(ds))
 
     def _create_input_data_obj(self, var, start_date=False,
                                end_date=False, n=0, set_dt=False,
                                set_pfull=False):
         """Create xarray.DataArray for the Var from files on disk."""
-        paths = self._get_input_data_paths(var, start_date, end_date, n)
+        try:
+            paths = self._get_input_data_paths(var, start_date, end_date, n)
+        except IOError as e:
+            raise IOError(e)
         # 2015-10-15 S. Hill: This `dmget` call, which is unique to the
         # filesystem at the NOAA GFDL computing cluster, should be factored out
         # of this function.  A config setting or some other user input should
         # specify what method to call to access the files on the filesystem.
         dmget(paths)
         ds_chunks = []
+        vars_to_drop = ['time_bounds', 'nv', 'bnds',
+                        'average_T1', 'average_T2']
         for file_ in paths:
             test = xr.open_dataset(file_, decode_cf=False,
-                                   drop_variables=['time_bounds', 'nv',
-                                                   'average_T1', 'average_T2'])
+                                   drop_variables=vars_to_drop)
             # Workaround for years < 1678 causing overflows.
             if start_date.year < 1678:
                 for v in [TIME_STR]:
@@ -409,6 +465,12 @@ class Calc(object):
                     test[v].attrs['units'] = (freq + 'since 1900-01-01 '
                                               '00:00:00')
                 test[TIME_STR].attrs['calendar'] = 'noleap'
+            # 'climatology_bounds' causes the ValueError b/c 'bnds' removed.
+            if self.dtype_in_time == 'av':
+                try:
+                    test = test.drop('climatology_bounds')
+                except ValueError:
+                    pass
             test = xr.decode_cf(test)
             ds_chunks.append(test)
         ds = xr.concat(ds_chunks, dim=TIME_STR, data_vars='minimal')
@@ -424,16 +486,10 @@ class Calc(object):
             raise KeyError('Variable not found: {}'.format(var))
         # At least one variable has to get us the dt array also.
         if set_dt:
-            for name in ['average_DT']:
-                try:
-                    dt = ds[name]
-                except KeyError:
-                    pass
-                else:
-                    # Convert from nanoseconds to seconds (prevent overflow)
-                    self.dt = (self._to_desired_dates(dt) /
-                               np.timedelta64(1, 's'))
-                    break
+            try:
+                self.dt = self._get_dt(ds)
+            except ValueError:
+                pass
         # At least one variable has to get us the pfull array, if it's needed.
         if set_pfull:
             try:
@@ -443,6 +499,7 @@ class Calc(object):
         return arr
 
     def _get_pressure_from_p_coords(self, ps, name='p', n=0):
+        """Get pressure or pressure thickness array for data on p-coords."""
         if np.any(self.pressure):
             pressure = self.pressure
         else:
@@ -455,6 +512,7 @@ class Calc(object):
                          "'{}'".format(name))
 
     def _get_pressure_from_eta_coords(self, ps, name='p', n=0):
+        """Get pressure (p) or p thickness array for data on model coords."""
         bk = self.model[n].bk
         pk = self.model[n].pk
         pfull_coord = self.model[n].pfull
@@ -492,7 +550,7 @@ class Calc(object):
 
     def _get_input_data(self, var, start_date, end_date, n):
         """Get the data for a single variable over the desired date range."""
-        self._print_verbose("Getting input data:", var)
+        logging.info(self._print_verbose("Getting input data:", var))
         # If only 1 run, use it to load all data.  Otherwise assume that num
         # runs equals num vars to load.
         if len(self.run) == 1:
@@ -530,7 +588,8 @@ class Calc(object):
             if self.dtype_in_time == 'inst':
                 data = self._correct_gfdl_inst_time(data)
             # Restrict to the desired dates within each year.
-            return self._to_desired_dates(data)
+            if self.dtype_in_time != 'av':
+                return self._to_desired_dates(data)
         return data
 
     def _prep_data(self, data, func_input_dtype):
@@ -583,12 +642,20 @@ class Calc(object):
             data_in = data_monthly
         local_ts = self._local_ts(*data_in)
         if self.dtype_in_time == 'inst':
-            dt = xr.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
+            dt = xr.DataArray(np.ones_like(local_ts[TIME_STR]),
                               dims=[TIME_STR], coords=[local_ts[TIME_STR]])
             if not hasattr(self, 'dt'):
                 self.dt = dt
         else:
-            dt = self.dt
+            if hasattr(self, 'dt'):
+                dt = self.dt
+            else:
+                logging.warning("dt array not found.  Assuming equally spaced "
+                                "values in time, even though this may not be "
+                                "the case")
+                dt = xr.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
+                                  dims=[TIME_STR], coords=[local_ts[TIME_STR]])
+                self.dt = dt
         if monthly_mean:
             dt = monthly_mean_ts(dt)
         return local_ts, dt
@@ -605,11 +672,14 @@ class Calc(object):
         if zonal_asym:
             full_ts = full_ts - full_ts.mean(LON_STR)
         # Vertically integrate.
-        if self.dtype_out_vert == 'vert_int' and self.var.def_vert:
+        vert_types = ('vert_int', 'vert_av')
+        if self.dtype_out_vert in vert_types and self.var.def_vert:
             # Here we need file read-in dates (NOT xarray dates)
             full_ts = self._vert_int(full_ts, self._get_pressure_vals(
                 dp, self.start_date, self.end_date
             ))
+            if self.dtype_out_vert == 'vert_av':
+                full_ts *= (grav.value / self._to_desired_dates(self._ps_data))
         return full_ts, dt
 
     def _avg_by_year(self, arr, dt):
@@ -627,6 +697,8 @@ class Calc(object):
 
     def _time_reduce(self, arr, reduction):
         """Perform the specified time reduction on a local time-series."""
+        if self.dtype_in_time == 'av':
+            return arr
         reductions = {
             'None': lambda xarr: xarr,
             'ts': lambda xarr: xarr,
@@ -669,9 +741,12 @@ class Calc(object):
                         **{reg.name + '_pressure': coord}
                     )
             reg_dat.update(**{reg.name: data_out})
-        return reg_dat
+        return OrderedDict(sorted(reg_dat.items(), key=lambda t: t[0]))
 
     def _apply_all_time_reductions(self, full_ts, monthly_ts, eddy_ts):
+        """Apply all requested time reductions to the data."""
+        logging.info(self._print_verbose("Applying desired time-"
+                                         "reduction methods."))
         # Determine which are regional, eddy, time-mean.
         reduc_specs = [r.split('.') for r in self.dtype_out_time]
         reduced = {}
@@ -687,58 +762,54 @@ class Calc(object):
                 reduced.update({reduc: self.region_calcs(data, func)})
             else:
                 reduced.update({reduc: self._time_reduce(data, func)})
-        return reduced
+        return OrderedDict(sorted(reduced.items(), key=lambda t: t[0]))
 
-    def compute(self):
-        """Perform all desired calculations on the data and save externally."""
-        # Load the input data from disk.
-        data_in = self._prep_data(self._get_all_data(self.start_date,
-                                                     self.end_date),
-                                  self.var.func_input_dtype)
-        # Compute only the needed timeseries.
-        self._print_verbose('\n', 'Computing desired timeseries for '
-                            '{} -- {}.'.format(self.start_date, self.end_date))
+    def _make_full_mean_eddy_ts(self, data_in):
+        """Create full, monthly-mean, and eddy timeseries of data."""
         bool_monthly = (['monthly_from' in self.dtype_in_time] +
                         ['time-mean' in dout for dout in self.dtype_out_time])
         bool_eddy = ['eddy' in dout for dout in self.dtype_out_time]
         if not all(bool_monthly):
-            full_ts, full_dt = self._compute_full_ts(data_in,
-                                                     monthly_mean=False)
+            full, full_dt = self._compute_full_ts(data_in,
+                                                  monthly_mean=False)
         else:
-            full_ts = False
+            full = False
         if any(bool_eddy) or any(bool_monthly):
-            monthly_ts, monthly_dt = self._compute_full_ts(data_in,
-                                                           monthly_mean=True)
+            monthly, monthly_dt = self._compute_full_ts(data_in,
+                                                        monthly_mean=True)
         else:
-            monthly_ts = False
+            monthly = False
         if any(bool_eddy):
-            eddy_ts = full_ts - monthly_mean_at_each_ind(monthly_ts, full_ts)
+            eddy = full - monthly_mean_at_each_ind(monthly, full)
         else:
-            eddy_ts = False
+            eddy = False
 
         # Average within each year.
         if not all(bool_monthly):
-            full_ts = self._full_to_yearly_ts(full_ts, full_dt)
+            full = self._full_to_yearly_ts(full, full_dt)
         if any(bool_monthly):
-            monthly_ts = self._full_to_yearly_ts(monthly_ts, monthly_dt)
+            monthly = self._full_to_yearly_ts(monthly, monthly_dt)
         if any(bool_eddy):
-            eddy_ts = self._full_to_yearly_ts(eddy_ts, full_dt)
-        # Apply time reduction methods.
-        if self.def_time:
-            self._print_verbose("Applying desired time-reduction methods.")
-            reduced = self._apply_all_time_reductions(full_ts, monthly_ts,
-                                                      eddy_ts)
-        else:
-            reduced = {'': full_ts}
-        # Save to disk.
-        self._print_verbose("Writing desired gridded outputs to disk.")
+            eddy = self._full_to_yearly_ts(eddy, full_dt)
+        return full, monthly, eddy
+
+    def compute(self, save_to_scratch=True, save_to_archive=True):
+        """Perform all desired calculations on the data and save externally."""
+        data_in = self._prep_data(self._get_all_data(self.start_date,
+                                                     self.end_date),
+                                  self.var.func_input_dtype)
+        logging.info('Computing timeseries for {0} -- '
+                     '{1}.'.format(self.start_date, self.end_date))
+        full, monthly, eddy = self._make_full_mean_eddy_ts(data_in)
+        reduced = self._apply_all_time_reductions(full, monthly, eddy)
+        logging.info("Writing desired gridded outputs to disk.")
         for dtype_time, data in reduced.items():
-            self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert)
+            self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
+                      scratch=save_to_scratch, archive=save_to_archive)
 
     def _save_to_scratch(self, data, dtype_out_time):
         """Save the data to the scratch filesystem."""
         path = self.path_scratch[dtype_out_time]
-        # Drop undefined coords.
         if not os.path.isdir(self.dir_scratch):
             os.makedirs(self.dir_scratch)
         if 'reg' in dtype_out_time:
@@ -801,7 +872,7 @@ class Calc(object):
             self._save_to_scratch(data, dtype_out_time)
         if archive:
             self._save_to_archive(dtype_out_time)
-        print('\t', '{}'.format(self.path_scratch[dtype_out_time]))
+        logging.info('\t{}'.format(self.path_scratch[dtype_out_time]))
 
     def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False,
                            region=False):
@@ -812,15 +883,16 @@ class Calc(object):
             arr = ds[region.name]
             # Use region-specific pressure values if available.
             if self.dtype_in_vert == ETA_STR and not dtype_out_vert:
-                try:
-                    reg_pfull_str = region.name + '_pressure'
-                    arr = arr.drop([r for r in arr.coords.iterkeys()
-                                    if r not in (PFULL_STR, reg_pfull_str)])
-                except ValueError:
-                    return arr
-                else:
-                    arr = arr.rename({PFULL_STR: PFULL_STR + '_ref'})
+                reg_pfull_str = region.name + '_pressure'
+                arr = arr.drop([r for r in arr.coords.iterkeys()
+                                if r not in (PFULL_STR, reg_pfull_str)])
+                # Rename pfull to pfull_ref always.
+                arr = arr.rename({PFULL_STR: PFULL_STR + '_ref'})
+                # Rename region_pfull to pfull if its there.
+                if hasattr(arr, reg_pfull_str):
                     return arr.rename({reg_pfull_str: PFULL_STR})
+                return arr
+            return arr
         return ds[self.name]
 
     def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
@@ -844,7 +916,9 @@ class Calc(object):
             if 'monthly_from_' in self.dtype_in_time:
                 data = np.mean(data, axis=0)[np.newaxis, :]
         if np.any(vert):
-            if self.dtype_in_vert != ETA_STR:
+            if self.dtype_in_vert == ETA_STR:
+                data = data[{PFULL_STR: vert}]
+            else:
                 if np.max(self.model[n].level) > 1e4:
                     # Convert from Pa to hPa.
                     lev_hpa = self.model[n].level*1e-2
@@ -865,6 +939,10 @@ class Calc(object):
              time=False, vert=False, lat=False, lon=False, plot_units=False,
              mask_unphysical=False):
         """Load the data from the object if possible or from disk."""
+        msg = ("Loading data from disk for object={0}, dtype_out_time={1}, "
+               "dtype_out_vert={2}, and region="
+               "{3}".format(self, dtype_out_time, dtype_out_vert, region))
+        logging.info(msg + ' ({})'.format(ctime()))
         # Grab from the object if its there.
         try:
             data = self.data_out[dtype_out_time]
@@ -879,7 +957,7 @@ class Calc(object):
         self._update_data_out(data, dtype_out_time)
         # Subset the array and convert units as desired.
         if any((time, vert, lat, lon)):
-            data = self._get_data_subset(data, region=region, time=time,
+            data = self._get_data_subset(data, region=False, time=time,
                                          vert=vert, lat=lat, lon=lon)
         # Apply desired plotting/cleanup methods.
         if mask_unphysical:

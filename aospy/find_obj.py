@@ -1,4 +1,6 @@
 """Get aospy objects from an object containing them given their name string."""
+from collections import Sequence
+
 from . import Proj, Model, Run, Var, Region, Operator
 from .io import to_dup_list
 
@@ -25,7 +27,7 @@ def to_proj(proj, projs_module):
         except AttributeError:
             raise AttributeError('Not a recognized Proj name: %s' % proj)
 
-    elif isinstance(proj, (list, tuple)):
+    elif isinstance(proj, Sequence):
         proj = [to_proj(pr, projs_module) for pr in proj]
         if orig_type is list:
             return proj
@@ -53,7 +55,7 @@ def to_model(model, proj, projs_module):
             model = proj.models[model]
         return model
 
-    elif isinstance(model, (list, tuple)):
+    elif isinstance(model, Sequence):
         model = [to_model(mod, pr, projs_module) for (mod, pr)
                  in zip(model, to_dup_list(proj, len(model)))]
         if orig_type is tuple:
@@ -96,7 +98,7 @@ def to_run(run, model, proj, projs_module):
         keys = to_run(run.keys(), model, proj, projs_module)
         return dict(zip(keys, vals))
 
-    elif isinstance(run, (list, tuple)):
+    elif isinstance(run, Sequence):
         run = [to_run(rn, mod, pr, projs_module) for (rn, mod, pr)
                in zip(run, to_dup_list(model, len(run)),
                       to_dup_list(proj, len(run)))]
@@ -119,7 +121,7 @@ def to_var(var, vars_module):
         except AttributeError:
             raise AttributeError('Not a recognized Var name: %s' % var)
 
-    elif isinstance(var, (list, tuple)):
+    elif isinstance(var, Sequence):
         var_out = [to_var(v, vars_module) for v in var]
         if isinstance(var, tuple):
             var_out = tuple(var_out)
@@ -144,7 +146,7 @@ def to_region(region, regions_module, proj=False):
         else:
             return getattr(regions_module, region)
 
-    elif isinstance(region, (list, tuple)):
+    elif isinstance(region, Sequence):
         region_out = [to_region(r, regions_module, proj=proj) for r in region]
         if isinstance(region, tuple):
             region_out = tuple(region_out)
