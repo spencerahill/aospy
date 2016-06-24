@@ -1,5 +1,6 @@
 """Classes for creating multi-panel figures using data generated via aospy."""
 import logging
+import string
 
 import scipy.stats
 import numpy as np
@@ -346,7 +347,7 @@ class Ax(object):
         # Axis panel labels, i.e. (a), (b), (c), etc.
         if self.ax_label:
             if self.ax_label == 'auto':
-                text = '({})'.format(tuple('abcdefghijklmnopqrs')[self.ax_num])
+                text = '({})'.format(string.ascii_letters[self.ax_num])
             else:
                 text = self.ax_label
             self.panel_label = self.ax.text(
@@ -614,8 +615,8 @@ class Plot(object):
     @classmethod
     def _perform_oper(cls, arr1, arr2, operator, region=False):
         # Only regrid data on model-native coordinates, not pressure.
-        if region and any([getattr(arr, pfs, False) for arr in (arr1, arr2)
-                           for pfs in (PFULL_STR, PFULL_STR + '_ref')]):
+        if region and any((getattr(arr, pfs, False) for arr in (arr1, arr2)
+                           for pfs in (PFULL_STR, PFULL_STR + '_ref'))):
             try:
                 arr1, arr2 = cls.regrid_to_avg_coords(PFULL_STR, arr1, arr2)
             except KeyError:

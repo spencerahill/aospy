@@ -79,7 +79,7 @@ class CalcInterface(object):
         if not isinstance(run, (list, tuple)):
             run = tuple([run])
         for r in run:
-            msg = ("Model '{}' has no run '{}'.  Calc object "
+            msg = ("Model '{0}' has no run '{1}'.  Calc object "
                    "will not be generated.".format(model, run))
             if r not in model.runs.values():
                 raise AttributeError(msg)
@@ -211,7 +211,8 @@ class Calc(object):
     def _path_archive(self):
         return os.path.join(self.dir_archive, 'data.tar')
 
-    def _print_verbose(self, *args):
+    @staticmethod
+    def _print_verbose(*args):
         """Print diagnostic message."""
         try:
             return '{0} {1} ({2})'.format(args[0], args[1], ctime())
@@ -392,8 +393,8 @@ class Calc(object):
                         logging.info(msg)
                         ds[name_int].values = model_attr.values
                     else:
-                        msg = ("Model coordinates for '{}' do not match those "
-                               "in Run: {0} vs. {1}"
+                        msg = ("Model coordinates for '{0}' do not match those"
+                               " in Run: {1} vs. {2}"
                                "".format(name_int, ds[name_int], model_attr))
                         logging.info(msg)
 
