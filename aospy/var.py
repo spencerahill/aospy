@@ -58,14 +58,18 @@ class Var(object):
 
     __repr__ = __str__
 
-    def to_plot_units(self, data, vert_int=False):
+    def to_plot_units(self, data, dtype_vert=False):
         """
         Multiply the given data by the plotting units conversion if it exists.
         """
-        if vert_int:
+        if dtype_vert == 'vert_av' or not dtype_vert:
+            conv_factor = self.units.plot_units_conv
+        elif dtype_vert == ('vert_int'):
             conv_factor = self.units.vert_int_plot_units_conv
         else:
-            conv_factor = self.units.plot_units_conv
+            raise ValueError("dtype_vert value `{0}` not recognized.  Only "
+                             "bool(dtype_vert) = False, 'vert_av', and "
+                             "'vert_int' supported.".format(dtype_vert))
         if isinstance(data, dict):
             return {key: val*conv_factor for key, val in data.items()}
         return data*conv_factor

@@ -5,8 +5,9 @@ import string
 import scipy.stats
 import numpy as np
 from matplotlib import cm
-from matplotlib.collections import PathCollection
-from matplotlib.contour import QuadContourSet
+import matplotlib.collections
+import matplotlib.contour
+import matplotlib.quiver
 import matplotlib.pyplot as plt
 import mpl_toolkits.basemap
 import xarray as xr
@@ -166,8 +167,9 @@ class Fig(object):
         if hasattr(self, 'cbar'):
             return
         self.cbar_ax = self.fig.add_axes(self.cbar_ax_lim)
+        kwargs = self.cbar_kwargs if self.cbar_kwargs else dict()
         self.cbar = self.fig.colorbar(ax.Plot[0].handle, cax=self.cbar_ax,
-                                      **self.cbar_kwargs)
+                                      **kwargs)
         # Set tick properties.
         if np.any(self.cbar_ticks):
             self.cbar.set_ticks(self.cbar_ticks)
@@ -314,9 +316,9 @@ class Ax(object):
             self.ax.set_xlim(self.x_lim)
         if self.do_mark_y0:
             self.ax.axhline(color='0.5')
-        if self.x_ticks:
+        if self.x_ticks is not False:
             self.ax.set_xticks(self.x_ticks)
-        if self.x_ticklabels:
+        if self.x_ticklabels is not False:
             self.ax.set_xticklabels(self.x_ticklabels, fontsize='x-small')
         if self.x_label:
             self.ax.set_xlabel(self.x_label,
@@ -418,12 +420,21 @@ class Ax(object):
         # Get the handles for use in the legend.
         # Facilitates excluding extra elements (e.g. x=0 line) from legend.
         for n in range(self.n_plot):
-            handle = self.Plot[n].plot()
-            index_cond = isinstance(handle, (PathCollection, QuadContourSet))
-            if not index_cond:
-                self._handles.append(handle[0])
+            try:
+                handle = self.Plot[n].plot()
+            except AttributeError as e:
+                logging.info("data not found; skipping this plot")
+                logging.debug(e)
             else:
-                self._handles.append(handle)
+                # Depending on matplotlib type, have to unpack or not.
+                index_cond = isinstance(handle,
+                                        (matplotlib.collections.PathCollection,
+                                         matplotlib.contour.QuadContourSet,
+                                         matplotlib.quiver.Quiver))
+                if index_cond:
+                    self._handles.append(handle)
+                else:
+                    self._handles.append(handle[0])
 
         if self.do_legend:
             if not self.legend_kwargs:

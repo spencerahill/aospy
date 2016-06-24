@@ -115,6 +115,8 @@ class Model(object):
         else:
             grid_file_paths = self.grid_file_paths
         datasets = []
+        if isinstance(grid_file_paths, str):
+            grid_file_paths = [grid_file_paths]
         for path in grid_file_paths:
             try:
                 ds = xr.open_dataset(path, decode_times=False)
@@ -204,6 +206,20 @@ class Model(object):
                 if grid_attr is not None:
                     # Rename coordinates to aospy's internal names.
                     renamed_attr = self._rename_coords(grid_attr)
+                    # Hack: MERRA data ending up with time-defined lat- and
+                    # lon-bounds.  Drop the time term.
+                    # TODO: improve this hack.
+                    cond_to_drop = (
+                        hasattr(renamed_attr, 'time') and
+                        name_int not in ['time', 'time_st', 'time_end',
+                                         'time_dur', 'time_bounds']
+                    )
+                    if cond_to_drop:
+                        tmp = renamed_attr.isel(time=0)
+                        try:
+                            renamed_attr = tmp.squeeze('time').drop('time')
+                        except KeyError:
+                            renamed_attr = tmp.drop('time')
                     setattr(self, name_int, renamed_attr)
                     break
 
