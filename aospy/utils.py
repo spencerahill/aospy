@@ -232,12 +232,8 @@ def get_dim_name(arr, names):
                          "specified names of `{1}`".format(arr, names))
 
 
-# TODO: Re-write using get_dim_name
-def vert_coord_name(dp):
-    for name in [PLEVEL_STR, PFULL_STR]:
-        if name in dp.coords:
-            return name
-    return
+def vert_coord_name(arr):
+    return get_dim_name(arr, [PLEVEL_STR, PFULL_STR])
 
 
 def int_dp_g(arr, dp):
