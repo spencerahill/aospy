@@ -963,5 +963,5 @@ class Calc(object):
         if mask_unphysical:
             data = self.var.mask_unphysical(data)
         if plot_units:
-            data = self.var.to_plot_units(data, vert_int=dtype_out_vert)
+            data = self.var.to_plot_units(data, dtype_vert=dtype_out_vert)
         return data
