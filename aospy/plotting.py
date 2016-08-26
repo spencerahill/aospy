@@ -423,8 +423,8 @@ class Ax(object):
             try:
                 handle = self.Plot[n].plot()
             except AttributeError as e:
-                logging.info("data not found; skipping this plot")
-                logging.debug(e)
+                logging.warning("\nData not found; skipping plot #{0}.\n"
+                                "{1}".format(n, e))
             else:
                 # Depending on matplotlib type, have to unpack or not.
                 index_cond = isinstance(handle,
