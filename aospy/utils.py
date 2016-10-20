@@ -1,10 +1,15 @@
 """aospy.utils: utility functions for the aospy module."""
 import logging
 
-from infinite_diff import CenDiff
 import numpy as np
 import pandas as pd
 import xarray as xr
+
+try:
+    from infinite_diff import CenDiff
+except ImportError:
+    pass
+
 
 from .__config__ import (PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR,
                          LAT_STR, LON_STR, user_path)
@@ -203,7 +208,13 @@ def d_deta_from_pfull(arr):
     increment by 1 from 0 at the surface upwards.  The data to be differenced
     is assumed to be defined at full pressure levels.
     """
-    deriv = CenDiff(arr, PFULL_STR, fill_edge=True).diff() / 2.
+    try:
+        deriv = CenDiff(arr, PFULL_STR, fill_edge=True).diff() / 2.
+    except NameError:
+        raise NameError('d_deta_from_pfull requires the infinite-diff'
+                        ' library.  See '
+                        'https://github.com/spencerahill/infinite-diff'
+                        ' for more details.')
     # Edges use 1-sided differencing, so only spanning one level, not two.
     deriv[{PFULL_STR: 0}] = deriv[{PFULL_STR: 0}] * 2.
     deriv[{PFULL_STR: -1}] = deriv[{PFULL_STR: -1}] * 2.
