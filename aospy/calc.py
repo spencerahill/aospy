@@ -815,7 +815,7 @@ class Calc(object):
         if 'reg' in dtype_out_time:
             try:
                 reg_data = xr.open_dataset(path)
-            except (EOFError, RuntimeError):
+            except (EOFError, RuntimeError, IOError):
                 reg_data = xr.Dataset()
             # Add the new data to the dictionary or Dataset.
             # Same method works for both.
