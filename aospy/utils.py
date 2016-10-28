@@ -1,7 +1,6 @@
 """aospy.utils: utility functions for the aospy module."""
 import logging
 
-from infinite_diff import CenDiff
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -202,11 +201,25 @@ def d_deta_from_pfull(arr):
     $\eta$ is the model vertical coordinate, and its value is assumed to simply
     increment by 1 from 0 at the surface upwards.  The data to be differenced
     is assumed to be defined at full pressure levels.
+
+    Parameters
+    ----------
+    arr : xarray.DataArray containing the 'pfull' dim
+
+    Returns
+    -------
+    deriv : xarray.DataArray with the derivative along 'pfull' computed via
+            2nd order centered differencing.
     """
-    deriv = CenDiff(arr, PFULL_STR, fill_edge=True).diff() / 2.
-    # Edges use 1-sided differencing, so only spanning one level, not two.
-    deriv[{PFULL_STR: 0}] = deriv[{PFULL_STR: 0}] * 2.
-    deriv[{PFULL_STR: -1}] = deriv[{PFULL_STR: -1}] * 2.
+    right = arr[{PFULL_STR: slice(2, None, None)}].values
+    left = arr[{PFULL_STR: slice(0, -2, 1)}].values
+    deriv = xr.DataArray(np.zeros(arr.shape), dims=arr.dims,
+                         coords=arr.coords)
+    deriv[{PFULL_STR: slice(1, -1, 1)}] = (right - left) / 2.
+    deriv[{PFULL_STR: 0}] = (arr[{PFULL_STR: 1}].values -
+                             arr[{PFULL_STR: 0}].values)
+    deriv[{PFULL_STR: -1}] = (arr[{PFULL_STR: -1}].values -
+                              arr[{PFULL_STR: -2}].values)
     return deriv
 
 
