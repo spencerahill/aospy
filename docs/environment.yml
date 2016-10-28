@@ -5,3 +5,5 @@ dependencies:
   - numpy=1.11
   - numpydoc=0.6
   - sphinx=1.4.1
+  - matplotlib=1.5.3
+  - basemap=1.0.7
