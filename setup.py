@@ -4,7 +4,7 @@ setuptools.setup(
     name="aospy",
     version="0.0",
     packages=setuptools.find_packages(),
-    author="Spencer A. Hill",
+    author="Spencer A. Hill and Spencer Clark",
     author_email="spencerahill@gmail.com",
     description="Automated gridded climate data analysis and visualization",
     license="Apache",
