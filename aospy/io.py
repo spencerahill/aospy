@@ -1,9 +1,13 @@
 """io.py: utility methods used internally by aospy for input/output, etc."""
 import os
+import logging
 import string
 import subprocess
 
 import numpy as np
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 def to_dup_list(x, n, single_to_list=True):
@@ -189,7 +193,10 @@ def data_in_name_gfdl(name, domain, data_type, intvl_type, data_yr,
 
 def dmget(files_list):
     """Call GFDL command 'dmget' to access archived files."""
-    subprocess.call(['dmget'] + files_list)
+    try:
+        subprocess.call(['dmget'] + files_list)
+    except OSError:
+        logging.warning('dmget command not found in this machine')
 
 
 def hsmget_nc(files_list):
