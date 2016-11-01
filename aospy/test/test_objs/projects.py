@@ -1,5 +1,6 @@
 from aospy.proj import Proj
-import models
+
+from . import models
 
 
 aospy_test = Proj(

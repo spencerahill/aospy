@@ -1,7 +1,8 @@
 import os
 
 from aospy.model import Model
-import runs
+
+from . import runs
 
 
 am2 = Model(

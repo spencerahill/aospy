@@ -177,17 +177,17 @@ class Calc(object):
 
     __repr__ = __str__
 
-    def _dir_scratch(self):
-        """Create string of the data directory on the scratch filesystem."""
+    def _dir_out(self):
+        """Create string of the data directory to save individual .nc files."""
         ens_label = _ens_label(self.ens_mem)
-        return os.path.join('/work', os.getenv('USER'), self.proj_str,
+        return os.path.join(self.proj[0].direc_out, self.proj_str,
                             self.model_str, self.run_str, ens_label,
                             self.name)
 
-    def _dir_archive(self):
-        """Create string of the data directory on the archive filesystem."""
+    def _dir_tar_out(self):
+        """Create string of the data directory to store a tar file."""
         ens_label = _ens_label(self.ens_mem)
-        return os.path.join('/archive', os.getenv('USER'),
+        return os.path.join(self.proj[0].tar_direc_out,
                             self.proj_str, 'data', self.model_str,
                             self.run_str, ens_label)
 
@@ -205,11 +205,11 @@ class Calc(object):
              ens_lbl, yr_lbl, extension]
         ).replace('..', '.')
 
-    def _path_scratch(self, dtype_out_time):
-        return os.path.join(self.dir_scratch, self.file_name[dtype_out_time])
+    def _path_out(self, dtype_out_time):
+        return os.path.join(self.dir_out, self.file_name[dtype_out_time])
 
-    def _path_archive(self):
-        return os.path.join(self.dir_archive, 'data.tar')
+    def _path_tar_out(self):
+        return os.path.join(self.dir_tar_out, 'data.tar')
 
     @staticmethod
     def _print_verbose(*args):
@@ -232,12 +232,12 @@ class Calc(object):
 
         self.dt_set = False
 
-        self.dir_scratch = self._dir_scratch()
-        self.dir_archive = self._dir_archive()
+        self.dir_out = self._dir_out()
+        self.dir_tar_out = self._dir_tar_out()
         self.file_name = {d: self._file_name(d) for d in self.dtype_out_time}
-        self.path_scratch = {d: self._path_scratch(d)
-                             for d in self.dtype_out_time}
-        self.path_archive = self._path_archive()
+        self.path_out = {d: self._path_out(d)
+                         for d in self.dtype_out_time}
+        self.path_tar_out = self._path_tar_out()
 
         self.data_out = {}
 
@@ -793,7 +793,7 @@ class Calc(object):
             eddy = self._full_to_yearly_ts(eddy, full_dt)
         return full, monthly, eddy
 
-    def compute(self, save_to_scratch=True, save_to_archive=True):
+    def compute(self, save_files=True, save_tar_files=True):
         """Perform all desired calculations on the data and save externally."""
         data_in = self._prep_data(self._get_all_data(self.start_date,
                                                      self.end_date),
@@ -805,13 +805,13 @@ class Calc(object):
         logging.info("Writing desired gridded outputs to disk.")
         for dtype_time, data in reduced.items():
             self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
-                      scratch=save_to_scratch, archive=save_to_archive)
+                      save_files=save_files, save_tar_files=save_tar_files)
 
-    def _save_to_scratch(self, data, dtype_out_time):
-        """Save the data to the scratch filesystem."""
-        path = self.path_scratch[dtype_out_time]
-        if not os.path.isdir(self.dir_scratch):
-            os.makedirs(self.dir_scratch)
+    def _save_files(self, data, dtype_out_time):
+        """Save the data to netcdf files in direc_out."""
+        path = self.path_out[dtype_out_time]
+        if not os.path.isdir(self.dir_out):
+            os.makedirs(self.dir_out)
         if 'reg' in dtype_out_time:
             try:
                 reg_data = xr.open_dataset(path)
@@ -827,18 +827,18 @@ class Calc(object):
             data_out = xr.Dataset({self.name: data_out})
         data_out.to_netcdf(path, engine='scipy')
 
-    def _save_to_archive(self, dtype_out_time):
-        """Add the data to the tar file in /archive."""
-        if not os.path.isdir(self.dir_archive):
-            os.makedirs(self.dir_archive)
+    def _save_tar_files(self, dtype_out_time):
+        """Add the data to the tar file in tar_out_direc."""
+        if not os.path.isdir(self.dir_tar_out):
+            os.makedirs(self.dir_tar_out)
         # tarfile 'append' mode won't overwrite the old file, which we want.
         # So open in 'read' mode, extract the file, and then delete it.
         # But 'read' mode throws OSError if file doesn't exist: make it first.
-        dmget([self.path_archive])
-        with tarfile.open(self.path_archive, 'a') as tar:
+        dmget([self.path_tar_out])
+        with tarfile.open(self.path_tar_out, 'a') as tar:
             pass
-        with tarfile.open(self.path_archive, 'r') as tar:
-            old_data_path = os.path.join(self.dir_archive,
+        with tarfile.open(self.path_tar_out, 'r') as tar:
+            old_data_path = os.path.join(self.dir_tar_out,
                                          self.file_name[dtype_out_time])
             try:
                 tar.extract(self.file_name[dtype_out_time],
@@ -850,11 +850,11 @@ class Calc(object):
                 # directories, so can't use os.remove or os.rmdir.
                 shutil.rmtree(old_data_path)
                 subprocess.call([
-                    "tar", "--delete", "--file={}".format(self.path_archive),
+                    "tar", "--delete", "--file={}".format(self.path_tar_out),
                     self.file_name[dtype_out_time]
                 ])
-        with tarfile.open(self.path_archive, 'a') as tar:
-            tar.add(self.path_scratch[dtype_out_time],
+        with tarfile.open(self.path_tar_out, 'a') as tar:
+            tar.add(self.path_out[dtype_out_time],
                     arcname=self.file_name[dtype_out_time])
 
     def _update_data_out(self, data, dtype):
@@ -865,19 +865,19 @@ class Calc(object):
             self.data_out = {dtype: data}
 
     def save(self, data, dtype_out_time, dtype_out_vert=False,
-             scratch=True, archive=False):
+             save_files=True, save_tar_files=False):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
-        if scratch:
-            self._save_to_scratch(data, dtype_out_time)
-        if archive:
-            self._save_to_archive(dtype_out_time)
-        logging.info('\t{}'.format(self.path_scratch[dtype_out_time]))
+        if save_files:
+            self._save_files(data, dtype_out_time)
+        if save_tar_files:
+            self._save_tar_files(dtype_out_time)
+        logging.info('\t{}'.format(self.path_out[dtype_out_time]))
 
-    def _load_from_scratch(self, dtype_out_time, dtype_out_vert=False,
-                           region=False):
-        """Load aospy data saved on scratch file system."""
-        ds = xr.open_dataset(self.path_scratch[dtype_out_time],
+    def _load_from_disk(self, dtype_out_time, dtype_out_vert=False,
+                        region=False):
+        """Load aospy data saved as netcdf files on the file system."""
+        ds = xr.open_dataset(self.path_out[dtype_out_time],
                              engine='scipy')
         if region:
             arr = ds[region.name]
@@ -895,9 +895,9 @@ class Calc(object):
             return arr
         return ds[self.name]
 
-    def _load_from_archive(self, dtype_out_time, dtype_out_vert=False):
-        """Load data save in tarball on archive file system."""
-        path = os.path.join(self.dir_archive, 'data.tar')
+    def _load_from_tar(self, dtype_out_time, dtype_out_vert=False):
+        """Load data save in tarball form on the file system."""
+        path = os.path.join(self.dir_tar_out, 'data.tar')
         dmget([path])
         with tarfile.open(path, 'r') as data_tar:
             ds = xr.open_dataset(
@@ -949,10 +949,10 @@ class Calc(object):
         except (AttributeError, KeyError):
             # Otherwise get from disk.  Try scratch first, then archive.
             try:
-                data = self._load_from_scratch(dtype_out_time, dtype_out_vert,
-                                               region=region)
+                data = self._load_from_disk(dtype_out_time, dtype_out_vert,
+                                            region=region)
             except IOError:
-                data = self._load_from_archive(dtype_out_time, dtype_out_vert)
+                data = self._load_from_tar(dtype_out_time, dtype_out_vert)
         # Copy the array to self.data_out for ease of future access.
         self._update_data_out(data, dtype_out_time)
         # Subset the array and convert units as desired.

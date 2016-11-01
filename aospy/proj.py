@@ -7,13 +7,15 @@ from .utils import dict_name_keys
 class Proj(object):
     """Project parameters: models, regions, directories, etc."""
     def __init__(self, name, vars={}, models={}, default_models={}, regions={},
-                 direc_out='', nc_dir_struc=False, verbose=True):
+                 direc_out='', tar_direc_out='', nc_dir_struc=False,
+                 verbose=True):
         self.verbose = verbose
         if self.verbose:
             print ("Initializing Project instance: %s (%s)"
                    % (name, time.ctime()))
         self.name = name
         self.direc_out = direc_out
+        self.tar_direc_out = tar_direc_out
         self.nc_dir_struc = nc_dir_struc
 
         if models:

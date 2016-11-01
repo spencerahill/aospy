@@ -1,6 +1,7 @@
 from aospy.var import Var
-import units
-import calcs
+
+from . import units
+from . import calcs
 
 
 p = Var(

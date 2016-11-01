@@ -8,6 +8,8 @@ matrix:
   include:
     - python: 2.7
       env: CONDA_ENV=py27
+    - python: 3.5
+      env: CONDA_ENV=py35
 
 before_install:
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then

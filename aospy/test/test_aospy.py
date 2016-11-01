@@ -127,13 +127,11 @@ class TestConstant(AospyConstantTestCase):
         self.assertEqual(self._val1 * self._val2, self.const1 * self._val2)
         self.assertEqual(self._val1 * self._val2, self._val1 * self.const2)
 
-    # TODO: Fix test and/or the code it is testing.
-    @unittest.expectedFailure
+    @unittest.skip('TODO: Fix test and/or the code it is testing')
     def test_divide_two_consts(self):
         self.assertEqual(self._val1 / self._val2, self.const1 / self.const2)
 
-    # TODO: Fix test and/or the code it is testing.
-    @unittest.expectedFailure
+    @unittest.skip('TODO: Fix test and/or the code it is testing')
     def test_divide_const_scalar(self):
         self.assertEqual(self._val1 / self._val2, self.const1 / self._val2)
         self.assertEqual(self._val1 / self._val2, self._val1 / self.const2)
