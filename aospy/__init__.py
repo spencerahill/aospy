@@ -1,4 +1,4 @@
-"""aospy: management, analysis, and plotting of gridded climate data."""
+"""aospy: management, and analysis of gridded climate data."""
 from .__config__ import (user_path, LAT_STR, LON_STR, PFULL_STR, PHALF_STR,
                          PLEVEL_STR, TIME_STR, TIME_STR_IDEALIZED, YEAR_STR)
 from . import constants
@@ -23,8 +23,6 @@ from . import proj
 from .proj import Proj
 from . import calc
 from .calc import CalcInterface, Calc
-from . import plotting
-from .plotting import Fig, Ax, Plot
 from . import find_obj
 from .find_obj import to_iterable, to_proj, to_model, to_run, to_var, to_region
 

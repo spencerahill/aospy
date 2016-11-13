@@ -1,6 +1,5 @@
 import os
 
-default_colormap = 'RdBu'
 user_path = os.path.join(os.getenv('HOME'), 'aospy_user', 'aospy_user')
 
 ETA_STR = 'sigma'
