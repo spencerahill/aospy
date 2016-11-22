@@ -1,4 +1,4 @@
-aospy package
+API Reference
 =============
 
 Submodules
@@ -48,14 +48,6 @@ aospy.operator module
 ---------------------
 
 .. automodule:: aospy.operator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-aospy.plotting module
----------------------
-
-.. automodule:: aospy.plotting
     :members:
     :undoc-members:
     :show-inheritance:
