@@ -14,9 +14,9 @@ example_run = Run(
     description=(
         'Control simulation of the idealized moist model'
     ),
-    data_in_direc=os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf'),
-    data_in_dir_struc='one_dir',
-    data_in_files={'monthly': {'condensation_rain': files,
+    data_direc=os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf'),
+    data_dir_struc='one_dir',
+    data_files={'monthly': {'condensation_rain': files,
                                'convection_rain': files}}
 )
 

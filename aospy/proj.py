@@ -1,7 +1,7 @@
 """proj.py: aospy.Proj class for organizing work in single project."""
 import time
 
-from .utils import dict_name_keys
+from . import utils
 
 
 class Proj(object):
@@ -19,17 +19,17 @@ class Proj(object):
         self.nc_dir_struc = nc_dir_struc
 
         if models:
-            self.models = dict_name_keys(models)
+            self.models = utils.io.dict_name_keys(models)
         else:
             self.models = {}
         if default_models == 'all':
             self.default_models = self.models
         elif default_models:
-            self.default_models = dict_name_keys(default_models)
+            self.default_models = utils.io.dict_name_keys(default_models)
         else:
             self.default_models = {}
         if regions:
-            self.regions = dict_name_keys(regions)
+            self.regions = utils.io.dict_name_keys(regions)
         else:
             self.regions = {}
 

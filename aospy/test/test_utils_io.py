@@ -3,7 +3,7 @@
 import sys
 import unittest
 
-import aospy.io as io
+import aospy.utils.io as io
 
 
 class AospyIOTestCase(unittest.TestCase):
@@ -20,7 +20,8 @@ class TestIO(AospyIOTestCase):
         # doesn't raise an exception if the command does not exist
         # on the system.
         io.dmget(['/home/Spencer.Clark/archive/imr_skc/control/'
-                 'gfdl.ncrc3-default-repro/1/history/00010101.atmos_month.nc'])
+                  'gfdl.ncrc3-default-repro/1/history/'
+                  '00010101.atmos_month.nc'])
 
 if __name__ == '__main__':
     sys.exit(unittest.main())

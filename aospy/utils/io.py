@@ -1,4 +1,5 @@
 """io.py: utility methods used internally by aospy for input/output, etc."""
+import imp
 import os
 import logging
 import string
@@ -6,8 +7,61 @@ import subprocess
 
 import numpy as np
 
+from ..__config__ import user_path
 
 logging.basicConfig(level=logging.INFO)
+
+
+def load_user_data(name):
+    """Load user data from aospy_path for given module name.
+
+    File must be located in the `aospy_path` directory and be the same name
+    as the desired aospy module subpackage, namely one of `regions`, `calcs`,
+    `variables`, and `projects`.
+    """
+    return imp.load_source(
+        name, '/'.join([user_path, name, '__init__.py']).replace('//', '/')
+    )
+
+
+def robust_bool(obj):
+    try:
+        return bool(obj)
+    except ValueError:
+        return obj.any()
+
+
+def get_parent_attr(obj, attr, strict=False):
+    """
+    Check if the object has the given attribute and it is non-empty.  If not,
+    check each parent object for the attribute and use the first one found.
+    """
+    attr_val = getattr(obj, attr, False)
+    if robust_bool(attr_val):
+        return attr_val
+
+    else:
+        for parent in ('parent', 'var', 'run', 'model', 'proj'):
+            parent_obj = getattr(obj, parent, False)
+            if parent_obj:
+                return get_parent_attr(parent_obj, attr, strict=strict)
+
+        if strict:
+            raise AttributeError('Attribute %s not found in parent of %s'
+                                 % (attr, obj))
+        else:
+            return None
+
+
+def dict_name_keys(objs):
+    """Create dict whose keys are the 'name' attr of the objects."""
+    assert isinstance(objs, (tuple, list, dict, set))
+    if isinstance(objs, (tuple, list, set)):
+        try:
+            return {obj.name: obj for obj in objs}
+        except AttributeError as e:
+            raise AttributeError(e)
+    return objs
 
 
 def to_dup_list(x, n, single_to_list=True):
@@ -32,7 +86,7 @@ def to_dup_list(x, n, single_to_list=True):
     return [x]*n
 
 
-def _var_label(var, level):
+def var_label(var, level):
     """
     Create label of variable name and potentially the desired level for aospy
     data I/O.
@@ -49,7 +103,7 @@ def _var_label(var, level):
         return var_name
 
 
-def _data_in_label(intvl_in, dtype_in_time, dtype_in_vert=False):
+def data_in_label(intvl_in, dtype_in_time, dtype_in_vert=False):
     """Create string label specifying the input data of a calculation."""
     intvl_lbl = intvl_in
     time_lbl = dtype_in_time
@@ -60,8 +114,8 @@ def _data_in_label(intvl_in, dtype_in_time, dtype_in_vert=False):
     return lbl
 
 
-def _data_out_label(time_intvl, dtype_time, dtype_vert=False):
-    intvl_lbl = _time_label(time_intvl, return_val=False)
+def data_out_label(time_intvl, dtype_time, dtype_vert=False):
+    intvl_lbl = time_label(time_intvl, return_val=False)
     time_lbl = dtype_time
     lbl = '.'.join([intvl_lbl, time_lbl]).replace('..', '.')
     vert_lbl = dtype_vert if dtype_vert else False
@@ -70,7 +124,7 @@ def _data_out_label(time_intvl, dtype_time, dtype_vert=False):
     return lbl
 
 
-def _ens_label(ens_mem):
+def ens_label(ens_mem):
     """Create label of the ensemble member for aospy data I/O."""
     if ens_mem in (None, False):
         return ''
@@ -80,7 +134,7 @@ def _ens_label(ens_mem):
         return 'mem' + str(ens_mem + 1)
 
 
-def _yr_label(yr_range):
+def yr_label(yr_range):
     """Create label of start and end years for aospy data I/O."""
     assert yr_range is not None, "yr_range is None"
     if yr_range[0] == yr_range[1]:
@@ -89,7 +143,7 @@ def _yr_label(yr_range):
         return '{:04d}-{:04d}'.format(*yr_range)
 
 
-def _znl_label(var):
+def znl_label(var):
     """Create label denoting zonal mean values for aospy data I/O."""
     try:
         if var.def_lon:
@@ -100,7 +154,7 @@ def _znl_label(var):
         return ''
 
 
-def _time_label(intvl, return_val=True):
+def time_label(intvl, return_val=True):
     """Create time interval label for aospy data I/O."""
     # Monthly labels are 2 digit integers: '01' for jan, '02' for feb, etc.
     if type(intvl) in [list, tuple, np.ndarray] and len(intvl) == 1:
@@ -176,7 +230,7 @@ def data_in_name_gfdl(name, domain, data_type, intvl_type, data_yr,
             # label, val = _intvl_indices_and_label(intvl, intvl_type)
             label = label.upper()
         elif intvl_type in ['monthly', 'mon']:
-            label, val = _time_label(intvl)
+            label, val = time_label(intvl)
         if data_in_dur == 1:
             filename = (domain + '.{:04d}'.format(data_in_yr) +
                         '.' + label + '.nc')

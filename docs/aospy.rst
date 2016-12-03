@@ -28,14 +28,6 @@ aospy.find_obj module
     :undoc-members:
     :show-inheritance:
 
-aospy.io module
----------------
-
-.. automodule:: aospy.io
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 aospy.model module
 ------------------
 
@@ -76,14 +68,6 @@ aospy.run module
     :undoc-members:
     :show-inheritance:
 
-aospy.timedate module
----------------------
-
-.. automodule:: aospy.timedate
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 aospy.units module
 ------------------
 
@@ -92,10 +76,26 @@ aospy.units module
     :undoc-members:
     :show-inheritance:
 
-aospy.utils module
-------------------
+aospy.utils.io module
+---------------------
 
-.. automodule:: aospy.utils
+.. automodule:: aospy.utils.io
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+aospy.utils.times module
+------------------------
+
+.. automodule:: aospy.utils.times
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+aospy.utils.vertcoord module
+----------------------------
+
+.. automodule:: aospy.utils.vertcoord
     :members:
     :undoc-members:
     :show-inheritance:

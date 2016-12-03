@@ -1,10 +1,9 @@
 #!/usr/bin/env python
-"""
-Basic test of the Calc module on 2D data.
-"""
-import unittest
-import shutil
+"""Basic test of the Calc module on 2D data."""
+import datetime
 from os.path import isfile
+import shutil
+import unittest
 
 from aospy.calc import Calc, CalcInterface
 from data.objects.examples import (
@@ -13,19 +12,25 @@ from data.objects.examples import (
 )
 
 
-class TestBasicCalc(unittest.TestCase):
+class TestCalcBasic(unittest.TestCase):
     def setUp(self):
-        self.two_d_test_params = {'proj': example_proj,
-                                  'model': example_model,
-                                  'run': example_run,
-                                  'var': condensation_rain,
-                                  'date_range': ('0004-01-01', '0006-12-31'),
-                                  'intvl_in': 'monthly',
-                                  'dtype_in_time': 'ts'}
+        self.two_d_test_params = {
+            'proj': example_proj,
+            'model': example_model,
+            'run': example_run,
+            'var': condensation_rain,
+            'date_range': (datetime.datetime(4, 1, 1),
+                           datetime.datetime(6, 12, 31)),
+            'intvl_in': 'monthly',
+            'dtype_in_time': 'ts'
+        }
 
     def tearDown(self):
-        shutil.rmtree(example_proj.direc_out)
-        shutil.rmtree(example_proj.tar_direc_out)
+        for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
+            try:
+                shutil.rmtree(direc)
+            except FileNotFoundError:
+                pass
 
     def test_annual_mean(self):
         calc_int = CalcInterface(intvl_out='ann',
@@ -112,15 +117,18 @@ class TestBasicCalc(unittest.TestCase):
         assert isfile(calc.path_tar_out)
 
 
-class TestCompositeCalc(TestBasicCalc):
+class TestCalcComposite(TestCalcBasic):
     def setUp(self):
-        self.two_d_test_params = {'proj': example_proj,
-                                  'model': example_model,
-                                  'run': example_run,
-                                  'var': precip,
-                                  'date_range': ('0004-01-01', '0006-12-31'),
-                                  'intvl_in': 'monthly',
-                                  'dtype_in_time': 'ts'}
+        self.two_d_test_params = {
+            'proj': example_proj,
+            'model': example_model,
+            'run': example_run,
+            'var': precip,
+            'date_range': (datetime.datetime(4, 1, 1),
+                           datetime.datetime(6, 12, 31)),
+            'intvl_in': 'monthly',
+            'dtype_in_time': 'ts'
+        }
 
 
 if __name__ == '__main__':

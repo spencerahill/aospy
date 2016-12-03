@@ -11,17 +11,18 @@ from .__config__ import (LAT_STR, LON_STR, PHALF_STR, PFULL_STR, PLEVEL_STR,
                          LAT_BOUNDS_STR, LON_BOUNDS_STR, TIME_BOUNDS_STR,
                          BOUNDS_STR)
 from .constants import r_e
-from .io import get_data_in_direc_repo
-from .utils import dict_name_keys, level_thickness, to_radians
+from .utils.times import datetime_or_default
+from . import utils
 
 
 class Model(object):
     """Parameters of local data associated with a single climate model."""
-    def __init__(self, name='', description='', proj=False,
-                 grid_file_paths=None, data_in_direc=False,
-                 data_in_dir_struc=False, data_in_dur=False,
-                 data_in_start_date=False, data_in_end_date=False,
-                 default_date_range=False, runs={}, default_runs={},
+    def __init__(self, name='', description='', proj=None,
+                 grid_file_paths=None, data_direc=None,
+                 data_dir_struc=None, data_dur=None,
+                 data_start_date=None, data_end_date=None,
+                 default_start_date=None, default_end_date=None,
+                 runs={}, default_runs={},
                  load_grid_data=False, repo_version=None,
                  repo_ens_mem='r1i1p1'):
         self.name = name
@@ -33,19 +34,21 @@ class Model(object):
         self.repo_version = repo_version
         self.repo_ens_mem = repo_ens_mem
 
-        self.data_in_direc = data_in_direc
-        self.data_in_dir_struc = data_in_dir_struc
-        self.data_in_dur = data_in_dur
-        # TODO: Accept dates as strings or time-related objects.
-        #       Currently only years as integers supported.
-        self.data_in_start_date = data_in_start_date
-        self.data_in_end_date = data_in_end_date
-        self.default_date_range = default_date_range
+        self.data_direc = data_direc
+        self.data_dir_struc = data_dir_struc
+        self.data_dur = data_dur
 
-        self.runs = dict_name_keys(runs)
+        self.data_start_date = datetime_or_default(data_start_date, None)
+        self.data_end_date = datetime_or_default(data_end_date, None)
+        self.default_start_date = datetime_or_default(default_start_date,
+                                                      self.data_start_date)
+        self.default_end_date = datetime_or_default(default_end_date,
+                                                    self.data_end_date)
+
+        self.runs = utils.io.dict_name_keys(runs)
         [setattr(run, 'parent', self) for run in self.runs.values()]
         if default_runs:
-            self.default_runs = dict_name_keys(default_runs)
+            self.default_runs = utils.io.dict_name_keys(default_runs)
         else:
             self.default_runs = {}
 
@@ -59,17 +62,17 @@ class Model(object):
 
     __repr__ = __str__
 
-    def find_data_in_direc_repo(self, run_name='amip', var_name='ta',
-                                direc_sub='mon/atmos/Amon', ens_mem=None):
+    def find_data_direc_repo(self, run_name='amip', var_name='ta',
+                             direc_sub='mon/atmos/Amon', ens_mem=None):
         """Find the netCDF files used to populate grid attrs for a GFDL repo"""
         if ens_mem is None:
             ens_mem = self.repo_ens_mem
-        direc = os.path.join(self.data_in_direc, run_name, direc_sub,
+        direc = os.path.join(self.data_direc, run_name, direc_sub,
                              ens_mem)
         if not os.path.isdir(direc):
-            direc = os.path.join(self.data_in_direc, run_name, direc_sub,
+            direc = os.path.join(self.data_direc, run_name, direc_sub,
                                  'r1i1p1')
-        direc_full = get_data_in_direc_repo(direc, var_name,
+        direc_full = utils.io.get_data_direc_repo(direc, var_name,
                                             version=self.repo_version)
         files = glob.glob(os.path.join(direc_full, var_name + '_*.nc'))
         # Some repos have all variables in the same directory.
@@ -93,19 +96,19 @@ class Model(object):
         grid = []
         for var in ('sftlf', 'areacella', 'orog'):
             try:
-                path = self.find_data_in_direc_repo(var_name=var,
+                path = self.find_data_direc_repo(var_name=var,
                                                     direc_sub=direc_sub,
                                                     ens_mem=ens_mem)
             except IOError as e:
                 logging.debug(str(repr(e)))
             else:
                 grid.append(path)
-        non_grid = [self.find_data_in_direc_repo()]
+        non_grid = [self.find_data_direc_repo()]
         return grid + non_grid
 
     def _get_grid_files(self):
         """Get the files holding grid data for an aospy object."""
-        if getattr(self.proj, 'name', False) == 'cmip5':
+        if getattr(self.proj, 'name', None) == 'cmip5':
             try:
                 grid_file_paths = self._get_grid_files_repo()
             except OSError:
@@ -122,7 +125,7 @@ class Model(object):
                 ds = xr.open_dataset(path, decode_times=False)
             except TypeError:
                 ds = xr.open_mfdataset(path, decode_times=False)
-            except RuntimeError as e:
+            except (RuntimeError, OSError) as e:
                 msg = str(e) + ': {}'.format(path)
                 raise RuntimeError(msg)
             datasets.append(ds)
@@ -263,8 +266,10 @@ class Model(object):
         if lat_bounds is None:
             lat_bounds = cls.bounds_from_array(lat, LAT_STR, LAT_BOUNDS_STR)
         # Compute the surface area.
-        dlon = cls.diff_bounds(to_radians(lon_bounds, is_delta=True), lon)
-        sinlat_bounds = np.sin(to_radians(lat_bounds, is_delta=True))
+        dlon = cls.diff_bounds(utils.vertcoord.to_radians(lon_bounds,
+                                                          is_delta=True), lon)
+        sinlat_bounds = np.sin(utils.vertcoord.to_radians(lat_bounds,
+                                                          is_delta=True))
         dsinlat = np.abs(cls.diff_bounds(sinlat_bounds, lat))
         sfc_area = dlon*dsinlat*(r_e**2)
         # Rename the coordinates such that they match the actual lat / lon.
@@ -292,7 +297,7 @@ class Model(object):
                 sfc_area = self.grid_sfc_area(self.lon, self.lat)
             self.sfc_area = sfc_area
         try:
-            self.levs_thick = level_thickness(self.level)
+            self.levs_thick = utils.vertcoord.level_thickness(self.level)
         except AttributeError:
             self.level = None
             self.levs_thick = None

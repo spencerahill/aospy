@@ -8,18 +8,14 @@ import tarfile
 from time import ctime
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from .__config__ import (LAT_STR, LON_STR, LAT_BOUNDS_STR, LON_BOUNDS_STR,
                          PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, YEAR_STR,
                          ETA_STR, BOUNDS_STR)
 from .constants import Constant, grav
-from .io import (_data_in_label, _data_out_label, _ens_label, _yr_label, dmget,
-                 data_in_name_gfdl)
-from .timedate import TimeManager, _get_time
-from .utils import (get_parent_attr, apply_time_offset, monthly_mean_ts,
-                    monthly_mean_at_each_ind, pfull_from_ps,
-                    to_pfull_from_phalf, dp_from_ps, dp_from_p, int_dp_g)
+from . import utils
 from .var import Var
 
 
@@ -51,19 +47,22 @@ ps = Var(
 
 class CalcInterface(object):
     """Interface to Calc class."""
-    def _set_data_in_attrs(self):
-        for attr in ('data_in_start_date',
-                     'data_in_end_date',
-                     'default_date_range',
-                     'data_in_dur',
-                     'data_in_direc',
-                     'data_in_files',
-                     'data_in_dir_struc',
+    def _set_data_attrs(self):
+        for attr in ('data_start_date',
+                     'data_end_date',
+                     'default_start_date',
+                     'default_end_date'
+                     'data_dur',
+                     'data_direc',
+                     'data_files',
+                     'data_dir_struc',
                      'ens_mem_prefix',
                      'ens_mem_ext',
                      'idealized'):
-            attr_val = tuple([get_parent_attr(rn, attr, strict=False)
-                              for rn in self.run])
+            attr_val = tuple([
+                utils.io.get_parent_attr(rn, attr, strict=False)
+                for rn in self.run
+            ])
             setattr(self, attr, attr_val)
 
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
@@ -96,7 +95,7 @@ class CalcInterface(object):
         self.model = model
         self.run = run
 
-        self._set_data_in_attrs()
+        self._set_data_attrs()
 
         self.proj_str = '_'.join(set([p.name for p in self.proj]))
         self.model_str = '_'.join(set([m.name for m in self.model]))
@@ -134,19 +133,24 @@ class CalcInterface(object):
         self.dtype_out_vert = dtype_out_vert
         self.region = region
 
-        self.months = TimeManager.month_indices(intvl_out)
-        if date_range in (None, 'default'):
-            # TODO: account for different defaults ranges when there are
-            #       multiple input runs
-            self.start_date, self.end_date = self.default_date_range[0]
+        self.months = utils.times.month_indices(intvl_out)
+        if date_range == 'default':
+            self.start_date = utils.times.ensure_datetime(
+                self.run[0].default_start_date)
+            self.end_date = utils.times.ensure_datetime(
+                self.run[0].default_end_date)
         else:
-            self.start_date = TimeManager.str_to_datetime(date_range[0])
-            self.end_date = TimeManager.str_to_datetime(date_range[-1])
-        tm = TimeManager(self.start_date, self.end_date, intvl_out)
-        self.date_range = tm.create_time_array()
-
-        self.start_date_xarray = tm.apply_year_offset(self.start_date)
-        self.end_date_xarray = tm.apply_year_offset(self.end_date)
+            self.start_date = utils.times.ensure_datetime(date_range[0])
+            self.end_date = utils.times.ensure_datetime(date_range[-1])
+        self.date_range = utils.times.create_monthly_time_array(
+            self.start_date, self.end_date, self.intvl_out
+        )
+        # Workaround for limited date range support due to nanosecond
+        # precison.  See https://github.com/spencerahill/aospy/issues/98
+        self.start_date_xarray = utils.times.numpy_datetime_range_workaround(
+            self.start_date)
+        self.end_date_xarray = (self.start_date_xarray +
+                                (self.end_date - self.start_date))
 
 
 class Calc(object):
@@ -179,27 +183,26 @@ class Calc(object):
 
     def _dir_out(self):
         """Create string of the data directory to save individual .nc files."""
-        ens_label = _ens_label(self.ens_mem)
+        ens_label = utils.io.ens_label(self.ens_mem)
         return os.path.join(self.proj[0].direc_out, self.proj_str,
                             self.model_str, self.run_str, ens_label,
                             self.name)
 
     def _dir_tar_out(self):
         """Create string of the data directory to store a tar file."""
-        ens_label = _ens_label(self.ens_mem)
+        ens_label = utils.io.ens_label(self.ens_mem)
         return os.path.join(self.proj[0].tar_direc_out,
                             self.proj_str, 'data', self.model_str,
                             self.run_str, ens_label)
 
     def _file_name(self, dtype_out_time, extension='nc'):
         """Create the name of the aospy file."""
-        out_lbl = _data_out_label(self.intvl_out, dtype_out_time,
-                                  dtype_vert=self.dtype_out_vert)
-        in_lbl = _data_in_label(self.intvl_in, self.dtype_in_time,
-                                self.dtype_in_vert)
-        ens_lbl = _ens_label(self.ens_mem)
-        yr_lbl = _yr_label((self.start_date.year,
-                            self.end_date.year))
+        out_lbl = utils.io.data_out_label(self.intvl_out, dtype_out_time,
+                                          dtype_vert=self.dtype_out_vert)
+        in_lbl = utils.io.data_in_label(self.intvl_in, self.dtype_in_time,
+                                        self.dtype_in_vert)
+        ens_lbl = utils.io.ens_label(self.ens_mem)
+        yr_lbl = utils.io.yr_label((self.start_date.year, self.end_date.year))
         return '.'.join(
             [self.name, out_lbl, in_lbl, self.model_str, self.run_str,
              ens_lbl, yr_lbl, extension]
@@ -228,7 +231,7 @@ class Calc(object):
         [mod.set_grid_data() for mod in self.model]
 
         if isinstance(calc_interface.ens_mem, int):
-            self.data_in_direc = self.data_in_direc[calc_interface.ens_mem]
+            self.data_direc = self.data_direc[calc_interface.ens_mem]
 
         self.dt_set = False
 
@@ -241,27 +244,27 @@ class Calc(object):
 
         self.data_out = {}
 
-    def _data_in_files_one_dir(self, name, n=0):
+    def _data_files_one_dir(self, name, n=0):
         """Get the file names of the files in a single directory"""
-        if self.intvl_in in self.data_in_files[n]:
-            if isinstance(self.data_in_files[n][self.intvl_in][name], str):
-                data_in_files = [self.data_in_files[n][self.intvl_in][name]]
+        if self.intvl_in in self.data_files[n]:
+            if isinstance(self.data_files[n][self.intvl_in][name], str):
+                data_files = [self.data_files[n][self.intvl_in][name]]
             else:
-                data_in_files = self.data_in_files[n][self.intvl_in][name]
+                data_files = self.data_files[n][self.intvl_in][name]
         else:
-            if isinstance(self.data_in_files[n][name], str):
-                data_in_files = [self.data_in_files[n][name]]
+            if isinstance(self.data_files[n][name], str):
+                data_files = [self.data_files[n][name]]
             else:
-                data_in_files = self.data_in_files[n][name]
-        return data_in_files
+                data_files = self.data_files[n][name]
+        return data_files
 
-    def _get_input_data_paths_one_dir(self, name, data_in_direc, n=0):
+    def _get_input_data_paths_one_dir(self, name, data_direc, n=0):
         """Get the names of netCDF files when all in same directory."""
-        data_in_files = self._data_in_files_one_dir(name, n)
-        # data_in_files may hold absolute or relative paths
+        data_files = self._data_files_one_dir(name, n)
+        # data_files may hold absolute or relative paths
         paths = []
-        for nc in data_in_files:
-            full = os.path.join(data_in_direc, nc)
+        for nc in data_files:
+            full = os.path.join(data_direc, nc)
             if os.path.isfile(nc):
                 paths.append(nc)
             elif os.path.isfile(full):
@@ -275,11 +278,11 @@ class Calc(object):
 
     def _get_input_data_paths_gfdl_repo(self, name, n=0):
         """Get the names of netCDF files from a GFDL repo on /archive."""
-        return self.model[n].find_data_in_direc_repo(
+        return self.model[n].find_data_direc_repo(
             run_name=self.run[n].name, var_name=name
         )
 
-    def _get_input_data_paths_gfdl_dir_struct(self, name, data_in_direc,
+    def _get_input_data_paths_gfdl_dir_struct(self, name, data_direc,
                                               start_year, end_year, n=0):
         """Get paths to netCDF files save in GFDL standard output format."""
         domain = self.domain
@@ -296,28 +299,28 @@ class Calc(object):
             dtype_lbl = dtype
         else:
             dtype = self.dtype_in_time
-        dur_str = str(self.data_in_dur[n]) + 'yr'
+        dur_str = str(self.data_dur[n]) + 'yr'
         if self.dtype_in_time == 'av':
             subdir = self.intvl_in + '_' + dur_str
         else:
             subdir = os.path.join(self.intvl_in, dur_str)
-        direc = os.path.join(data_in_direc, domain, dtype_lbl, subdir)
-        files = [os.path.join(direc, data_in_name_gfdl(
+        direc = os.path.join(data_direc, domain, dtype_lbl, subdir)
+        files = [os.path.join(direc, utils.io.data_name_gfdl(
                  name, domain, dtype, self.intvl_in, year, self.intvl_out,
-                 self.data_in_start_date[n].year, self.data_in_dur[n]
+                 self.data_start_date[n].year, self.data_dur[n]
                  )) for year in range(start_year, end_year + 1)]
         # Remove duplicate entries.
         files = list(set(files))
         files.sort()
         return files
 
-    def _get_data_in_direc(self, n):
-        if isinstance(self.data_in_direc, str):
-            return self.data_in_direc
-        if isinstance(self.data_in_direc, (list, tuple)):
-            return self.data_in_direc[n]
-        raise IOError("data_in_direc must be string, list, or tuple: "
-                      "{}".format(self.data_in_direc))
+    def _get_data_direc(self, n):
+        if isinstance(self.data_direc, str):
+            return self.data_direc
+        if isinstance(self.data_direc, (list, tuple)):
+            return self.data_direc[n]
+        raise IOError("data_direc must be string, list, or tuple: "
+                      "{}".format(self.data_direc))
 
     def _get_input_data_paths(self, var, start_date=False,
                               end_date=False, n=0):
@@ -326,29 +329,29 @@ class Calc(object):
         Files chosen depend on the specified variables and time interval and
         the attributes of the netCDF files.
         """
-        data_in_direc = self._get_data_in_direc(n)
+        data_direc = self._get_data_direc(n)
         # Cycle through possible names until the data is found.
         for name in var.names:
-            if self.data_in_dir_struc[n] == 'one_dir':
+            if self.data_dir_struc[n] == 'one_dir':
                 try:
                     files = self._get_input_data_paths_one_dir(
-                        name, data_in_direc, n=n
+                        name, data_direc, n=n
                     )
                 except KeyError as e:
                     logging.debug(str(repr(e)))
                 else:
                     break
-            elif self.data_in_dir_struc[n].lower() == 'gfdl':
+            elif self.data_dir_struc[n].lower() == 'gfdl':
                 try:
                     files = self._get_input_data_paths_gfdl_dir_struct(
-                        name, data_in_direc, start_date.year,
+                        name, data_direc, start_date.year,
                         end_date.year, n=n
                     )
                 except:
                     raise
                 else:
                     break
-            elif self.data_in_dir_struc[n].lower() == 'gfdl_repo':
+            elif self.data_dir_struc[n].lower() == 'gfdl_repo':
                 try:
                     files = self._get_input_data_paths_gfdl_repo(name, n=n)
                 except IOError as e:
@@ -357,20 +360,22 @@ class Calc(object):
                     break
             else:
                 raise ValueError("Specified directory type not supported"
-                                 ": {}".format(self.data_in_dir_struc[n]))
+                                 ": {}".format(self.data_dir_struc[n]))
         else:
             msg = ("netCDF files for calc object `{0}`, variable `{1}`, year "
                    "range {2}-{3}, in directory {4}, not found")
             raise IOError(msg.format(self, var, start_date, end_date,
-                                     data_in_direc))
+                                     data_direc))
         paths = list(set(files))
         paths.sort()
         return paths
 
     def _to_desired_dates(self, arr):
         """Restrict the xarray DataArray or Dataset to the desired months."""
-        times = _get_time(arr[TIME_STR], self.start_date_xarray,
-                          self.end_date_xarray, self.months, indices=False)
+        times = utils.times.extract_date_range_and_months(
+            arr[TIME_STR], self.start_date_xarray, self.end_date_xarray,
+            self.months
+        )
         return arr.sel(time=times)
 
     def _add_grid_attributes(self, ds, n=0):
@@ -442,16 +447,18 @@ class Calc(object):
     def _create_input_data_obj(self, var, start_date=False,
                                end_date=False, n=0, set_dt=False,
                                set_pfull=False):
-        """Create xarray.DataArray for the Var from files on disk."""
+        """Create xarray.DataArray for the Var from files on disk.
+
+        """
         try:
             paths = self._get_input_data_paths(var, start_date, end_date, n)
         except IOError as e:
             raise IOError(e)
-        # 2015-10-15 S. Hill: This `dmget` call, which is unique to the
-        # filesystem at the NOAA GFDL computing cluster, should be factored out
-        # of this function.  A config setting or some other user input should
-        # specify what method to call to access the files on the filesystem.
-        dmget(paths)
+        # TODO: This `dmget` call, which is unique to the filesystem at the
+        # NOAA GFDL computing cluster, should be factored out of this function.
+        # A config setting or some other user input should specify what method
+        # to call to access the files on the filesystem.
+        utils.io.dmget(paths)
         ds_chunks = []
         vars_to_drop = ['time_bounds', 'nv', 'bnds',
                         'average_T1', 'average_T2']
@@ -459,11 +466,16 @@ class Calc(object):
             test = xr.open_dataset(file_, decode_cf=False,
                                    drop_variables=vars_to_drop)
             # Workaround for years < 1678 causing overflows.
-            if start_date.year < 1678:
-                for v in [TIME_STR]:
-                    freq = test[v].attrs['units'].split('since')[0]
-                    test[v].attrs['units'] = (freq + 'since 1900-01-01 '
-                                              '00:00:00')
+            if start_date < pd.Timestamp.min:
+                freq = test[TIME_STR].attrs['units'].split('since')[0]
+                # We coerce the data to start at pd.Timestamp.min.year + 1.  By
+                # subtracting from this one less than the original start year
+                # when we define the units, the CF decoding step results in an
+                # array that starts in the year pd.Timestamp.min.year + 1.
+                start_yr = pd.Timestamp.min.year + 2 - self.start_date.year
+                units_str = '{0}since {1}-01-01 00:00:00'.format(freq,
+                                                                 start_yr)
+                test[TIME_STR].attrs['units'] = units_str
                 test[TIME_STR].attrs['calendar'] = 'noleap'
             # 'climatology_bounds' causes the ValueError b/c 'bnds' removed.
             if self.dtype_in_time == 'av':
@@ -507,7 +519,7 @@ class Calc(object):
         if name == 'p':
             return pressure
         if name == 'dp':
-            return dp_from_p(pressure, ps)
+            return utils.vertcoord.dp_from_p(pressure, ps)
         raise ValueError("name must be 'p' or 'dp':"
                          "'{}'".format(name))
 
@@ -517,9 +529,9 @@ class Calc(object):
         pk = self.model[n].pk
         pfull_coord = self.model[n].pfull
         if name == 'p':
-            return pfull_from_ps(bk, pk, ps, pfull_coord)
+            return utils.vertcoord.pfull_from_ps(bk, pk, ps, pfull_coord)
         if name == 'dp':
-            return dp_from_ps(bk, pk, ps, pfull_coord)
+            return utils.vertcoord.dp_from_ps(bk, pk, ps, pfull_coord)
         raise ValueError("name must be 'p' or 'dp':"
                          "'{}'".format(name))
 
@@ -544,7 +556,7 @@ class Calc(object):
             offset = -1*int(self.intvl_in[0])
         else:
             offset = 0
-        time = apply_time_offset(arr[TIME_STR], hours=offset)
+        time = utils.times.apply_time_offset(arr[TIME_STR], hours=offset)
         arr[TIME_STR] = time
         return arr
 
@@ -582,7 +594,8 @@ class Calc(object):
                                                set_pfull=cond_pfull)
             # Force all data to be at full pressure levels, not half levels.
             if self.dtype_in_vert == ETA_STR and var.def_vert == 'phalf':
-                data = to_pfull_from_phalf(data, self.pfull_coord)
+                data = utils.vertcoord.to_pfull_from_phalf(data,
+                                                           self.pfull_coord)
         # Correct GFDL instantaneous data time indexing problem.
         if var.def_time:
             if self.dtype_in_time == 'inst':
@@ -590,7 +603,8 @@ class Calc(object):
             # Restrict to the desired dates within each year.
             if self.dtype_in_time != 'av':
                 return self._to_desired_dates(data)
-        return data
+        else:
+            return data
 
     def _prep_data(self, data, func_input_dtype):
         """Convert data to type needed by the given function.
@@ -622,25 +636,25 @@ class Calc(object):
                                 self.var.func_input_dtype)
                 for n, var in enumerate(self.variables)]
 
-    def _local_ts(self, *data_in):
+    def _local_ts(self, *data):
         """Perform the computation at each gridpoint and time index."""
-        arr = self.function(*data_in)
+        arr = self.function(*data)
         if self.var.func_input_dtype == 'numpy':
             arr = xr.DataArray(arr, coords=self.coords)
         arr.name = self.name
         return arr
 
-    def _compute(self, data_in, monthly_mean=False):
+    def _compute(self, data, monthly_mean=False):
         """Perform the calculation."""
         if monthly_mean:
             data_monthly = []
-            for d in data_in:
+            for d in data:
                 try:
-                    data_monthly.append(monthly_mean_ts(d))
+                    data_monthly.append(utils.times.monthly_mean_ts(d))
                 except KeyError:
                     data_monthly.append(d)
-            data_in = data_monthly
-        local_ts = self._local_ts(*data_in)
+            data = data_monthly
+        local_ts = self._local_ts(*data)
         if self.dtype_in_time == 'inst':
             dt = xr.DataArray(np.ones_like(local_ts[TIME_STR]),
                               dims=[TIME_STR], coords=[local_ts[TIME_STR]])
@@ -657,18 +671,19 @@ class Calc(object):
                                   dims=[TIME_STR], coords=[local_ts[TIME_STR]])
                 self.dt = dt
         if monthly_mean:
-            dt = monthly_mean_ts(dt)
+            dt = utils.times.monthly_mean_ts(dt)
         return local_ts, dt
 
+    # TODO: Move to utils.vertcoord
     def _vert_int(self, arr, dp):
         """Vertical integral"""
-        return int_dp_g(arr, dp)
+        return utils.vertcoord.int_dp_g(arr, dp)
 
-    def _compute_full_ts(self, data_in, monthly_mean=False, zonal_asym=False):
+    def _compute_full_ts(self, data, monthly_mean=False, zonal_asym=False):
         """Perform calculation and create yearly timeseries at each point."""
         # Get results at each desired timestep and spatial point.
         # Here we need to provide file read-in dates (NOT xarray dates)
-        full_ts, dt = self._compute(data_in, monthly_mean=monthly_mean)
+        full_ts, dt = self._compute(data, monthly_mean=monthly_mean)
         if zonal_asym:
             full_ts = full_ts - full_ts.mean(LON_STR)
         # Vertically integrate.
@@ -684,8 +699,9 @@ class Calc(object):
 
     def _avg_by_year(self, arr, dt):
         """Average a sub-yearly time-series over each year."""
-        return ((arr*dt).groupby('time.year').sum(TIME_STR) /
-                dt.groupby('time.year').sum(TIME_STR))
+        yr_str = TIME_STR + '.year'
+        return ((arr*dt).groupby(yr_str).sum(TIME_STR) /
+                dt.groupby(yr_str).sum(TIME_STR))
 
     def _full_to_yearly_ts(self, arr, dt):
         """Average the full timeseries within each year."""
@@ -764,23 +780,23 @@ class Calc(object):
                 reduced.update({reduc: self._time_reduce(data, func)})
         return OrderedDict(sorted(reduced.items(), key=lambda t: t[0]))
 
-    def _make_full_mean_eddy_ts(self, data_in):
+    def _make_full_mean_eddy_ts(self, data):
         """Create full, monthly-mean, and eddy timeseries of data."""
         bool_monthly = (['monthly_from' in self.dtype_in_time] +
                         ['time-mean' in dout for dout in self.dtype_out_time])
         bool_eddy = ['eddy' in dout for dout in self.dtype_out_time]
         if not all(bool_monthly):
-            full, full_dt = self._compute_full_ts(data_in,
+            full, full_dt = self._compute_full_ts(data,
                                                   monthly_mean=False)
         else:
             full = False
         if any(bool_eddy) or any(bool_monthly):
-            monthly, monthly_dt = self._compute_full_ts(data_in,
+            monthly, monthly_dt = self._compute_full_ts(data,
                                                         monthly_mean=True)
         else:
             monthly = False
         if any(bool_eddy):
-            eddy = full - monthly_mean_at_each_ind(monthly, full)
+            eddy = full - utils.times.monthly_mean_at_each_ind(monthly, full)
         else:
             eddy = False
 
@@ -795,12 +811,12 @@ class Calc(object):
 
     def compute(self, save_files=True, save_tar_files=True):
         """Perform all desired calculations on the data and save externally."""
-        data_in = self._prep_data(self._get_all_data(self.start_date,
-                                                     self.end_date),
-                                  self.var.func_input_dtype)
+        data = self._prep_data(self._get_all_data(self.start_date,
+                                                  self.end_date),
+                               self.var.func_input_dtype)
         logging.info('Computing timeseries for {0} -- '
                      '{1}.'.format(self.start_date, self.end_date))
-        full, monthly, eddy = self._make_full_mean_eddy_ts(data_in)
+        full, monthly, eddy = self._make_full_mean_eddy_ts(data)
         reduced = self._apply_all_time_reductions(full, monthly, eddy)
         logging.info("Writing desired gridded outputs to disk.")
         for dtype_time, data in reduced.items():
@@ -834,7 +850,7 @@ class Calc(object):
         # tarfile 'append' mode won't overwrite the old file, which we want.
         # So open in 'read' mode, extract the file, and then delete it.
         # But 'read' mode throws OSError if file doesn't exist: make it first.
-        dmget([self.path_tar_out])
+        utils.io.dmget([self.path_tar_out])
         with tarfile.open(self.path_tar_out, 'a') as tar:
             pass
         with tarfile.open(self.path_tar_out, 'r') as tar:
@@ -898,7 +914,7 @@ class Calc(object):
     def _load_from_tar(self, dtype_out_time, dtype_out_vert=False):
         """Load data save in tarball form on the file system."""
         path = os.path.join(self.dir_tar_out, 'data.tar')
-        dmget([path])
+        utils.io.dmget([path])
         with tarfile.open(path, 'r') as data_tar:
             ds = xr.open_dataset(
                 data_tar.extractfile(self.file_name[dtype_out_time]),

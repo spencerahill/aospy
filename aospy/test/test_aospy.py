@@ -33,18 +33,6 @@ class TestModel(AospyModelTestCase):
     pass
 
 
-class AospyRunTestCase(unittest.TestCase):
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
-
-class TestExp(AospyRunTestCase):
-    pass
-
-
 class AospyVarTestCase(unittest.TestCase):
     def setUp(self):
         pass
@@ -143,17 +131,6 @@ class TestConstant(AospyConstantTestCase):
         self.assertEqual(self._val1**self._val2, self.const1**self._val2)
         self.assertEqual(self._val1**self._val2, self._val1**self.const2)
 
-
-class AospyFiniteDiffTestCase(unittest.TestCase):
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
-
-class TestFiniteDiff(AospyFiniteDiffTestCase):
-    pass
 
 if __name__ == '__main__':
     sys.exit(unittest.main())

@@ -4,9 +4,6 @@ from .__config__ import (user_path, LAT_STR, LON_STR, PFULL_STR, PHALF_STR,
 from . import constants
 from .constants import Constant
 from . import utils
-from . import io
-from . import timedate
-from .timedate import TimeManager
 from . import units
 from .units import Units
 from . import operator
@@ -27,5 +24,4 @@ from . import find_obj
 from .find_obj import to_iterable, to_proj, to_model, to_run, to_var, to_region
 
 __all__ = ['Proj', 'Model', 'Run', 'Var', 'Units', 'Constant', 'Region',
-           'Fig', 'Ax', 'Plot', 'units', 'calc', 'constants', 'utils', 'io',
-           'plotting']
+           'units', 'calc', 'constants', 'utils']

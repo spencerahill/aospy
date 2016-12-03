@@ -2,7 +2,7 @@
 from collections import Sequence
 
 from . import Proj, Model, Run, Var, Region, Operator
-from .io import to_dup_list
+from . import utils
 
 
 def to_iterable(obj):
@@ -57,7 +57,7 @@ def to_model(model, proj, projs_module):
 
     elif isinstance(model, Sequence):
         model = [to_model(mod, pr, projs_module) for (mod, pr)
-                 in zip(model, to_dup_list(proj, len(model)))]
+                 in zip(model, utils.io.to_dup_list(proj, len(model)))]
         if orig_type is tuple:
             model = tuple(model)
         return model
@@ -100,8 +100,8 @@ def to_run(run, model, proj, projs_module):
 
     elif isinstance(run, Sequence):
         run = [to_run(rn, mod, pr, projs_module) for (rn, mod, pr)
-               in zip(run, to_dup_list(model, len(run)),
-                      to_dup_list(proj, len(run)))]
+               in zip(run, utils.io.to_dup_list(model, len(run)),
+                      utils.io.to_dup_list(proj, len(run)))]
         if orig_type is tuple:
             run = tuple(run)
         return run
