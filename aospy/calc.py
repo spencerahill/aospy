@@ -51,7 +51,7 @@ class CalcInterface(object):
         for attr in ('data_start_date',
                      'data_end_date',
                      'default_start_date',
-                     'default_end_date'
+                     'default_end_date',
                      'data_dur',
                      'data_direc',
                      'data_files',
@@ -886,7 +886,7 @@ class Calc(object):
         self._update_data_out(data, dtype_out_time)
         if save_files:
             self._save_files(data, dtype_out_time)
-        if save_tar_files:
+        if save_tar_files and self.proj[0].tar_direc_out:
             self._save_tar_files(dtype_out_time)
         logging.info('\t{}'.format(self.path_out[dtype_out_time]))
 
