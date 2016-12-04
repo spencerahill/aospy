@@ -191,7 +191,7 @@ def time_label(intvl, return_val=True):
         return label
 
 
-def data_in_name_gfdl(name, domain, data_type, intvl_type, data_yr,
+def data_name_gfdl(name, domain, data_type, intvl_type, data_yr,
                       intvl, data_in_start_yr, data_in_dur):
     """Determine the filename of GFDL model data output."""
     # Determine starting year of netCDF file to be accessed.
@@ -269,12 +269,12 @@ def hsmget_nc(files_list):
     return retcode
 
 
-def get_data_in_direc_repo(data_in_direc, var_name, version=-1):
+def get_data_direc_repo(data_direc, var_name, version=-1):
     """Determine the directory containing the needed netCDF files."""
     # Catch if version was specified as False or None.
     if version is None:
         version = -1
-    dir_prefix = os.path.realpath(data_in_direc)
+    dir_prefix = os.path.realpath(data_direc)
     dirs_after = [os.path.join(dir_prefix, name)
                   for name in os.listdir(dir_prefix) if
                   (os.path.isdir(os.path.join(dir_prefix, name)) and
