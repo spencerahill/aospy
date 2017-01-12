@@ -168,6 +168,38 @@ def numpy_datetime_range_workaround(date):
     return date
 
 
+def numpy_datetime_workaround_encode_cf(ds):
+    """Generate CF-compliant units for out-of-range dates.
+
+    Hack to address np.datetime64, and therefore pandas and xarray, not
+    supporting dates outside the range 1677-09-21 and 2262-04-11 due to
+    nanosecond precision.  See e.g.
+    https://github.com/spencerahill/aospy/issues/96.
+
+    Specifically, we coerce the data such that, when decoded, the earliest
+    value starts in 1678 but with its month, day, and shorter timescales
+    (hours, minutes, seconds, etc.) intact and with the time-spacing between
+    values intact.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+
+    Returns
+    -------
+    xarray.Dataset
+
+    """
+    time = ds[TIME_STR]
+    units = time.attrs['units']
+    units_yr = units.split(' since ')[1].split('-')[0]
+    min_yr = xr.decode_cf(time.to_dataset('dummy'))['time'].values[0].year
+    new_units_yr = pd.Timestamp.min.year + 2 - min_yr
+    new_units = units.replace(units_yr, str(new_units_yr))
+    time.attrs['units'] = new_units
+    return ds
+
+
 def month_indices(months):
     """Convert string labels for months to integer indices.
 

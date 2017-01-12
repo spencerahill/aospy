@@ -450,42 +450,15 @@ class Calc(object):
         """Create xarray.DataArray for the Var from files on disk.
 
         """
-        try:
-            paths = self._get_input_data_paths(var, start_date, end_date, n)
-        except IOError as e:
-            raise IOError(e)
-        # TODO: This `dmget` call, which is unique to the filesystem at the
-        # NOAA GFDL computing cluster, should be factored out of this function.
-        # A config setting or some other user input should specify what method
-        # to call to access the files on the filesystem.
+        paths = self._get_input_data_paths(var, start_date, end_date, n)
+        # TODO: refactor `dmget` to more general pre-processing step that
+        #       user can specify in main or via a config.
         utils.io.dmget(paths)
-        ds_chunks = []
-        vars_to_drop = ['time_bounds', 'nv', 'bnds',
-                        'average_T1', 'average_T2']
-        for file_ in paths:
-            test = xr.open_dataset(file_, decode_cf=False,
-                                   drop_variables=vars_to_drop)
-            # Workaround for years < 1678 causing overflows.
-            if start_date < pd.Timestamp.min:
-                freq = test[TIME_STR].attrs['units'].split('since')[0]
-                # We coerce the data to start at pd.Timestamp.min.year + 1.  By
-                # subtracting from this one less than the original start year
-                # when we define the units, the CF decoding step results in an
-                # array that starts in the year pd.Timestamp.min.year + 1.
-                start_yr = pd.Timestamp.min.year + 2 - self.start_date.year
-                units_str = '{0}since {1}-01-01 00:00:00'.format(freq,
-                                                                 start_yr)
-                test[TIME_STR].attrs['units'] = units_str
-                test[TIME_STR].attrs['calendar'] = 'noleap'
-            # 'climatology_bounds' causes the ValueError b/c 'bnds' removed.
-            if self.dtype_in_time == 'av':
-                try:
-                    test = test.drop('climatology_bounds')
-                except ValueError:
-                    pass
-            test = xr.decode_cf(test)
-            ds_chunks.append(test)
-        ds = xr.concat(ds_chunks, dim=TIME_STR, data_vars='minimal')
+        ds = xr.open_mfdataset(paths, decode_cf=False)
+        # Workaround for years < 1678 causing overflows.
+        if start_date < pd.Timestamp.min:
+            ds = utils.times.numpy_datetime_workaround_encode_cf(ds)
+        ds = xr.decode_cf(ds, decode_times=True)
         ds = self._add_grid_attributes(ds, n)
         for name in var.names:
             try:
@@ -508,7 +481,7 @@ class Calc(object):
                 self.pfull_coord = ds[PFULL_STR]
             except KeyError:
                 pass
-        return arr
+        return arr.load()
 
     def _get_pressure_from_p_coords(self, ps, name='p', n=0):
         """Get pressure or pressure thickness array for data on p-coords."""

@@ -15,6 +15,7 @@ from aospy.utils.times import (
     ensure_datetime,
     datetime_or_default,
     numpy_datetime_range_workaround,
+    numpy_datetime_workaround_encode_cf,
     month_indices,
     _month_conditional,
     create_monthly_time_array,
@@ -124,6 +125,26 @@ class TestUtilsTimes(UtilsTimesTestCase):
             datetime.datetime(pd.Timestamp.min.year + 1, 1, 1)
         )
 
+    def test_numpy_datetime_workaround_encode_cf(self):
+        # 255169 days from 0001-01-01 corresponds to date 700-02-04.
+        days = 255169.
+        time = xr.DataArray([days], dims=[TIME_STR])
+        ds = xr.Dataset(coords={TIME_STR: time})
+        ds[TIME_STR].attrs['units'] = 'days since 0001-01-01 00:00:00'
+        ds[TIME_STR].attrs['calendar'] = 'noleap'
+        actual = numpy_datetime_workaround_encode_cf(ds)
+
+        time_desired = xr.DataArray([days], dims=[TIME_STR])
+        desired = xr.Dataset(coords={TIME_STR: time_desired})
+        desired[TIME_STR].attrs['units'] = (
+            'days since {0}-01-01 00:00:00'.format(979)
+        )
+        desired[TIME_STR].attrs['calendar'] = 'noleap'
+
+        assert actual.identical(desired)
+        self.assertEqual(xr.decode_cf(actual).time.values[0],
+                         np.datetime64('1678-02-04'))
+
     def test_month_indices(self):
         np.testing.assert_array_equal(month_indices('ann'), range(1, 13))
         np.testing.assert_array_equal(month_indices('jja'),
@@ -194,6 +215,17 @@ class TestUtilsTimes(UtilsTimesTestCase):
             xr.DataArray(pd.date_range(start='2002-03-01', end='2002-05-31',
                                        freq='1D'), dims=[TIME_STR])
             ], dim=TIME_STR)
+        actual = extract_date_range_and_months(time, start_date, end_date,
+                                               months)
+        assert actual.identical(desired)
+
+    def test_extract_date_range_and_months_single_month(self):
+        time = xr.DataArray(pd.date_range(start='1678-01-01', end='1678-01-31',
+                                          freq='1M'), dims=[TIME_STR])
+        start_date = datetime.datetime(1678, 1, 1)
+        end_date = datetime.datetime(1678, 1, 31)
+        months = 1
+        desired = time
         actual = extract_date_range_and_months(time, start_date, end_date,
                                                months)
         assert actual.identical(desired)
