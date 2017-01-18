@@ -20,6 +20,14 @@ aospy.constants module
     :undoc-members:
     :show-inheritance:
 
+aospy.data_loader module
+------------------------
+
+.. automodule:: aospy.data_loader
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 aospy.find_obj module
 ---------------------
 

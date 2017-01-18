@@ -8,13 +8,10 @@ import tarfile
 from time import ctime
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 
-from .__config__ import (LAT_STR, LON_STR, LAT_BOUNDS_STR, LON_BOUNDS_STR,
-                         PHALF_STR, PFULL_STR, PLEVEL_STR, TIME_STR, YEAR_STR,
-                         ETA_STR, BOUNDS_STR)
 from .constants import Constant, grav
+from . import internal_names
 from . import utils
 from .var import Var
 
@@ -48,17 +45,9 @@ ps = Var(
 class CalcInterface(object):
     """Interface to Calc class."""
     def _set_data_attrs(self):
-        for attr in ('data_start_date',
-                     'data_end_date',
-                     'default_start_date',
+        for attr in ('default_start_date',
                      'default_end_date',
-                     'data_dur',
-                     'data_direc',
-                     'data_files',
-                     'data_dir_struc',
-                     'ens_mem_prefix',
-                     'ens_mem_ext',
-                     'idealized'):
+                     'data_loader'):
             attr_val = tuple([
                 utils.io.get_parent_attr(rn, attr, strict=False)
                 for rn in self.run
@@ -68,8 +57,8 @@ class CalcInterface(object):
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
-                 dtype_out_vert=None, level=None, chunk_len=False,
-                 verbose=True):
+                 dtype_out_vert=None, level=None, time_offset=None,
+                 chunk_len=False, verbose=True):
         """Create the CalcInterface object with the given parameters."""
         # 2015-10-13 S. Hill: This tuple-izing is for support of calculations
         # where variables come from different runs.  However, this is a very
@@ -152,26 +141,27 @@ class CalcInterface(object):
         self.end_date_xarray = (self.start_date_xarray +
                                 (self.end_date - self.start_date))
 
+        self.time_offset = time_offset
+        self.data_loader = self.data_loader[0]
+        self.data_loader_attrs = dict(
+            domain=self.domain, intvl_in=self.intvl_in,
+            dtype_in_vert=self.dtype_in_vert,
+            dtype_in_time=self.dtype_in_time, intvl_out=self.intvl_out)
+
 
 class Calc(object):
     """Class for executing, saving, and loading a single computation."""
 
     ARR_XARRAY_NAME = 'aospy_result'
 
-    _grid_attrs = OrderedDict([
-        (LAT_STR,        ('lat', 'latitude', 'LATITUDE', 'y', 'yto')),
-        (LAT_BOUNDS_STR, ('latb', 'lat_bnds', 'lat_bounds')),
-        (LON_STR,        ('lon', 'longitude', 'LONGITUDE', 'x', 'xto')),
-        (LON_BOUNDS_STR, ('lonb', 'lon_bnds', 'lon_bounds')),
-        ('zsurf',        ('zsurf',)),
-        ('sfc_area',     ('area', 'sfc_area')),
-        ('land_mask',    ('land_mask',)),
-        ('pk',           ('pk',)),
-        ('bk',           ('bk',)),
-        (PHALF_STR,      ('phalf',)),
-        (PFULL_STR,      ('pfull',)),
-        (PLEVEL_STR,     ('level', 'lev', 'plev')),
-    ])
+    _grid_coords = [internal_names.LAT_STR, internal_names.LAT_BOUNDS_STR,
+                    internal_names.LON_STR, internal_names.LON_BOUNDS_STR,
+                    internal_names.ZSURF_STR, internal_names.SFC_AREA_STR,
+                    internal_names.LAND_MASK_STR, internal_names.PK_STR,
+                    internal_names.BK_STR, internal_names.PHALF_STR,
+                    internal_names.PFULL_STR, internal_names.PLEVEL_STR]
+    _grid_attrs = OrderedDict([(key, internal_names.GRID_ATTRS[key])
+                               for key in _grid_coords])
 
     def __str__(self):
         """String representation of the object."""
@@ -244,137 +234,11 @@ class Calc(object):
 
         self.data_out = {}
 
-    def _data_files_one_dir(self, name, n=0):
-        """Get the file names of the files in a single directory"""
-        if self.intvl_in in self.data_files[n]:
-            if isinstance(self.data_files[n][self.intvl_in][name], str):
-                data_files = [self.data_files[n][self.intvl_in][name]]
-            else:
-                data_files = self.data_files[n][self.intvl_in][name]
-        else:
-            if isinstance(self.data_files[n][name], str):
-                data_files = [self.data_files[n][name]]
-            else:
-                data_files = self.data_files[n][name]
-        return data_files
-
-    def _get_input_data_paths_one_dir(self, name, data_direc, n=0):
-        """Get the names of netCDF files when all in same directory."""
-        data_files = self._data_files_one_dir(name, n)
-        # data_files may hold absolute or relative paths
-        paths = []
-        for nc in data_files:
-            full = os.path.join(data_direc, nc)
-            if os.path.isfile(nc):
-                paths.append(nc)
-            elif os.path.isfile(full):
-                paths.append(full)
-            else:
-                logging.info("Specified netCDF file `{}` not found".format(nc))
-        # Remove duplicate entries.
-        files = list(set(paths))
-        files.sort()
-        return files
-
-    def _get_input_data_paths_gfdl_repo(self, name, n=0):
-        """Get the names of netCDF files from a GFDL repo on /archive."""
-        return self.model[n].find_data_direc_repo(
-            run_name=self.run[n].name, var_name=name
-        )
-
-    def _get_input_data_paths_gfdl_dir_struct(self, name, data_direc,
-                                              start_year, end_year, n=0):
-        """Get paths to netCDF files save in GFDL standard output format."""
-        domain = self.domain
-        dtype_lbl = self.dtype_in_time
-        if self.intvl_in == 'daily':
-            domain += '_daily'
-        if self.dtype_in_vert == ETA_STR and name != 'ps':
-            domain += '_level'
-        if self.dtype_in_time == 'inst':
-            domain += '_inst'
-            dtype_lbl = 'ts'
-        if 'monthly_from_' in self.dtype_in_time:
-            dtype = self.dtype_in_time.replace('monthly_from_', '')
-            dtype_lbl = dtype
-        else:
-            dtype = self.dtype_in_time
-        dur_str = str(self.data_dur[n]) + 'yr'
-        if self.dtype_in_time == 'av':
-            subdir = self.intvl_in + '_' + dur_str
-        else:
-            subdir = os.path.join(self.intvl_in, dur_str)
-        direc = os.path.join(data_direc, domain, dtype_lbl, subdir)
-        files = [os.path.join(direc, utils.io.data_name_gfdl(
-                 name, domain, dtype, self.intvl_in, year, self.intvl_out,
-                 self.data_start_date[n].year, self.data_dur[n]
-                 )) for year in range(start_year, end_year + 1)]
-        # Remove duplicate entries.
-        files = list(set(files))
-        files.sort()
-        return files
-
-    def _get_data_direc(self, n):
-        if isinstance(self.data_direc, str):
-            return self.data_direc
-        if isinstance(self.data_direc, (list, tuple)):
-            return self.data_direc[n]
-        raise IOError("data_direc must be string, list, or tuple: "
-                      "{}".format(self.data_direc))
-
-    def _get_input_data_paths(self, var, start_date=False,
-                              end_date=False, n=0):
-        """Create xarray.DataArray of the variable from its netCDF files.
-
-        Files chosen depend on the specified variables and time interval and
-        the attributes of the netCDF files.
-        """
-        data_direc = self._get_data_direc(n)
-        # Cycle through possible names until the data is found.
-        for name in var.names:
-            if self.data_dir_struc[n] == 'one_dir':
-                try:
-                    files = self._get_input_data_paths_one_dir(
-                        name, data_direc, n=n
-                    )
-                except KeyError as e:
-                    logging.debug(str(repr(e)))
-                else:
-                    break
-            elif self.data_dir_struc[n].lower() == 'gfdl':
-                try:
-                    files = self._get_input_data_paths_gfdl_dir_struct(
-                        name, data_direc, start_date.year,
-                        end_date.year, n=n
-                    )
-                except:
-                    raise
-                else:
-                    break
-            elif self.data_dir_struc[n].lower() == 'gfdl_repo':
-                try:
-                    files = self._get_input_data_paths_gfdl_repo(name, n=n)
-                except IOError as e:
-                    logging.debug(str(repr(e)))
-                else:
-                    break
-            else:
-                raise ValueError("Specified directory type not supported"
-                                 ": {}".format(self.data_dir_struc[n]))
-        else:
-            msg = ("netCDF files for calc object `{0}`, variable `{1}`, year "
-                   "range {2}-{3}, in directory {4}, not found")
-            raise IOError(msg.format(self, var, start_date, end_date,
-                                     data_direc))
-        paths = list(set(files))
-        paths.sort()
-        return paths
-
     def _to_desired_dates(self, arr):
         """Restrict the xarray DataArray or Dataset to the desired months."""
         times = utils.times.extract_date_range_and_months(
-            arr[TIME_STR], self.start_date_xarray, self.end_date_xarray,
-            self.months
+            arr[internal_names.TIME_STR], self.start_date_xarray,
+            self.end_date_xarray, self.months
         )
         return arr.sel(time=times)
 
@@ -409,79 +273,10 @@ class Calc(object):
                 if model_attr is not None:
                     ds[name_int] = model_attr
                     ds = ds.set_coords(name_int)
-            if self.dtype_in_vert == 'pressure' and PLEVEL_STR in ds.coords:
+            if (self.dtype_in_vert == 'pressure' and
+                internal_names.PLEVEL_STR in ds.coords):
                 self.pressure = ds.level
         return ds
-
-    @staticmethod
-    def dt_from_time_bnds(ds):
-        """Compute the timestep durations from the time bounds array."""
-        for name in ['time_bounds', 'time_bnds']:
-            try:
-                bounds = ds[name]
-            except KeyError:
-                pass
-            else:
-                dt = bounds.diff(BOUNDS_STR).squeeze().drop(BOUNDS_STR)
-                # Convert from float # of days to np.timedelta64 in seconds.
-                # TODO: Explicitly check that units are days.
-                dt.values = np.array([np.timedelta64(int(d), 'D')
-                                      for d in dt.values])
-                return dt / np.timedelta64(1, 's')
-        raise ValueError("Time bound data cannot be found in the dataset.\n"
-                         "{0}".format(ds))
-
-    def _get_dt(self, ds):
-        """Find or create the array of timestep durations."""
-        for name in ['average_DT']:
-            try:
-                dt = ds[name]
-            except KeyError:
-                logging.debug("dt array not found for nonexistent key name "
-                              "`{0}`".format(name))
-            else:
-                # Convert to seconds
-                return self._to_desired_dates(dt) / np.timedelta64(1, 's')
-        return self._to_desired_dates(self.dt_from_time_bnds(ds))
-
-    def _create_input_data_obj(self, var, start_date=False,
-                               end_date=False, n=0, set_dt=False,
-                               set_pfull=False):
-        """Create xarray.DataArray for the Var from files on disk.
-
-        """
-        paths = self._get_input_data_paths(var, start_date, end_date, n)
-        # TODO: refactor `dmget` to more general pre-processing step that
-        #       user can specify in main or via a config.
-        utils.io.dmget(paths)
-        ds = xr.open_mfdataset(paths, decode_cf=False)
-        # Workaround for years < 1678 causing overflows.
-        if start_date < pd.Timestamp.min:
-            ds = utils.times.numpy_datetime_workaround_encode_cf(ds)
-        ds = xr.decode_cf(ds, decode_times=True)
-        ds = self._add_grid_attributes(ds, n)
-        for name in var.names:
-            try:
-                arr = ds[name]
-            except KeyError:
-                pass
-            else:
-                break
-        else:
-            raise KeyError('Variable not found: {}'.format(var))
-        # At least one variable has to get us the dt array also.
-        if set_dt:
-            try:
-                self.dt = self._get_dt(ds)
-            except ValueError:
-                pass
-        # At least one variable has to get us the pfull array, if it's needed.
-        if set_pfull:
-            try:
-                self.pfull_coord = ds[PFULL_STR]
-            except KeyError:
-                pass
-        return arr.load()
 
     def _get_pressure_from_p_coords(self, ps, name='p', n=0):
         """Get pressure or pressure thickness array for data on p-coords."""
@@ -513,25 +308,21 @@ class Calc(object):
         try:
             ps = self._ps_data
         except AttributeError:
-            self._ps_data = self._create_input_data_obj(self.ps, start_date,
-                                                        end_date)
+            self._ps_data = self.data_loader.load_variable(
+                self.ps, start_date, end_date, self.time_offset,
+                **self.data_loader_attrs)
+            name = self._ps_data.name
+            self._ps_data = self._add_grid_attributes(
+                self._ps_data.to_dataset(name=name), 0)
+            self._ps_data = self._ps_data[name]
+
             ps = self._ps_data
         if self.dtype_in_vert == 'pressure':
             return self._get_pressure_from_p_coords(ps, name=var.name, n=n)
-        if self.dtype_in_vert == ETA_STR:
+        if self.dtype_in_vert == internal_names.ETA_STR:
             return self._get_pressure_from_eta_coords(ps, name=var.name, n=n)
         raise ValueError("`dtype_in_vert` must be either 'pressure' or "
                          "'sigma' for pressure data")
-
-    def _correct_gfdl_inst_time(self, arr):
-        """Correct off-by-one error in GFDL instantaneous model data."""
-        if self.intvl_in.endswith('hr'):
-            offset = -1*int(self.intvl_in[0])
-        else:
-            offset = 0
-        time = utils.times.apply_time_offset(arr[TIME_STR], hours=offset)
-        arr[TIME_STR] = time
-        return arr
 
     def _get_input_data(self, var, start_date, end_date, n):
         """Get the data for a single variable over the desired date range."""
@@ -549,30 +340,44 @@ class Calc(object):
         # Pressure handled specially due to complications from sigma vs. p.
         elif var.name in ('p', 'dp'):
             data = self._get_pressure_vals(var, start_date, end_date)
-            if self.dtype_in_vert == ETA_STR:
-                if self.dtype_in_time == 'inst':
-                    data = self._correct_gfdl_inst_time(data)
+            if self.dtype_in_vert == internal_names.ETA_STR:
                 return self._to_desired_dates(data)
             return data
         # Get grid, time, etc. arrays directly from model object
-        elif var.name in (LAT_STR, LON_STR, TIME_STR, PLEVEL_STR,
-                          'pk', 'bk', 'sfc_area'):
+        elif var.name in (internal_names.LAT_STR, internal_names.LON_STR,
+                          internal_names.TIME_STR, internal_names.PLEVEL_STR,
+                          internal_names.PK_STR, internal_names.BK_STR,
+                          internal_names.SFC_AREA_STR):
             data = getattr(self.model[n], var.name)
         else:
             set_dt = True if not hasattr(self, 'dt') else False
-            cond_pfull = ((not hasattr(self, 'pfull')) and var.def_vert and
+            cond_pfull = ((not hasattr(self, internal_names.PFULL_STR))
+                          and var.def_vert and
                           self.dtype_in_vert == ETA_STR)
-            data = self._create_input_data_obj(var, start_date, end_date, n=n,
-                                               set_dt=set_dt,
-                                               set_pfull=cond_pfull)
+            data = self.data_loader.load_variable(var, start_date, end_date,
+                                                  self.time_offset,
+                                                  **self.data_loader_attrs)
+            name = data.name
+            data = self._add_grid_attributes(
+                data.to_dataset(name=data.name), 0)
+            data = data[name]
+            if cond_pfull:
+                try:
+                    self.pfull_coord = data[internal_names.PFULL_STR]
+                except KeyError:
+                    pass
+            if set_dt:
+                if internal_names.AVERAGE_DT_STR in data:
+                    self.dt = data[internal_names.AVERAGE_DT_STR]
+                else:
+                    pass
             # Force all data to be at full pressure levels, not half levels.
-            if self.dtype_in_vert == ETA_STR and var.def_vert == 'phalf':
+            if (self.dtype_in_vert == internal_names.ETA_STR and
+                var.def_vert == internal_names.PFULL_STR):
                 data = utils.vertcoord.to_pfull_from_phalf(data,
                                                            self.pfull_coord)
         # Correct GFDL instantaneous data time indexing problem.
         if var.def_time:
-            if self.dtype_in_time == 'inst':
-                data = self._correct_gfdl_inst_time(data)
             # Restrict to the desired dates within each year.
             if self.dtype_in_time != 'av':
                 return self._to_desired_dates(data)
@@ -629,8 +434,9 @@ class Calc(object):
             data = data_monthly
         local_ts = self._local_ts(*data)
         if self.dtype_in_time == 'inst':
-            dt = xr.DataArray(np.ones_like(local_ts[TIME_STR]),
-                              dims=[TIME_STR], coords=[local_ts[TIME_STR]])
+            dt = xr.DataArray(np.ones_like(local_ts[internal_names.TIME_STR]),
+                              dims=[internal_names.TIME_STR],
+                              coords=[local_ts[internal_names.TIME_STR]])
             if not hasattr(self, 'dt'):
                 self.dt = dt
         else:
@@ -640,11 +446,15 @@ class Calc(object):
                 logging.warning("dt array not found.  Assuming equally spaced "
                                 "values in time, even though this may not be "
                                 "the case")
-                dt = xr.DataArray(np.ones(np.shape(local_ts[TIME_STR])),
-                                  dims=[TIME_STR], coords=[local_ts[TIME_STR]])
+                dt = xr.DataArray(np.ones(
+                        np.shape(local_ts[internal_names.TIME_STR])),
+                                  dims=[internal_names.TIME_STR],
+                                  coords=[local_ts[internal_names.TIME_STR]])
                 self.dt = dt
         if monthly_mean:
             dt = utils.times.monthly_mean_ts(dt)
+        # Convert dt to units of days to prevent overflow
+        dt = dt / np.timedelta64(1, 'D')
         return local_ts, dt
 
     # TODO: Move to utils.vertcoord
@@ -658,7 +468,7 @@ class Calc(object):
         # Here we need to provide file read-in dates (NOT xarray dates)
         full_ts, dt = self._compute(data, monthly_mean=monthly_mean)
         if zonal_asym:
-            full_ts = full_ts - full_ts.mean(LON_STR)
+            full_ts = full_ts - full_ts.mean(internal_names.LON_STR)
         # Vertically integrate.
         vert_types = ('vert_int', 'vert_av')
         if self.dtype_out_vert in vert_types and self.var.def_vert:
@@ -672,14 +482,13 @@ class Calc(object):
 
     def _avg_by_year(self, arr, dt):
         """Average a sub-yearly time-series over each year."""
-        yr_str = TIME_STR + '.year'
-        return ((arr*dt).groupby(yr_str).sum(TIME_STR) /
-                dt.groupby(yr_str).sum(TIME_STR))
+        yr_str = internal_names.TIME_STR + '.year'
+        return ((arr*dt).groupby(yr_str).sum(internal_names.TIME_STR) /
+                dt.groupby(yr_str).sum(internal_names.TIME_STR))
 
     def _full_to_yearly_ts(self, arr, dt):
         """Average the full timeseries within each year."""
-        time_defined = self.def_time and not ('av' in self.dtype_in_time or
-                                              self.idealized[0])
+        time_defined = self.def_time and not ('av' in self.dtype_in_time)
         if time_defined:
             arr = self._avg_by_year(arr, dt)
         return arr
@@ -691,8 +500,8 @@ class Calc(object):
         reductions = {
             'None': lambda xarr: xarr,
             'ts': lambda xarr: xarr,
-            'av': lambda xarr: xarr.mean(YEAR_STR),
-            'std': lambda xarr: xarr.std(YEAR_STR),
+            'av': lambda xarr: xarr.mean(internal_names.YEAR_STR),
+            'std': lambda xarr: xarr.std(internal_names.YEAR_STR),
             }
         try:
             return reductions[reduction](arr)
@@ -703,8 +512,8 @@ class Calc(object):
     def region_calcs(self, arr, func, n=0):
         """Perform a calculation for all regions."""
         # Get pressure values for data output on hybrid vertical coordinates.
-        bool_pfull = (self.def_vert and self.dtype_in_vert == ETA_STR and
-                      self.dtype_out_vert is False)
+        bool_pfull = (self.def_vert and self.dtype_in_vert ==
+                      internal_names.ETA_STR and self.dtype_out_vert is False)
         if bool_pfull:
             pfull = self._full_to_yearly_ts(self._prep_data(
                 self._get_input_data(Var('p'), self.start_date, self.end_date,
@@ -871,15 +680,19 @@ class Calc(object):
         if region:
             arr = ds[region.name]
             # Use region-specific pressure values if available.
-            if self.dtype_in_vert == ETA_STR and not dtype_out_vert:
+            if (self.dtype_in_vert == internal_names.ETA_STR
+                and not dtype_out_vert):
                 reg_pfull_str = region.name + '_pressure'
                 arr = arr.drop([r for r in arr.coords.iterkeys()
-                                if r not in (PFULL_STR, reg_pfull_str)])
+                                if r not in (internal_names.PFULL_STR,
+                                             reg_pfull_str)])
                 # Rename pfull to pfull_ref always.
-                arr = arr.rename({PFULL_STR: PFULL_STR + '_ref'})
+                arr = arr.rename({internal_names.PFULL_STR:
+                                  internal_names.PFULL_STR + '_ref'})
                 # Rename region_pfull to pfull if its there.
                 if hasattr(arr, reg_pfull_str):
-                    return arr.rename({reg_pfull_str: PFULL_STR})
+                    return arr.rename({reg_pfull_str:
+                                       internal_names.PFULL_STR})
                 return arr
             return arr
         return ds[self.name]

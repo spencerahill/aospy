@@ -1,7 +1,7 @@
 """region.py: Region class and region_inst()."""
 import logging
 
-from . import LAT_STR, LON_STR
+from . import internal_names
 
 
 class Region(object):
@@ -25,10 +25,10 @@ class Region(object):
     @staticmethod
     def _add_to_mask(data, lat_bounds, lon_bounds):
         """Add mask spanning given lat-lon rectangle."""
-        mask_lat = ((data[LAT_STR] > lat_bounds[0]) &
-                    (data[LAT_STR] < lat_bounds[1]))
-        return mask_lat & ((data[LON_STR] > lon_bounds[0]) &
-                           (data[LON_STR] < lon_bounds[1]))
+        mask_lat = ((data[internal_names.LAT_STR] > lat_bounds[0]) &
+                    (data[internal_names.LAT_STR] < lat_bounds[1]))
+        return mask_lat & ((data[internal_names.LON_STR] > lon_bounds[0]) &
+                           (data[internal_names.LON_STR] < lon_bounds[1]))
 
     def make_mask(self, data):
         """Construct the mask that defines this region."""
@@ -77,7 +77,7 @@ class Region(object):
     @staticmethod
     def _sum_over_lat_lon(arr):
         """Sum an array over the latitude and longitude dimensions."""
-        return arr.sum(LAT_STR).sum(LON_STR)
+        return arr.sum(internal_names.LAT_STR).sum(internal_names.LON_STR)
 
     def ts(self, data):
         """Create time-series of region-average data."""

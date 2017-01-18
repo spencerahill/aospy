@@ -4,10 +4,7 @@ import sys
 import unittest
 
 import numpy as np
-import pandas as pd
-import xarray as xr
 
-from aospy import Constant, TIME_STR
 import aospy.utils.vertcoord as vertcoord
 
 

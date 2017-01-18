@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from ..__config__ import TIME_STR
+from .. import internal_names
 
 
 def apply_time_offset(time, years=0, months=0, days=0, hours=0):
@@ -70,7 +70,9 @@ def monthly_mean_ts(arr):
     --------
     monthly_mean_at_each_ind : Copy monthly means to each submonthly time
     """
-    return arr.resample('1M', TIME_STR, how='mean').dropna(TIME_STR)
+    return arr.resample(
+        '1M', internal_names.TIME_STR,
+        how='mean').dropna(internal_names.TIME_STR)
 
 
 def monthly_mean_at_each_ind(monthly_means, sub_monthly_timeseries):
@@ -92,9 +94,9 @@ def monthly_mean_at_each_ind(monthly_means, sub_monthly_timeseries):
     --------
     monthly_mean_ts : Create timeseries of monthly mean values
     """
-    time = monthly_means[TIME_STR]
-    start = time.indexes[TIME_STR][0].replace(day=1, hour=0)
-    end = time.indexes[TIME_STR][-1]
+    time = monthly_means[internal_names.TIME_STR]
+    start = time.indexes[internal_names.TIME_STR][0].replace(day=1, hour=0)
+    end = time.indexes[internal_names.TIME_STR][-1]
     new_indices = pd.DatetimeIndex(start=start, end=end, freq='MS')
     arr_new = monthly_means.reindex(time=new_indices, method='backfill')
     return arr_new.reindex_like(sub_monthly_timeseries, method='pad')
@@ -142,7 +144,7 @@ def datetime_or_default(date, default):
 
 
 def numpy_datetime_range_workaround(date):
-    """"Reset a date to earliest allowable year if outside of valid range.
+    """Reset a date to earliest allowable year if outside of valid range.
 
     Hack to address np.datetime64, and therefore pandas and xarray, not
     supporting dates outside the range 1677-09-21 and 2262-04-11 due to
@@ -190,13 +192,18 @@ def numpy_datetime_workaround_encode_cf(ds):
     xarray.Dataset
 
     """
-    time = ds[TIME_STR]
+    time = ds[internal_names.TIME_STR]
     units = time.attrs['units']
     units_yr = units.split(' since ')[1].split('-')[0]
-    min_yr = xr.decode_cf(time.to_dataset('dummy'))['time'].values[0].year
+    min_yr_decoded = xr.decode_cf(time.to_dataset('dummy'))
+    min_yr = min_yr_decoded[internal_names.TIME_STR].values[0].year
     new_units_yr = pd.Timestamp.min.year + 2 - min_yr
     new_units = units.replace(units_yr, str(new_units_yr))
-    time.attrs['units'] = new_units
+
+    for VAR_STR in internal_names.TIME_VAR_STRS:
+        if VAR_STR in ds:
+            var = ds[VAR_STR]
+            var.attrs['units'] = new_units
     return ds
 
 
@@ -267,7 +274,7 @@ def _month_conditional(time, months):
         months_array = months
     cond = False
     for month in months_array:
-        cond |= (time['{}.month'.format(TIME_STR)] == month)
+        cond |= (time['{}.month'.format(internal_names.TIME_STR)] == month)
     return cond
 
 
@@ -297,7 +304,7 @@ def create_monthly_time_array(start_date, end_date, months):
     end_compliant = start_compliant + (end_date - start_date)
     all_months = pd.date_range(start=start_compliant, end=end_compliant,
                                freq='M')
-    time = xr.DataArray(all_months, dims=[TIME_STR])
+    time = xr.DataArray(all_months, dims=[internal_names.TIME_STR])
     return time[_month_conditional(time, months)]
 
 
@@ -319,6 +326,115 @@ def extract_date_range_and_months(time, start_date, end_date, months):
     xarray.DataArray of the desired times
     """
     inds = _month_conditional(time, months)
-    inds &= (time[TIME_STR] <= np.datetime64(end_date))
-    inds &= (time[TIME_STR] >= np.datetime64(start_date))
+    inds &= (time[internal_names.TIME_STR] <= np.datetime64(end_date))
+    inds &= (time[internal_names.TIME_STR] >= np.datetime64(start_date))
     return time.sel(time=inds)
+
+
+def ensure_time_avg_has_cf_metadata(ds):
+    """Add time interval length and bounds coordinates for time avg data.
+
+    If the Dataset or DataArray contains time average data, enforce
+    that there are coordinates that track the lower and upper bounds of
+    the time intervals, and that there is a coordinate that tracks the
+    amount of time per time average interval.
+
+    CF conventions require that a quantity stored as time averages
+    over time intervals must have time and time_bounds coordinates [1]_.
+    aospy further requires AVERAGE_DT for time average data, for accurate
+    time-weighted averages, which can be inferred from the CF-required
+    time_bounds coordinate if needed.  This step should be done
+    prior to decoding CF metadata with xarray to ensure proper
+    computed timedeltas for different calendar types.
+
+    .. [1] http://cfconventions.org/cf-conventions/v1.6.0/cf-conventions.html#_data_representative_of_cells
+
+    Parameters
+    ----------
+    ds : Dataset or DataArray
+        Input data
+
+    Returns
+    -------
+    Dataset or DataArray
+        Time average metadata attributes added if needed.
+    """
+    AVG_START_DATE_STR = internal_names.AVG_START_DATE_STR
+    AVG_END_DATE_STR = internal_names.AVG_END_DATE_STR
+    TIME_BOUNDS_STR = internal_names.TIME_BOUNDS_STR
+    TIME_STR = internal_names.TIME_STR
+    NV_STR = internal_names.NV_STR
+    AVERAGE_DT_STR = internal_names.AVERAGE_DT_STR
+
+    if AVERAGE_DT_STR not in ds:
+        average_DT = ds[TIME_BOUNDS_STR].diff(NV_STR)
+        average_DT = average_DT.rename(AVERAGE_DT_STR).squeeze()
+        ds[AVERAGE_DT_STR] = average_DT.drop(NV_STR)
+
+    avg_start_date = ds[TIME_BOUNDS_STR].isel(**{TIME_STR: 0, NV_STR: 0})
+    ds[AVG_START_DATE_STR] = avg_start_date.drop([TIME_STR, NV_STR])
+    avg_end_date = ds[TIME_BOUNDS_STR].isel(**{TIME_STR: -1, NV_STR: 1})
+    ds[AVG_END_DATE_STR] = avg_end_date.drop([TIME_STR, NV_STR])
+
+    for coord in [TIME_BOUNDS_STR, AVG_START_DATE_STR, AVG_END_DATE_STR]:
+        ds[coord].attrs['units'] = ds[TIME_STR].attrs['units']
+        if 'calendar' in ds[TIME_STR].attrs:
+            ds[coord].attrs['calendar'] = ds[TIME_STR].attrs['calendar']
+    return ds
+
+
+def _assert_has_data_for_time(da, start_date, end_date):
+    """Check to make sure data is in Dataset for the given time range.
+
+    Parameters
+    ----------
+    da : DataArray
+         DataArray with a time variable
+    start_date : netCDF4.netcdftime or np.datetime64
+         start date
+    end_date : netCDF4.netcdftime or np.datetime64
+         end date
+
+    Raises
+    ------
+    AssertionError
+         if the time range is not within the time range of the DataArray
+    """
+    if internal_names.AVG_START_DATE_STR in da:
+        da_start = da[internal_names.AVG_START_DATE_STR].values
+        da_end = da[internal_names.AVG_END_DATE_STR].values
+    else:
+        times = da.time.isel(**{internal_names.TIME_STR: [0, -1]})
+        da_start, da_end = times.values
+    message = 'Data does not exist for requested time range: {0} to {1}'
+    range_exists = start_date >= da_start and end_date <= da_end
+    assert (range_exists), message.format(start_date, end_date)
+
+
+def sel_time(da, start_date, end_date):
+    """Subset a DataArray or Dataset for a given date range.
+
+    Ensures that data are present for full extent of requested range.
+
+    Parameters
+    ----------
+    da : DataArray or Dataset
+        data to subset
+    start_date : np.datetime64
+        start of date interval
+    end_date : np.datetime64
+        end of date interval
+
+    Returns
+    ----------
+    da : DataArray or Dataset
+        subsetted data
+
+    Raises
+    ------
+    AssertionError
+        if data for requested range do not exist for part or all of
+        requested range
+    """
+    _assert_has_data_for_time(da, start_date, end_date)
+    return da.sel(**{internal_names.TIME_STR: slice(start_date, end_date)})

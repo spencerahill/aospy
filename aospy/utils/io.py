@@ -192,7 +192,7 @@ def time_label(intvl, return_val=True):
 
 
 def data_name_gfdl(name, domain, data_type, intvl_type, data_yr,
-                      intvl, data_in_start_yr, data_in_dur):
+                   intvl, data_in_start_yr, data_in_dur):
     """Determine the filename of GFDL model data output."""
     # Determine starting year of netCDF file to be accessed.
     extra_yrs = (data_yr - data_in_start_yr) % data_in_dur
@@ -224,11 +224,7 @@ def data_name_gfdl(name, domain, data_type, intvl_type, data_yr,
         if intvl_type in ['annual', 'ann']:
             label = 'ann'
         elif intvl_type in ['seasonal', 'seas']:
-            # 2015-04-29: This function is obsolete.  Should fix this
-            # eventually.  But I almost never use seasonal data, so not a
-            # priority.
-            # label, val = _intvl_indices_and_label(intvl, intvl_type)
-            label = label.upper()
+            label = intvl.upper()
         elif intvl_type in ['monthly', 'mon']:
             label, val = time_label(intvl)
         if data_in_dur == 1:
@@ -248,6 +244,8 @@ def data_name_gfdl(name, domain, data_type, intvl_type, data_yr,
 def dmget(files_list):
     """Call GFDL command 'dmget' to access archived files."""
     try:
+        if isinstance(files_list, str):
+            files_list = [files_list]
         subprocess.call(['dmget'] + files_list)
     except OSError:
         logging.warning('dmget command not found in this machine')

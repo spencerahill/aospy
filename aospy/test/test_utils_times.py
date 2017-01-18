@@ -5,9 +5,14 @@ import sys
 import unittest
 
 import numpy as np
-import xarray as xr
 import pandas as pd
+import xarray as xr
 
+from aospy.data_loader import set_grid_attrs_as_coords
+from aospy.internal_names import (
+    TIME_STR, TIME_BOUNDS_STR, NV_STR, AVERAGE_DT_STR, AVG_START_DATE_STR,
+    AVG_END_DATE_STR
+)
 from aospy.utils.times import (
     apply_time_offset,
     monthly_mean_ts,
@@ -20,8 +25,9 @@ from aospy.utils.times import (
     _month_conditional,
     create_monthly_time_array,
     extract_date_range_and_months,
+    ensure_time_avg_has_cf_metadata,
+    _assert_has_data_for_time,
 )
-from aospy import TIME_STR
 
 
 _INVALID_DATE_OBJECTS = [1985, True, None, '2016-04-07', np.datetime64(1, 'Y')]
@@ -50,7 +56,7 @@ class TestUtilsTimes(UtilsTimesTestCase):
             assert actual.identical(desired)
 
     def test_monthly_mean_ts_single_month(self):
-        time = pd.date_range('2000-01-01', freq='6H', periods=4*31)
+        time = pd.date_range('2000-01-01', freq='6H', periods=4 * 31)
         arr = xr.DataArray(np.random.random(time.shape), dims=[TIME_STR],
                            coords={TIME_STR: time})
         desired = arr.mean(TIME_STR)
@@ -58,7 +64,7 @@ class TestUtilsTimes(UtilsTimesTestCase):
         np.testing.assert_allclose(actual, desired)
 
     def test_monthly_mean_ts_submonthly(self):
-        time = pd.date_range('2000-01-01', freq='1D', periods=365*3)
+        time = pd.date_range('2000-01-01', freq='1D', periods=365 * 3)
         arr = xr.DataArray(np.random.random(time.shape), dims=[TIME_STR],
                            coords={TIME_STR: time})
         desired = arr.resample('1M', TIME_STR, how='mean')
@@ -94,8 +100,8 @@ class TestUtilsTimes(UtilsTimesTestCase):
             dims=arr_submonthly.dims, coords={TIME_STR: times_means}
         )
         actual = monthly_mean_at_each_ind(arr_means, arr_submonthly)
-        desired_values = np.stack([arr_means.values[0]]*len_other_dim +
-                                  [arr_means.values[1]]*len_other_dim,
+        desired_values = np.stack([arr_means.values[0]] * len_other_dim +
+                                  [arr_means.values[1]] * len_other_dim,
                                   axis=0)
         desired = xr.DataArray(desired_values, dims=arr_submonthly.dims,
                                coords=arr_submonthly.coords)
@@ -170,7 +176,6 @@ class TestUtilsTimes(UtilsTimesTestCase):
         result_march = _month_conditional(test, [3])
         np.testing.assert_array_equal(result_march, np.array([False, False]))
 
-        # Test sub-monthly intervals
         test = pd.date_range('1999-12-31 18:00:00', '2000-01-01 00:00:00',
                              freq='6H')
         test = xr.DataArray(test, dims=[TIME_STR])
@@ -178,7 +183,6 @@ class TestUtilsTimes(UtilsTimesTestCase):
         np.testing.assert_array_equal(result_jan,
                                       np.array([False, True]))
 
-        # Test wrap-around year
         result_jd = _month_conditional(test, [1, 12])
         np.testing.assert_array_equal(result_jd,
                                       np.array([True, True]))
@@ -192,7 +196,7 @@ class TestUtilsTimes(UtilsTimesTestCase):
         start = datetime.datetime(1, 2, 2)
         end = datetime.datetime(2, 6, 5)
         # using feb and march
-        months_bool = [True]*2 + [False]*10 + [True]*2 + [False]*3
+        months_bool = [True] * 2 + [False] * 10 + [True] * 2 + [False] * 3
         actual = create_monthly_time_array(start, end, 'fm')
         all_months = pd.date_range(
             start=datetime.datetime(pd.Timestamp.min.year + 1, start.month,
@@ -214,7 +218,7 @@ class TestUtilsTimes(UtilsTimesTestCase):
                                        freq='1D'), dims=[TIME_STR]),
             xr.DataArray(pd.date_range(start='2002-03-01', end='2002-05-31',
                                        freq='1D'), dims=[TIME_STR])
-            ], dim=TIME_STR)
+        ], dim=TIME_STR)
         actual = extract_date_range_and_months(time, start_date, end_date,
                                                months)
         assert actual.identical(desired)
@@ -229,6 +233,90 @@ class TestUtilsTimes(UtilsTimesTestCase):
         actual = extract_date_range_and_months(time, start_date, end_date,
                                                months)
         assert actual.identical(desired)
+
+    def test_ensure_time_avg_has_cf_metadata(self):
+        time_bounds = np.array([[0, 31], [31, 59], [59, 90]])
+        nv = np.array([0, 1])
+        time = np.array([15, 46, 74])
+        data = np.zeros((3))
+        ds = xr.DataArray(data,
+                          coords=[time],
+                          dims=[TIME_STR],
+                          name='a').to_dataset()
+        ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
+                                           coords=[time, nv],
+                                           dims=[TIME_STR, NV_STR],
+                                           name=TIME_BOUNDS_STR)
+        units_str = 'days since 2000-01-01 00:00:00'
+        cal_str = 'noleap'
+        ds[TIME_STR].attrs['units'] = units_str
+        ds[TIME_STR].attrs['calendar'] = cal_str
+
+        with self.assertRaises(KeyError):
+            ds[TIME_BOUNDS_STR].attrs['units']
+        with self.assertRaises(KeyError):
+            ds[TIME_BOUNDS_STR].attrs['calendar']
+
+        ds = ensure_time_avg_has_cf_metadata(ds)
+
+        result = ds[TIME_BOUNDS_STR].attrs['units']
+        self.assertEqual(result, units_str)
+        result = ds[TIME_BOUNDS_STR].attrs['calendar']
+        self.assertEqual(result, cal_str)
+
+        avg_DT_data = np.diff(time_bounds, axis=1).squeeze()
+        average_DT_expected = xr.DataArray(avg_DT_data,
+                                           coords=[time],
+                                           dims=[TIME_STR],
+                                           name=AVERAGE_DT_STR)
+        average_DT_expected[TIME_STR].attrs['units'] = units_str
+        average_DT_expected[TIME_STR].attrs['calendar'] = cal_str
+        assert ds[AVERAGE_DT_STR].identical(average_DT_expected)
+
+        self.assertEqual(ds[AVG_START_DATE_STR].values, [0])
+        self.assertEqual(ds[AVG_START_DATE_STR].attrs['units'], units_str)
+        self.assertEqual(ds[AVG_START_DATE_STR].attrs['calendar'], cal_str)
+
+        self.assertEqual(ds[AVG_END_DATE_STR].values, [90])
+        self.assertEqual(ds[AVG_END_DATE_STR].attrs['units'], units_str)
+        self.assertEqual(ds[AVG_END_DATE_STR].attrs['calendar'], cal_str)
+
+    def test_assert_has_data_for_time(self):
+        time_bounds = np.array([[0, 31], [31, 59], [59, 90]])
+        nv = np.array([0, 1])
+        time = np.array([15, 46, 74])
+        data = np.zeros((3))
+        var_name = 'a'
+        ds = xr.DataArray(data,
+                          coords=[time],
+                          dims=[TIME_STR],
+                          name=var_name).to_dataset()
+        ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
+                                           coords=[time, nv],
+                                           dims=[TIME_STR, NV_STR],
+                                           name=TIME_BOUNDS_STR)
+        units_str = 'days since 2000-01-01 00:00:00'
+        ds[TIME_STR].attrs['units'] = units_str
+        ds = ensure_time_avg_has_cf_metadata(ds)
+        ds = set_grid_attrs_as_coords(ds)
+        ds = xr.decode_cf(ds)
+        da = ds[var_name]
+
+        start_date = np.datetime64('2000-01-01')
+        end_date = np.datetime64('2000-03-31')
+        _assert_has_data_for_time(da, start_date, end_date)
+
+        start_date_bad = np.datetime64('1999-12-31')
+        end_date_bad = np.datetime64('2000-04-01')
+
+        with self.assertRaises(AssertionError):
+            _assert_has_data_for_time(da, start_date_bad, end_date)
+
+        with self.assertRaises(AssertionError):
+            _assert_has_data_for_time(da, start_date, end_date_bad)
+
+        with self.assertRaises(AssertionError):
+            _assert_has_data_for_time(da, start_date_bad, end_date_bad)
 
 
 if __name__ == '__main__':
