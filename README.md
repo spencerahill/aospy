@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/spencerahill/aospy.svg?branch=develop)](https://travis-ci.org/spencerahill/aospy) [![Coverage Status](https://coveralls.io/repos/github/spencerahill/aospy/badge.svg?branch=develop)](https://coveralls.io/github/spencerahill/aospy?branch=develop)
+[![Travis CI Build Status](https://travis-ci.org/spencerahill/aospy.svg?branch=develop)](https://travis-ci.org/spencerahill/aospy) [![Appveyor Build status](https://ci.appveyor.com/api/projects/status/4o448ga560sudry9?svg=true)](https://ci.appveyor.com/project/spencerahill/aospy) [![Coverage Status](https://coveralls.io/repos/github/spencerahill/aospy/badge.svg?branch=develop)](https://coveralls.io/github/spencerahill/aospy?branch=develop)
 
 # aospy: automated climate data analysis and management
 aospy is a Python-based tool for automating computations involving gridded climate data and the management of the results of those computations.

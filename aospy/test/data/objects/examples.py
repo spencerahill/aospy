@@ -9,10 +9,10 @@ ROOT_PATH = os.path.dirname(__file__)
 def total_precipitation(convection_rain, condensation_rain):
     return convection_rain + condensation_rain
 
+
 files = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                      '000[4-6]0101.precip_monthly.nc')
 file_map = {'monthly': files}
-
 example_run = Run(
     name='example_run',
     description=(
@@ -25,8 +25,9 @@ example_model = Model(
     name='example_model',
     grid_file_paths=(
         (os.path.join(os.path.split(ROOT_PATH)[0],
-                      'netcdf/00040101.precip_monthly.nc'),
-         os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf/im.landmask.nc')),
+                      'netcdf', '00040101.precip_monthly.nc'),
+         os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                      'im.landmask.nc')),
     ),
     runs=[example_run]
 )

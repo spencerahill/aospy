@@ -623,7 +623,7 @@ class Calc(object):
             data_out = data
         if isinstance(data_out, xr.DataArray):
             data_out = xr.Dataset({self.name: data_out})
-        data_out.to_netcdf(path, engine='scipy')
+        data_out.to_netcdf(path)
 
     def _save_tar_files(self, dtype_out_time):
         """Add the data to the tar file in tar_out_direc."""
@@ -675,8 +675,7 @@ class Calc(object):
     def _load_from_disk(self, dtype_out_time, dtype_out_vert=False,
                         region=False):
         """Load aospy data saved as netcdf files on the file system."""
-        ds = xr.open_dataset(self.path_out[dtype_out_time],
-                             engine='scipy')
+        ds = xr.open_dataset(self.path_out[dtype_out_time])
         if region:
             arr = ds[region.name]
             # Use region-specific pressure values if available.
@@ -703,8 +702,7 @@ class Calc(object):
         utils.io.dmget([path])
         with tarfile.open(path, 'r') as data_tar:
             ds = xr.open_dataset(
-                data_tar.extractfile(self.file_name[dtype_out_time]),
-                engine='scipy'
+                data_tar.extractfile(self.file_name[dtype_out_time])
             )
             return ds[self.name]
 

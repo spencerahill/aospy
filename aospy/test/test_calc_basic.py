@@ -6,7 +6,7 @@ import shutil
 import unittest
 
 from aospy.calc import Calc, CalcInterface
-from data.objects.examples import (
+from .data.objects.examples import (
     example_proj, example_model, example_run, condensation_rain,
     precip, globe, sahel
 )

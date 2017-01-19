@@ -253,9 +253,8 @@ def dmget(files_list):
 
 def hsmget_nc(files_list):
     """Call GFDL command 'hsmget' to access archived files."""
-    # tmpdir = os.environ['TMPDIR']
-    workdir = '/work/' + os.environ['USER']
-    ptmpdir = '/ptmp/' + os.environ['USER']
+    workdir = '/work/' + os.getenv('USER', '')
+    ptmpdir = '/ptmp/' + os.getenv('USER', '')
     # Assumes files are located somewhere on /archive.
     # Assumes files_list is list of absolute paths to the netCDF files.
     # Assumes that all files in files list are under same archive root.

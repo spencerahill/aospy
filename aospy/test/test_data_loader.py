@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Test suite for aospy.data_loader module."""
 from datetime import datetime
+import os
 import unittest
 
 import numpy as np
@@ -12,7 +13,7 @@ from aospy.data_loader import (DataLoader, DictDataLoader, GFDLDataLoader,
 from aospy.internal_names import (LAT_STR, LON_STR, TIME_STR, TIME_BOUNDS_STR,
                                   NV_STR, SFC_AREA_STR, ETA_STR)
 from aospy.utils import io
-from data.objects.examples import condensation_rain, convection_rain, precip
+from .data.objects.examples import condensation_rain, convection_rain, precip
 
 
 class AospyDataLoaderTestCase(unittest.TestCase):
@@ -152,13 +153,17 @@ class TestNestedDictDataLoader(TestDataLoader):
 class TestGFDLDataLoader(TestDataLoader):
     def setUp(self):
         super(TestGFDLDataLoader, self).setUp()
-        self.DataLoader = GFDLDataLoader(data_direc='/test/', data_dur=6,
-                                         data_start_date=datetime(2000, 1, 1),
-                                         data_end_date=datetime(2012, 12, 31))
+        self.DataLoader = GFDLDataLoader(
+            data_direc=os.path.join('.', 'test'),
+            data_dur=6,
+            data_start_date=datetime(2000, 1, 1),
+            data_end_date=datetime(2012, 12, 31)
+        )
 
     def test_overriding_constructor(self):
-        new = GFDLDataLoader(self.DataLoader, data_direc='/a/')
-        self.assertEqual(new.data_direc, '/a/')
+        new = GFDLDataLoader(self.DataLoader,
+                             data_direc=os.path.join('.', 'a'))
+        self.assertEqual(new.data_direc, os.path.join('.', 'a'))
         self.assertEqual(new.data_dur, self.DataLoader.data_dur)
         self.assertEqual(new.data_start_date, self.DataLoader.data_start_date)
         self.assertEqual(new.data_end_date, self.DataLoader.data_end_date)
@@ -208,42 +213,44 @@ class TestGFDLDataLoader(TestDataLoader):
             self.DataLoader._generate_file_set(**self.generate_file_set_args)
 
     def test_input_data_paths_gfdl(self):
-        expected = ['/test/atmos/ts/monthly/6yr/atmos.200601-201112.temp.nc']
+        expected = [os.path.join('.', 'test', 'atmos', 'ts', 'monthly', '6yr',
+                                 'atmos.200601-201112.temp.nc')]
         result = self.DataLoader._input_data_paths_gfdl(
             'temp', datetime(2010, 1, 1), datetime(2010, 12, 31), 'atmos',
             'monthly', 'pressure', 'ts', None)
         self.assertEqual(result, expected)
 
-        expected = ['/test/atmos_daily/ts/daily/6yr/'
-                    'atmos_daily.20060101-20111231.temp.nc']
+        expected = [os.path.join('.', 'test', 'atmos_daily', 'ts', 'daily',
+                                 '6yr',
+                                 'atmos_daily.20060101-20111231.temp.nc')]
         result = self.DataLoader._input_data_paths_gfdl(
             'temp', datetime(2010, 1, 1), datetime(2010, 12, 31), 'atmos',
             'daily', 'pressure', 'ts', None)
         self.assertEqual(result, expected)
 
-        expected = ['/test/atmos_level/ts/monthly/'
-                    '6yr/atmos_level.200601-201112.temp.nc']
+        expected = [os.path.join('.', 'test', 'atmos_level', 'ts', 'monthly',
+                                 '6yr', 'atmos_level.200601-201112.temp.nc')]
         result = self.DataLoader._input_data_paths_gfdl(
             'temp', datetime(2010, 1, 1), datetime(2010, 12, 31), 'atmos',
             'monthly', ETA_STR, 'ts', None)
         self.assertEqual(result, expected)
 
-        expected = ['/test/atmos/ts/monthly/'
-                    '6yr/atmos.200601-201112.ps.nc']
+        expected = [os.path.join('.', 'test', 'atmos', 'ts', 'monthly',
+                                 '6yr', 'atmos.200601-201112.ps.nc')]
         result = self.DataLoader._input_data_paths_gfdl(
             'ps', datetime(2010, 1, 1), datetime(2010, 12, 31), 'atmos',
             'monthly', ETA_STR, 'ts', None)
         self.assertEqual(result, expected)
 
-        expected = ['/test/atmos_inst/ts/monthly/'
-                    '6yr/atmos_inst.200601-201112.temp.nc']
+        expected = [os.path.join('.', 'test', 'atmos_inst', 'ts', 'monthly',
+                                 '6yr', 'atmos_inst.200601-201112.temp.nc')]
         result = self.DataLoader._input_data_paths_gfdl(
             'temp', datetime(2010, 1, 1), datetime(2010, 12, 31), 'atmos',
             'monthly', 'pressure', 'inst', None)
         self.assertEqual(result, expected)
 
-        expected = ['/test/atmos/av/monthly_6yr/'
-                    'atmos.2006-2011.jja.nc']
+        expected = [os.path.join('.', 'test', 'atmos', 'av', 'monthly_6yr',
+                                 'atmos.2006-2011.jja.nc')]
         result = self.DataLoader._input_data_paths_gfdl(
             'temp', datetime(2010, 1, 1), datetime(2010, 12, 31), 'atmos',
             'monthly', 'pressure', 'av', 'jja')
