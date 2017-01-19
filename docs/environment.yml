@@ -1,11 +1,11 @@
 name: aospy-docs
 dependencies:
-  - basemap=1.0.7
-  - matplotlib=1.5.3
+  - python=2.7
+  - sphinx=1.4.1
   - numpy=1.11
   - numpydoc=0.6
-  - pandas=0.19.0
-  - python=2.7
   - scipy=0.18.1
-  - sphinx=1.4.1
+  - pandas=0.19.0
+  - hdf4
+  - netCDF4
   - xarray=0.8.2
