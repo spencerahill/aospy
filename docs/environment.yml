@@ -1,4 +1,7 @@
 name: aospy-docs
+channels:
+  - conda-forge
+  - defaults
 dependencies:
   - python=2.7
   - sphinx=1.4.1
@@ -9,3 +12,5 @@ dependencies:
   - hdf4
   - netCDF4
   - xarray=0.8.2
+  - ipython=5.1.0
+  - matplotlib=1.5.3
