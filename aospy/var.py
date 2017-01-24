@@ -1,32 +1,105 @@
-"""var.py: Var class for representing a physical variable in aospy."""
+"""Funcionality for representing a physical variable in aospy."""
 import numpy as np
 
 from .units import Units
 
 
 class Var(object):
-    """Physical variables."""
-    def __init__(self, name, alt_names=False, func=False, variables=False,
-                 units='', plot_units='', plot_units_conv=1, domain='atmos',
-                 description='', def_time=False, def_vert=False, def_lat=False,
-                 def_lon=False, in_nc_grid=False, math_str=False,
-                 colormap='RdBu_r', valid_range=False,
-                 func_input_dtype='DataArray'):
-        """Create Var object."""
+    """An object representing a physical quantity to be computed.
+
+    Attributes
+    ----------
+    name : str
+        The variable's name
+    alt_names : tuple of strings
+        All other names that the variable may be referred to in the input data
+    names : tuple of strings
+        The combination of `name` and `alt_names`
+    description : str
+        A description of the variable
+    func : function
+        The function with which to compute the variable
+    variables : sequence of aospy.Var objects
+        The variables passed to `func` to compute it
+    func_input_dtype : {'DataArray', 'Dataset', 'numpy'}
+        The datatype expected by `func` of its arguments
+    units : aospy.units.Units object
+        The variable's physical units
+    domain : str
+        The physical domain of the variable, e.g. 'atmos', 'ocean', or 'land'
+    def_time, def_vert, def_lat, def_lon : bool
+        Whether the variable is defined, respectively, in time, vertically, in
+        latitude, and in longitude
+    math_str : str
+        The mathematical representation of the variable
+    colormap : str
+        The name of the default colormap to be used in plots of this variable
+    valid_range : length-2 tuple
+        The range of values outside which to flag as unphysical/erroneous
+
+    """
+
+    def __init__(self, name, alt_names=None, func=None, variables=None,
+                 func_input_dtype='DataArray', units='', plot_units='',
+                 plot_units_conv=1, domain='atmos', description='',
+                 def_time=False, def_vert=False, def_lat=False, def_lon=False,
+                 math_str=False, colormap='RdBu_r', valid_range=None):
+        """Instantiate a Var object.
+
+        Parameters
+        ----------
+        name : str
+            The variable's name
+        alt_names : tuple of strings
+            All other names that the variable might be referred to in any input
+            data.  Each of these should be unique to this variable in order to
+            avoid loading the wrong quantity.
+        description : str
+            A description of the variable
+        func : function
+            The function with which to compute the variable
+        variables : sequence of aospy.Var objects
+            The variables passed to `func` to compute it.  Order matters:
+            whenever calculations are performed to generate data corresponding
+            to this Var, the data corresponding to the elements of `variables`
+            will be passed to `self.function` in the same order.
+        func_input_dtype : {None, 'DataArray', 'Dataset', 'numpy'}
+            The datatype expected by `func` of its arguments
+        units : aospy.units.Units object
+            The variable's physical units
+        domain : str
+            The physical domain of the variable, e.g. 'atmos', 'ocean', or
+            'land'.  This is only used by aospy by some types of `DataLoader`,
+            including `GFDLDataLoader`.
+        def_time, def_vert, def_lat, def_lon : bool
+            Whether the variable is defined, respectively, in time, vertically,
+            in latitude, and in longitude
+        math_str : str
+            The mathematical representation of the variable.  This is typically
+            a raw string of LaTeX math-mode, e.g. r'$T_\mathrm{sfc}$' for
+            surface temperature.
+        colormap : str
+            (Currently not used by aospy) The name of the default colormap to
+            be used in plots of this variable.
+        valid_range : length-2 tuple
+            The range of values outside which to flag as unphysical/erroneous
+
+        """
         self.name = name
-        if alt_names:
+        if alt_names is None:
+            self.names = tuple([name])
+        else:
             self.alt_names = alt_names
             self.names = tuple([name] + list(alt_names))
-        else:
-            self.names = tuple([name])
 
-        if not func:
+        if func is None:
             self.func = lambda x: x
-            self.variables = False
+            self.variables = None
             self.func_input_dtype = None
         else:
             self.func = func
             self.variables = variables
+        assert func_input_dtype in (None, 'DataArray', 'Dataset', 'numpy')
         self.func_input_dtype = func_input_dtype
 
         if not isinstance(units, Units):
@@ -35,20 +108,18 @@ class Var(object):
             self.units = units
 
         if not description:
-            try:
-                self.description = self.func.func_doc
-            except AttributeError:
-                self.description = description
+            if self.func.__doc__ is None:
+                self.description = ''
+            else:
+                self.description = self.func.__doc__
         else:
             self.description = description
-        self.__doc__ = self.description
 
         self.domain = domain
         self.def_time = def_time
         self.def_vert = def_vert
         self.def_lat = def_lat
         self.def_lon = def_lon
-        self.in_nc_grid = in_nc_grid
         self.math_str = math_str
         self.colormap = colormap
         self.valid_range = valid_range
@@ -59,9 +130,7 @@ class Var(object):
     __repr__ = __str__
 
     def to_plot_units(self, data, dtype_vert=False):
-        """
-        Multiply the given data by the plotting units conversion if it exists.
-        """
+        """Convert the given data to plotting units."""
         if dtype_vert == 'vert_av' or not dtype_vert:
             conv_factor = self.units.plot_units_conv
         elif dtype_vert == ('vert_int'):

@@ -1,4 +1,4 @@
-"""calc.py: classes for performing specified calculations on aospy data"""
+"""Functionality for performing user-specified calculations on aospy data."""
 from collections import OrderedDict
 import logging
 import os
@@ -27,7 +27,6 @@ dp = Var(
     def_vert=True,
     def_lat=True,
     def_lon=True,
-    in_nc_grid=False,
 )
 ps = Var(
     name='ps',
@@ -38,12 +37,12 @@ ps = Var(
     def_vert=False,
     def_lat=True,
     def_lon=True,
-    in_nc_grid=False
 )
 
 
 class CalcInterface(object):
-    """Interface to Calc class."""
+    """Interface to the Calc class."""
+
     def _set_data_attrs(self):
         for attr in ('default_start_date',
                      'default_end_date',
@@ -58,12 +57,74 @@ class CalcInterface(object):
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
                  dtype_out_vert=None, level=None, time_offset=None,
-                 chunk_len=False, verbose=True):
-        """Create the CalcInterface object with the given parameters."""
-        # 2015-10-13 S. Hill: This tuple-izing is for support of calculations
-        # where variables come from different runs.  However, this is a very
-        # fragile way of implementing that functionality.  Eventually it will
-        # be replaced with something better.
+                 verbose=True):
+        """Instantiate a CalcInterface object.
+
+        Parameters
+        ----------
+        proj : aospy.Proj object
+            The project for this calculation.
+        model : aospy.Model object
+            The model for this calculation.
+        run : aospy.Run object
+            The run for this calculation.
+        var : aospy.Var object
+            The variable for this calculation.
+        ens_mem : Currently not supported.
+            This will eventually be used to specify particular ensemble members
+            of multi-member ensemble simulations.
+        region : sequence of aospy.Region objects
+            The region(s) over which any regional reductions will be performed.
+        date_range : tuple of datetime.datetime objects
+            The range of dates over which to perform calculations.
+        intvl_in : {None, 'annual', 'monthly', 'daily', '6hr', '3hr'}, optional
+            The time resolution of the input data.
+        dtype_in_time : {None, 'inst', 'ts', 'av', 'av_ts'}, optional
+            What the time axis of the input data represents:
+
+            - 'inst' : Timeseries of instantaneous values
+            - 'ts' : Timeseries of averages over the period of each time-index
+            - 'av' : A single value averaged over a date range
+
+        dtype_in_vert : {None, 'pressure', 'sigma'}, optional
+            The vertical coordinate system used by the input data:
+
+            - None : not defined vertically
+            - 'pressure' : pressure coordinates
+            - 'sigma' : hybrid sigma-pressure coordinates
+
+        intvl_out : {'ann', season-string, month-integer}
+            The sub-annual time interval over which to compute:
+
+            - 'ann' : Annual mean
+            - season-string : E.g. 'JJA' for June-July-August
+            - month-integer : 1 for January, 2 for February, etc.
+
+        dtype_out_time : tuple with elements being one or more of:
+
+            - Gridpoint-by-gridpoint output:
+
+              - 'av' : Gridpoint-by-gridpoint time-average
+              - 'std' : Gridpoint-by-gridpoint temporal standard deviation
+              - 'ts' : Gridpoint-by-gridpoint time-series
+
+            - Averages over each region specified via `region`:
+
+              - 'reg.av', 'reg.std', 'reg.ts' : analogous to 'av', 'std', 'ts'
+  
+      dtype_out_vert : {None, 'vert_av', 'vert_int'}, optional
+            How to reduce the data vertically:
+  
+            - None : no vertical reduction (i.e. output is defined vertically)
+            - 'vert_av' : mass-weighted vertical average
+            - 'vert_int' : mass-weighted vertical integral
+
+        """
+        
+        # TODO: This tuple-izing is for support of calculations where variables
+        #       come from different runs.  However, this is a very fragile way
+        #       of implementing that functionality.  Eventually it will be
+        #       replaced with something better.
         if not isinstance(run, (list, tuple)):
             run = tuple([run])
         for r in run:
@@ -150,7 +211,12 @@ class CalcInterface(object):
 
 
 class Calc(object):
-    """Class for executing, saving, and loading a single computation."""
+    """Class for executing, saving, and loading a single computation.
+
+    Calc objects are instantiated with a single argument: a `CalcInterface` 
+    object that includes all of the parameters necessary to determine what
+    calculations to perform.
+    """
 
     ARR_XARRAY_NAME = 'aospy_result'
 
@@ -372,8 +438,9 @@ class Calc(object):
                 else:
                     pass
             # Force all data to be at full pressure levels, not half levels.
-            if (self.dtype_in_vert == internal_names.ETA_STR and
-                var.def_vert == internal_names.PFULL_STR):
+            bool_to_pfull = (self.dtype_in_vert == internal_names.ETA_STR and
+                             var.def_vert == internal_names.PFULL_STR)
+            if bool_to_pfull:
                 data = utils.vertcoord.to_pfull_from_phalf(data,
                                                            self.pfull_coord)
         # Correct GFDL instantaneous data time indexing problem.
@@ -392,20 +459,16 @@ class Calc(object):
                                  'numpy'). Specifies which datatype to convert
                                  to.
         """
-        if func_input_dtype is None:
-            return data
-        if func_input_dtype == 'DataArray':
+        if func_input_dtype in (None, 'DataArray'):
             return data
         if func_input_dtype == 'Dataset':
-            # S. Hill 2015-10-19: This should be filled in with logic that
-            # creates a single Dataset comprising all of the DataArray objects
-            # in `data`.
-            return NotImplementedError
+            # TODO: add logic that creates a single Dataset comprising all of
+            # the DataArray objects in `data`.
+            raise NotImplementedError("func_input_dtype of `Dataset` not yet "
+                                      "implemented.")
         if func_input_dtype == 'numpy':
             self.coords = data[0].coords
             return [d.values for d in data]
-        raise ValueError("Unknown func_input_dtype "
-                         "'{}'.".format(func_input_dtype))
 
     def _get_all_data(self, start_date, end_date):
         """Get the needed data from all of the vars in the calculation."""

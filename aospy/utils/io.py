@@ -1,30 +1,14 @@
-"""io.py: utility methods used internally by aospy for input/output, etc."""
-import imp
-import os
+"""Utility functions for data input and output."""
 import logging
-import string
 import subprocess
 
 import numpy as np
 
-from ..__config__ import user_path
 
 logging.basicConfig(level=logging.INFO)
 
 
-def load_user_data(name):
-    """Load user data from aospy_path for given module name.
-
-    File must be located in the `aospy_path` directory and be the same name
-    as the desired aospy module subpackage, namely one of `regions`, `calcs`,
-    `variables`, and `projects`.
-    """
-    return imp.load_source(
-        name, '/'.join([user_path, name, '__init__.py']).replace('//', '/')
-    )
-
-
-def robust_bool(obj):
+def _robust_bool(obj):
     try:
         return bool(obj)
     except ValueError:
@@ -32,16 +16,17 @@ def robust_bool(obj):
 
 
 def get_parent_attr(obj, attr, strict=False):
-    """
+    """Search recursively through an object and its parent for an attribute.
+
     Check if the object has the given attribute and it is non-empty.  If not,
     check each parent object for the attribute and use the first one found.
     """
     attr_val = getattr(obj, attr, False)
-    if robust_bool(attr_val):
+    if _robust_bool(attr_val):
         return attr_val
 
     else:
-        for parent in ('parent', 'var', 'run', 'model', 'proj'):
+        for parent in ('parent', 'run', 'model', 'proj'):
             parent_obj = getattr(obj, parent, False)
             if parent_obj:
                 return get_parent_attr(parent_obj, attr, strict=strict)
@@ -86,23 +71,6 @@ def to_dup_list(x, n, single_to_list=True):
     return [x]*n
 
 
-def var_label(var, level):
-    """
-    Create label of variable name and potentially the desired level for aospy
-    data I/O.
-    """
-    if isinstance(var, str):
-        var_name = var
-        defvert = False
-    else:
-        var_name = var.name
-        defvert = var.def_vert
-    if (defvert and level is not None) or level == 'sigma':
-        return var_name + '.' + str(level)
-    else:
-        return var_name
-
-
 def data_in_label(intvl_in, dtype_in_time, dtype_in_vert=False):
     """Create string label specifying the input data of a calculation."""
     intvl_lbl = intvl_in
@@ -141,17 +109,6 @@ def yr_label(yr_range):
         return '{:04d}'.format(yr_range[0])
     else:
         return '{:04d}-{:04d}'.format(*yr_range)
-
-
-def znl_label(var):
-    """Create label denoting zonal mean values for aospy data I/O."""
-    try:
-        if var.def_lon:
-            return 'znl'
-        else:
-            return ''
-    except:
-        return ''
 
 
 def time_label(intvl, return_val=True):
@@ -249,39 +206,3 @@ def dmget(files_list):
         subprocess.call(['dmget'] + files_list)
     except OSError:
         logging.warning('dmget command not found in this machine')
-
-
-def hsmget_nc(files_list):
-    """Call GFDL command 'hsmget' to access archived files."""
-    workdir = '/work/' + os.getenv('USER', '')
-    ptmpdir = '/ptmp/' + os.getenv('USER', '')
-    # Assumes files are located somewhere on /archive.
-    # Assumes files_list is list of absolute paths to the netCDF files.
-    # Assumes that all files in files list are under same archive root.
-    arch_loc = string.join(files_list[0].split('/')[:3], '/') + '/'
-    files = [f.partition(arch_loc)[2] for f in files_list]
-    # subprocess.call(['module', 'load', 'hsm'])
-    retcode = subprocess.call(['hsmget', '-a', arch_loc, '-p', workdir,
-                               '-w', ptmpdir] + files + ['-q'])
-    return retcode
-
-
-def get_data_direc_repo(data_direc, var_name, version=-1):
-    """Determine the directory containing the needed netCDF files."""
-    # Catch if version was specified as False or None.
-    if version is None:
-        version = -1
-    dir_prefix = os.path.realpath(data_direc)
-    dirs_after = [os.path.join(dir_prefix, name)
-                  for name in os.listdir(dir_prefix) if
-                  (os.path.isdir(os.path.join(dir_prefix, name)) and
-                   name[0] == 'v')]
-    dirs_after.sort()
-    # We assume that the directories are all of the format "v#[###...]",
-    # the numbers typically specifiying a date YYYYMMDD, but occasionally
-    # just a single number, e.g. 'v1' instead.  We assume we want the
-    # latest/most recent version, which after sorting will be the last
-    # entry in the list.  Or the version can be specified using the
-    # 'version' kwarg.
-    # Then append the run's direc_nc specification.
-    return os.path.join(dir_prefix, dirs_after[version], var_name)

@@ -87,6 +87,7 @@ class Constant(object):
     def __rpow__(self, other):
         return np.ma.power(other, self.value)
 
+
 r_e = Constant(
     6370997.,
     'm',

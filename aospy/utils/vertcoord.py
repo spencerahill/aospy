@@ -1,4 +1,4 @@
-"""aospy.utils: utility functions for the aospy module."""
+"""Utility functions for dealing with vertical coordinates."""
 import logging
 
 import numpy as np
