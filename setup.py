@@ -17,7 +17,7 @@ Important links
 
 setuptools.setup(
     name="aospy",
-    version="0.1.1rc4",
+    version="0.1",
     packages=setuptools.find_packages(),
     author="Spencer A. Hill and Spencer Clark",
     author_email="shill@atmos.ucla.edu",
