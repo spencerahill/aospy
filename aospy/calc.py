@@ -111,16 +111,16 @@ class CalcInterface(object):
             - Averages over each region specified via `region`:
 
               - 'reg.av', 'reg.std', 'reg.ts' : analogous to 'av', 'std', 'ts'
-  
+
       dtype_out_vert : {None, 'vert_av', 'vert_int'}, optional
             How to reduce the data vertically:
-  
+
             - None : no vertical reduction (i.e. output is defined vertically)
             - 'vert_av' : mass-weighted vertical average
             - 'vert_int' : mass-weighted vertical integral
 
         """
-        
+
         # TODO: This tuple-izing is for support of calculations where variables
         #       come from different runs.  However, this is a very fragile way
         #       of implementing that functionality.  Eventually it will be
@@ -213,7 +213,7 @@ class CalcInterface(object):
 class Calc(object):
     """Class for executing, saving, and loading a single computation.
 
-    Calc objects are instantiated with a single argument: a `CalcInterface` 
+    Calc objects are instantiated with a single argument: a `CalcInterface`
     object that includes all of the parameters necessary to determine what
     calculations to perform.
     """
@@ -419,7 +419,7 @@ class Calc(object):
             set_dt = True if not hasattr(self, 'dt') else False
             cond_pfull = ((not hasattr(self, internal_names.PFULL_STR))
                           and var.def_vert and
-                          self.dtype_in_vert == ETA_STR)
+                          self.dtype_in_vert == internal_names.ETA_STR)
             data = self.data_loader.load_variable(var, start_date, end_date,
                                                   self.time_offset,
                                                   **self.data_loader_attrs)
@@ -439,7 +439,7 @@ class Calc(object):
                     pass
             # Force all data to be at full pressure levels, not half levels.
             bool_to_pfull = (self.dtype_in_vert == internal_names.ETA_STR and
-                             var.def_vert == internal_names.PFULL_STR)
+                             var.def_vert == internal_names.PHALF_STR)
             if bool_to_pfull:
                 data = utils.vertcoord.to_pfull_from_phalf(data,
                                                            self.pfull_coord)
@@ -779,7 +779,7 @@ class Calc(object):
             if 'monthly_from_' in self.dtype_in_time:
                 data = np.mean(data, axis=0)[np.newaxis, :]
         if np.any(vert):
-            if self.dtype_in_vert == ETA_STR:
+            if self.dtype_in_vert == internal_names.ETA_STR:
                 data = data[{PFULL_STR: vert}]
             else:
                 if np.max(self.model[n].level) > 1e4:
