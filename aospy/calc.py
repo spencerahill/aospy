@@ -289,8 +289,6 @@ class Calc(object):
         if isinstance(calc_interface.ens_mem, int):
             self.data_direc = self.data_direc[calc_interface.ens_mem]
 
-        self.dt_set = False
-
         self.dir_out = self._dir_out()
         self.dir_tar_out = self._dir_tar_out()
         self.file_name = {d: self._file_name(d) for d in self.dtype_out_time}
@@ -416,7 +414,6 @@ class Calc(object):
                           internal_names.SFC_AREA_STR):
             data = getattr(self.model[n], var.name)
         else:
-            set_dt = True if not hasattr(self, 'dt') else False
             cond_pfull = ((not hasattr(self, internal_names.PFULL_STR))
                           and var.def_vert and
                           self.dtype_in_vert == internal_names.ETA_STR)
@@ -431,11 +428,6 @@ class Calc(object):
                 try:
                     self.pfull_coord = data[internal_names.PFULL_STR]
                 except KeyError:
-                    pass
-            if set_dt:
-                if internal_names.AVERAGE_DT_STR in data:
-                    self.dt = data[internal_names.AVERAGE_DT_STR]
-                else:
                     pass
             # Force all data to be at full pressure levels, not half levels.
             bool_to_pfull = (self.dtype_in_vert == internal_names.ETA_STR and
@@ -496,24 +488,7 @@ class Calc(object):
                     data_monthly.append(d)
             data = data_monthly
         local_ts = self._local_ts(*data)
-        if self.dtype_in_time == 'inst':
-            dt = xr.DataArray(np.ones_like(local_ts[internal_names.TIME_STR]),
-                              dims=[internal_names.TIME_STR],
-                              coords=[local_ts[internal_names.TIME_STR]])
-            if not hasattr(self, 'dt'):
-                self.dt = dt
-        else:
-            if hasattr(self, 'dt'):
-                dt = self.dt
-            else:
-                logging.warning("dt array not found.  Assuming equally spaced "
-                                "values in time, even though this may not be "
-                                "the case")
-                dt = xr.DataArray(np.ones(
-                        np.shape(local_ts[internal_names.TIME_STR])),
-                                  dims=[internal_names.TIME_STR],
-                                  coords=[local_ts[internal_names.TIME_STR]])
-                self.dt = dt
+        dt = local_ts[internal_names.TIME_WEIGHTS_STR]
         if monthly_mean:
             dt = utils.times.monthly_mean_ts(dt)
         # Convert dt to units of days to prevent overflow
@@ -545,6 +520,7 @@ class Calc(object):
 
     def _avg_by_year(self, arr, dt):
         """Average a sub-yearly time-series over each year."""
+        utils.times.assert_matching_time_coord(arr, dt)
         yr_str = internal_names.TIME_STR + '.year'
         return ((arr*dt).groupby(yr_str).sum(internal_names.TIME_STR) /
                 dt.groupby(yr_str).sum(internal_names.TIME_STR))
@@ -581,7 +557,7 @@ class Calc(object):
             pfull = self._full_to_yearly_ts(self._prep_data(
                 self._get_input_data(Var('p'), self.start_date, self.end_date,
                                      0), self.var.func_input_dtype
-            ), self.dt).rename('pressure')
+            ), arr[internal_names.TIME_WEIGHTS_STR]).rename('pressure')
         # Loop over the regions, performing the calculation.
         reg_dat = {}
         for reg in self.region.values():

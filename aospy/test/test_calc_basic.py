@@ -27,10 +27,7 @@ class TestCalcBasic(unittest.TestCase):
 
     def tearDown(self):
         for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
-            try:
-                shutil.rmtree(direc)
-            except FileNotFoundError:
-                pass
+            shutil.rmtree(direc)
 
     def test_annual_mean(self):
         calc_int = CalcInterface(intvl_out='ann',

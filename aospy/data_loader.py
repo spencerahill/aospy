@@ -1,4 +1,5 @@
 """aospy DataLoader objects"""
+import logging
 import os
 
 import dask
@@ -82,7 +83,7 @@ def _sel_var(ds, var):
     for name in var.names:
         try:
             da = ds[name]
-            return da.rename({name: var.name})
+            return da.rename(var.name)
         except KeyError:
             pass
     raise KeyError('{0} not found in '
@@ -113,6 +114,11 @@ def _prep_time_data(ds):
     ds = times.numpy_datetime_workaround_encode_cf(ds)
     if internal_names.TIME_BOUNDS_STR in ds:
         ds = times.ensure_time_avg_has_cf_metadata(ds)
+    else:
+        logging.warning("dt array not found.  Assuming equally spaced "
+                        "values in time, even though this may not be "
+                        "the case")
+        ds = times.add_uniform_time_weights(ds)
     ds = xr.decode_cf(
         ds, decode_times=True, decode_coords=False, mask_and_scale=False
     )

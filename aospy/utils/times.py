@@ -196,15 +196,19 @@ def numpy_datetime_workaround_encode_cf(ds):
     units = time.attrs['units']
     units_yr = units.split(' since ')[1].split('-')[0]
     min_yr_decoded = xr.decode_cf(time.to_dataset('dummy'))
-    min_yr = min_yr_decoded[internal_names.TIME_STR].values[0].year
-    new_units_yr = pd.Timestamp.min.year + 2 - min_yr
-    new_units = units.replace(units_yr, str(new_units_yr))
+    min_date = min_yr_decoded[internal_names.TIME_STR].values[0]
+    if isinstance(min_date, np.datetime64):
+        return ds
+    else:
+        min_yr = min_date.year
+        new_units_yr = pd.Timestamp.min.year + 2 - min_yr
+        new_units = units.replace(units_yr, str(new_units_yr))
 
-    for VAR_STR in internal_names.TIME_VAR_STRS:
-        if VAR_STR in ds:
-            var = ds[VAR_STR]
-            var.attrs['units'] = new_units
-    return ds
+        for VAR_STR in internal_names.TIME_VAR_STRS:
+            if VAR_STR in ds:
+                var = ds[VAR_STR]
+                var.attrs['units'] = new_units
+        return ds
 
 
 def month_indices(months):
@@ -364,12 +368,12 @@ def ensure_time_avg_has_cf_metadata(ds):
     TIME_BOUNDS_STR = internal_names.TIME_BOUNDS_STR
     TIME_STR = internal_names.TIME_STR
     NV_STR = internal_names.NV_STR
-    AVERAGE_DT_STR = internal_names.AVERAGE_DT_STR
+    TIME_WEIGHTS_STR = internal_names.TIME_WEIGHTS_STR
 
-    if AVERAGE_DT_STR not in ds:
-        average_DT = ds[TIME_BOUNDS_STR].diff(NV_STR)
-        average_DT = average_DT.rename(AVERAGE_DT_STR).squeeze()
-        ds[AVERAGE_DT_STR] = average_DT.drop(NV_STR)
+    if TIME_WEIGHTS_STR not in ds:
+        time_weights = ds[TIME_BOUNDS_STR].diff(NV_STR)
+        time_weights = time_weights.rename(TIME_WEIGHTS_STR).squeeze()
+        ds[TIME_WEIGHTS_STR] = time_weights.drop(NV_STR)
 
     avg_start_date = ds[TIME_BOUNDS_STR].isel(**{TIME_STR: 0, NV_STR: 0})
     ds[AVG_START_DATE_STR] = avg_start_date.drop([TIME_STR, NV_STR])
@@ -380,6 +384,35 @@ def ensure_time_avg_has_cf_metadata(ds):
         ds[coord].attrs['units'] = ds[TIME_STR].attrs['units']
         if 'calendar' in ds[TIME_STR].attrs:
             ds[coord].attrs['calendar'] = ds[TIME_STR].attrs['calendar']
+
+    unit_interval = ds[TIME_STR].attrs['units'].split('since')[0].strip()
+    ds[TIME_WEIGHTS_STR].attrs['units'] = unit_interval
+    return ds
+
+
+def add_uniform_time_weights(ds):
+    """Append uniform time weights to a Dataset.
+
+    All DataArrays with a time coordinate require a time weights coordinate.
+    For Datasets read in without a time bounds coordinate or explicit
+    time weights built in, aospy adds uniform time weights at each point
+    in the time coordinate.
+
+    Parameters
+    ----------
+    ds : Dataset
+        Input data
+
+    Returns
+    -------
+    Dataset
+    """
+    time = ds[internal_names.TIME_STR]
+    unit_interval = time.attrs['units'].split('since')[0].strip()
+    time_weights = xr.ones_like(time)
+    time_weights.attrs['units'] = unit_interval
+    del time_weights.attrs['calendar']
+    ds[internal_names.TIME_WEIGHTS_STR] = time_weights
     return ds
 
 
@@ -406,9 +439,11 @@ def _assert_has_data_for_time(da, start_date, end_date):
     else:
         times = da.time.isel(**{internal_names.TIME_STR: [0, -1]})
         da_start, da_end = times.values
-    message = 'Data does not exist for requested time range: {0} to {1}'
+    message = ('Data does not exist for requested time range: {0} to {1};'
+               ' found data from time range: {2} to {3}.')
     range_exists = start_date >= da_start and end_date <= da_end
-    assert (range_exists), message.format(start_date, end_date)
+    assert (range_exists), message.format(start_date, end_date,
+                                          da_start, da_end)
 
 
 def sel_time(da, start_date, end_date):
@@ -438,3 +473,27 @@ def sel_time(da, start_date, end_date):
     """
     _assert_has_data_for_time(da, start_date, end_date)
     return da.sel(**{internal_names.TIME_STR: slice(start_date, end_date)})
+
+
+def assert_matching_time_coord(arr1, arr2):
+    """Check to see if two DataArrays have the same time coordinate.
+
+    Parameters
+    ----------
+    arr1 : DataArray or Dataset
+        First DataArray or Dataset
+    arr2 : DataArray or Dataset
+        Second DataArray or Dataset
+
+    Raises
+    ------
+    ValueError
+        If the time coordinates are not identical between the two Datasets
+    """
+    TIME_STR = internal_names.TIME_STR
+    message = ('Time weights not indexed by the same time coordinate as'
+               ' computed data.  This will lead to an improperly computed'
+               ' time weighted average.  Exiting.\n'
+               'arr1: {}\narr2: {}')
+    if not (arr1[TIME_STR].identical(arr2[TIME_STR])):
+        raise ValueError(message.format(arr1[TIME_STR], arr2[TIME_STR]))

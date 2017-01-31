@@ -27,7 +27,7 @@ install:
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
 
   # install xarray and depenencies
-  - "conda install --yes --quiet pip pytest numpy scipy pandas netCDF4 toolz dask xarray"
+  - "conda install --yes --quiet -c conda-forge pip pytest numpy scipy pandas netCDF4 toolz dask xarray"
   - "python setup.py install"
 
 build: false

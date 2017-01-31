@@ -40,7 +40,7 @@ YEAR_STR = 'year'
 BOUNDS_STR = 'bnds'
 AVERAGE_T1_STR = 'average_T1'
 AVERAGE_T2_STR = 'average_T2'
-AVERAGE_DT_STR = 'average_DT'
+TIME_WEIGHTS_STR = 'time_weights'
 NV_STR = 'nv'
 AVG_START_DATE_STR = 'avg_start_date'
 AVG_END_DATE_STR = 'avg_end_date'
@@ -63,7 +63,7 @@ GRID_ATTRS = OrderedDict(
      (PFULL_STR, ('pfull',)),
      (PLEVEL_STR, ('level', 'lev', 'plev')),
      (TIME_STR, ('time',)),
-     (AVERAGE_DT_STR, ('average_DT',)),
+     (TIME_WEIGHTS_STR, ('time_weights', 'average_DT',)),
      (TIME_BOUNDS_STR, ('time_bounds', 'time_bnds')),
      (NV_STR, ('nv',)),
      (AVG_START_DATE_STR, ('avg_start_date',)),

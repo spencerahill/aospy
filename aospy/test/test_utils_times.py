@@ -10,7 +10,7 @@ import xarray as xr
 
 from aospy.data_loader import set_grid_attrs_as_coords
 from aospy.internal_names import (
-    TIME_STR, TIME_BOUNDS_STR, NV_STR, AVERAGE_DT_STR, AVG_START_DATE_STR,
+    TIME_STR, TIME_BOUNDS_STR, NV_STR, TIME_WEIGHTS_STR, AVG_START_DATE_STR,
     AVG_END_DATE_STR
 )
 from aospy.utils.times import (
@@ -27,6 +27,8 @@ from aospy.utils.times import (
     extract_date_range_and_months,
     ensure_time_avg_has_cf_metadata,
     _assert_has_data_for_time,
+    add_uniform_time_weights,
+    assert_matching_time_coord
 )
 
 
@@ -151,6 +153,16 @@ class TestUtilsTimes(UtilsTimesTestCase):
         self.assertEqual(xr.decode_cf(actual).time.values[0],
                          np.datetime64('1678-02-04'))
 
+        # Test a case where times are in the Timestamp-valid range
+        days = 10
+        time = xr.DataArray([days], dims=[TIME_STR])
+        ds = xr.Dataset(coords={TIME_STR: time})
+        ds[TIME_STR].attrs['units'] = 'days since 2000-01-01 00:00:00'
+        ds[TIME_STR].attrs['calendar'] = 'noleap'
+        actual = numpy_datetime_workaround_encode_cf(ds)
+        self.assertEqual(xr.decode_cf(actual).time.values[0],
+                         np.datetime64('2000-01-11'))
+
     def test_month_indices(self):
         np.testing.assert_array_equal(month_indices('ann'), range(1, 13))
         np.testing.assert_array_equal(month_indices('jja'),
@@ -268,10 +280,11 @@ class TestUtilsTimes(UtilsTimesTestCase):
         average_DT_expected = xr.DataArray(avg_DT_data,
                                            coords=[time],
                                            dims=[TIME_STR],
-                                           name=AVERAGE_DT_STR)
+                                           name=TIME_WEIGHTS_STR)
         average_DT_expected[TIME_STR].attrs['units'] = units_str
+        average_DT_expected.attrs['units'] = 'days'
         average_DT_expected[TIME_STR].attrs['calendar'] = cal_str
-        assert ds[AVERAGE_DT_STR].identical(average_DT_expected)
+        assert ds[TIME_WEIGHTS_STR].identical(average_DT_expected)
 
         self.assertEqual(ds[AVG_START_DATE_STR].values, [0])
         self.assertEqual(ds[AVG_START_DATE_STR].attrs['units'], units_str)
@@ -280,6 +293,27 @@ class TestUtilsTimes(UtilsTimesTestCase):
         self.assertEqual(ds[AVG_END_DATE_STR].values, [90])
         self.assertEqual(ds[AVG_END_DATE_STR].attrs['units'], units_str)
         self.assertEqual(ds[AVG_END_DATE_STR].attrs['calendar'], cal_str)
+
+    def test_add_uniform_time_weights(self):
+        time = np.array([15, 46, 74])
+        data = np.zeros((3))
+        ds = xr.DataArray(data,
+                          coords=[time],
+                          dims=[TIME_STR],
+                          name='a').to_dataset()
+        units_str = 'days since 2000-01-01 00:00:00'
+        cal_str = 'noleap'
+        ds[TIME_STR].attrs['units'] = units_str
+        ds[TIME_STR].attrs['calendar'] = cal_str
+
+        with self.assertRaises(KeyError):
+            ds[TIME_WEIGHTS_STR]
+
+        ds = add_uniform_time_weights(ds)
+        time_weights_expected = xr.DataArray(
+            [1, 1, 1], coords=ds[TIME_STR].coords, name=TIME_WEIGHTS_STR)
+        time_weights_expected.attrs['units'] = 'days'
+        assert ds[TIME_WEIGHTS_STR].identical(time_weights_expected)
 
     def test_assert_has_data_for_time(self):
         time_bounds = np.array([[0, 31], [31, 59], [59, 90]])
@@ -318,6 +352,15 @@ class TestUtilsTimes(UtilsTimesTestCase):
         with self.assertRaises(AssertionError):
             _assert_has_data_for_time(da, start_date_bad, end_date_bad)
 
+    def test_assert_matching_time_coord(self):
+        rng = pd.date_range('2000-01-01', '2001-01-01', freq='M')
+        arr1 = xr.DataArray(rng, coords=[rng], dims=[TIME_STR])
+        arr2 = xr.DataArray(rng, coords=[rng], dims=[TIME_STR])
+        assert_matching_time_coord(arr1, arr2)
+
+        arr2 = arr2.sel(**{TIME_STR: slice('2000-03', '2000-05')})
+        with self.assertRaises(ValueError):
+            assert_matching_time_coord(arr1, arr2)
 
 if __name__ == '__main__':
     sys.exit(unittest.main())
