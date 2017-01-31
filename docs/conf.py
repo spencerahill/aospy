@@ -35,6 +35,7 @@ import numpy
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
+    'sphinx.ext.extlinks'
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
@@ -45,6 +46,11 @@ extensions = [
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive'
 ]
+
+# Allow for the creation of links to issues and pull requests via
+# :issue:`XXX` or :pull:`XXX` respectively.
+extlinks = {'issue': ('https://github.com/spencerahill/aospy/issues/%s', 'GH'),
+            'pull': ('https://github.com/spencerahill/aospy/pull/%s', 'PR')}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
