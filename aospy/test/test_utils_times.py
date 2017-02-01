@@ -28,7 +28,9 @@ from aospy.utils.times import (
     ensure_time_avg_has_cf_metadata,
     _assert_has_data_for_time,
     add_uniform_time_weights,
-    assert_matching_time_coord
+    assert_matching_time_coord,
+    ensure_time_as_dim,
+    convert_scalar_to_indexable_coord
 )
 
 
@@ -361,6 +363,37 @@ class TestUtilsTimes(UtilsTimesTestCase):
         arr2 = arr2.sel(**{TIME_STR: slice('2000-03', '2000-05')})
         with self.assertRaises(ValueError):
             assert_matching_time_coord(arr1, arr2)
+
+    def test_ensure_time_as_dim(self):
+        arr = xr.DataArray([3, 4], coords=[[1, 2]], dims=[TIME_STR])
+        arr[TIME_STR].attrs['units'] = 'days since 2000-01-01 00:00:00'
+        arr[TIME_STR].attrs['calendar'] = 'standard'
+        ds = arr.to_dataset(name='a')
+        assert TIME_STR in ds.dims
+        assert ds.identical(ensure_time_as_dim(ds))
+
+        scalar_time_in_ds = ds.isel(**{TIME_STR: 0})
+        assert TIME_STR not in scalar_time_in_ds.dims
+        result = ensure_time_as_dim(scalar_time_in_ds)
+
+        arr = xr.DataArray([3], coords=[[1]], dims=[TIME_STR])
+        arr[TIME_STR].attrs['units'] = 'days since 2000-01-01 00:00:00'
+        arr[TIME_STR].attrs['calendar'] = 'standard'
+        expected = arr.to_dataset(name='a')
+        xr.testing.assert_identical(result, expected)
+
+    def test_convert_scalar_to_indexable_coord(self):
+        da = xr.DataArray([3, 4], coords=[[1, 2]], dims=['a'], name='b')
+        da['a'].attrs['test'] = 'c'
+        scalar_coord = da.isel(a=0)['a']
+        assert 'a' not in scalar_coord.dims
+
+        indexable_coord = convert_scalar_to_indexable_coord(scalar_coord)
+        assert 'a' in indexable_coord.dims
+
+        expected = xr.DataArray([1], coords=[[1]], dims=['a'], name='a')
+        expected.attrs['test'] = 'c'
+        xr.testing.assert_identical(indexable_coord, expected)
 
 if __name__ == '__main__':
     sys.exit(unittest.main())

@@ -28,6 +28,8 @@ Bug fixes
   we now raise a ``ValueError`` if the time coordinate of the time weights
   is not identical to the time coordinate of the array associated with the
   :py:class:`aospy.Var` (:pull:`128`).  By `Spencer Clark <https://github.com/spencerkclark>`_.
+- Enable calculations to be completed using data saved as a single time-slice
+  on disk (fixes :issue:`132` through :pull:`135`).  By `Spencer Clark <https://github.com/spencerkclark>`_.
 
 v0.1 (24 January 2017)
 ----------------------

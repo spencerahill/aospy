@@ -8,13 +8,13 @@ import unittest
 from aospy.calc import Calc, CalcInterface
 from .data.objects.examples import (
     example_proj, example_model, example_run, condensation_rain,
-    precip, globe, sahel
+    precip, sphum, globe, sahel
 )
 
 
 class TestCalcBasic(unittest.TestCase):
     def setUp(self):
-        self.two_d_test_params = {
+        self.test_params = {
             'proj': example_proj,
             'model': example_model,
             'run': example_run,
@@ -32,7 +32,7 @@ class TestCalcBasic(unittest.TestCase):
     def test_annual_mean(self):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='av',
-                                 **self.two_d_test_params)
+                                 **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
         assert isfile(calc.path_out['av'])
@@ -41,7 +41,7 @@ class TestCalcBasic(unittest.TestCase):
     def test_annual_ts(self):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='ts',
-                                 **self.two_d_test_params)
+                                 **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
         assert isfile(calc.path_out['ts'])
@@ -50,7 +50,7 @@ class TestCalcBasic(unittest.TestCase):
     def test_seasonal_mean(self):
         calc_int = CalcInterface(intvl_out='djf',
                                  dtype_out_time='av',
-                                 **self.two_d_test_params)
+                                 **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
         assert isfile(calc.path_out['av'])
@@ -59,7 +59,7 @@ class TestCalcBasic(unittest.TestCase):
     def test_seasonal_ts(self):
         calc_int = CalcInterface(intvl_out='djf',
                                  dtype_out_time='ts',
-                                 **self.two_d_test_params)
+                                 **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
         assert isfile(calc.path_out['ts'])
@@ -68,7 +68,7 @@ class TestCalcBasic(unittest.TestCase):
     def test_monthly_mean(self):
         calc_int = CalcInterface(intvl_out=1,
                                  dtype_out_time='av',
-                                 **self.two_d_test_params)
+                                 **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
         assert isfile(calc.path_out['av'])
@@ -77,7 +77,7 @@ class TestCalcBasic(unittest.TestCase):
     def test_monthly_ts(self):
         calc_int = CalcInterface(intvl_out=1,
                                  dtype_out_time='ts',
-                                 **self.two_d_test_params)
+                                 **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
         assert isfile(calc.path_out['ts'])
@@ -87,7 +87,7 @@ class TestCalcBasic(unittest.TestCase):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.av',
                                  region={'globe': globe},
-                                 **self.two_d_test_params)
+                                 **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
         assert isfile(calc.path_out['reg.av'])
@@ -97,7 +97,7 @@ class TestCalcBasic(unittest.TestCase):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.ts',
                                  region={'globe': globe},
-                                 **self.two_d_test_params)
+                                 **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
         assert isfile(calc.path_out['reg.ts'])
@@ -107,7 +107,7 @@ class TestCalcBasic(unittest.TestCase):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.av',
                                  region={'sahel': sahel},
-                                 **self.two_d_test_params)
+                                 **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
         assert isfile(calc.path_out['reg.av'])
@@ -116,7 +116,7 @@ class TestCalcBasic(unittest.TestCase):
 
 class TestCalcComposite(TestCalcBasic):
     def setUp(self):
-        self.two_d_test_params = {
+        self.test_params = {
             'proj': example_proj,
             'model': example_model,
             'run': example_run,
@@ -127,6 +127,21 @@ class TestCalcComposite(TestCalcBasic):
             'dtype_in_time': 'ts'
         }
 
+
+class TestCalc3D(TestCalcBasic):
+    def setUp(self):
+        self.test_params = {
+            'proj': example_proj,
+            'model': example_model,
+            'run': example_run,
+            'var': sphum,
+            'date_range': (datetime.datetime(6, 1, 1),
+                           datetime.datetime(6, 1, 31)),
+            'intvl_in': 'monthly',
+            'dtype_in_time': 'ts',
+            'dtype_in_vert': 'sigma',
+            'dtype_out_vert': 'vert_int'
+        }
 
 if __name__ == '__main__':
     unittest.main()

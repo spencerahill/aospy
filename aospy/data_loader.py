@@ -111,6 +111,7 @@ def _prep_time_data(ds):
     -------
     Dataset
     """
+    ds = times.ensure_time_as_dim(ds)
     ds = times.numpy_datetime_workaround_encode_cf(ds)
     if internal_names.TIME_BOUNDS_STR in ds:
         ds = times.ensure_time_avg_has_cf_metadata(ds)

@@ -234,22 +234,11 @@ class Model(object):
             for name in names_ext:
                 grid_attr = _get_grid_attr(grid_objs, name)
                 if grid_attr is not None:
-                    # Rename coordinates to aospy's internal names.
+                    TIME_STR = internal_names.TIME_STR
                     renamed_attr = _rename_coords(grid_attr)
-                    # Hack: MERRA data ending up with time-defined lat- and
-                    # lon-bounds.  Drop the time term.
-                    # TODO: improve this hack.
-                    cond_to_drop = (
-                        hasattr(renamed_attr, 'time') and
-                        name_int not in ['time', 'time_st', 'time_end',
-                                         'time_dur', 'time_bounds']
-                    )
-                    if cond_to_drop:
-                        tmp = renamed_attr.isel(time=0)
-                        try:
-                            renamed_attr = tmp.squeeze('time').drop('time')
-                        except KeyError:
-                            renamed_attr = tmp.drop('time')
+                    if ((TIME_STR not in renamed_attr.dims) and
+                       (TIME_STR in renamed_attr)):
+                        renamed_attr = renamed_attr.drop(TIME_STR)
                     setattr(self, name_int, renamed_attr)
                     break
 

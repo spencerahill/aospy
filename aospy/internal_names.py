@@ -44,10 +44,7 @@ TIME_WEIGHTS_STR = 'time_weights'
 NV_STR = 'nv'
 AVG_START_DATE_STR = 'avg_start_date'
 AVG_END_DATE_STR = 'avg_end_date'
-
-# AVERAGE_DT_STR does not enter here, because it is not a 'time since'
-# quantity.
-TIME_VAR_STRS = [TIME_STR, TIME_BOUNDS_STR]
+TIME_VAR_STRS = [TIME_STR, TIME_BOUNDS_STR, TIME_WEIGHTS_STR]
 
 GRID_ATTRS = OrderedDict(
     [(LAT_STR, ('lat', 'latitude', 'LATITUDE', 'y', 'yto')),
@@ -69,3 +66,7 @@ GRID_ATTRS = OrderedDict(
      (AVG_START_DATE_STR, ('avg_start_date',)),
      (AVG_END_DATE_STR, ('avg_end_date',))]
 )
+
+GRID_ATTRS_NO_TIMES = GRID_ATTRS.copy()
+for key in TIME_VAR_STRS:
+    del GRID_ATTRS_NO_TIMES[key]

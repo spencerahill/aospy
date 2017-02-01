@@ -148,7 +148,7 @@ class CalcSuite(object):
             ('Output data time type', self.dtype_out_time),
             ('Output data vertical type', self.dtype_out_vert),
             ('Vertical levels', self.level),
-            ('Year chunks', self.chunk_len),
+            ('Time offset', self.time_offset),
             ('Compute this data', self.compute),
         )
         print('')
@@ -189,7 +189,7 @@ class CalcSuite(object):
                       'dtype_out_time',
                       'dtype_in_vert',
                       'dtype_out_vert',
-                      'chunk_len')
+                      'time_offset')
         attrs = tuple([getattr(self, name) for name in attr_names])
         # Each permutation becomes a dictionary, with the keys being the attr
         # names and the values being the corresponding value for that
@@ -301,6 +301,10 @@ if __name__ == '__main__':
     mp.dtype_in_time = ['ts']
     # List of vertical data type of input data.
     mp.dtype_in_vert = [False]
+
+    # List the time offset dictionaries (if desired) to apply to the input
+    # data (e.g. [{'days': -15}]).
+    mp.time_offset = [None]
 
     # Submit all calculations in parallel.  Requires 'multiprocess' package
     # (which can be obtained e.g. via `pip install multiprocess`).

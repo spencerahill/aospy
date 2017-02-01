@@ -497,3 +497,60 @@ def assert_matching_time_coord(arr1, arr2):
                'arr1: {}\narr2: {}')
     if not (arr1[TIME_STR].identical(arr2[TIME_STR])):
         raise ValueError(message.format(arr1[TIME_STR], arr2[TIME_STR]))
+
+
+def ensure_time_as_dim(ds):
+    """Ensures that time is an indexable dimension on relevant quantites
+
+    In xarray, scalar coordinates cannot be indexed.  We rely
+    on indexing in the time dimension throughout the code; therefore
+    we need this helper method to (if needed) convert a scalar time coordinate
+    to a dimension.
+
+    Note that this must be applied before CF-conventions are decoded; otherwise
+    it casts ``np.datetime64[ns]`` as ``int`` values.
+
+    Parameters
+    ----------
+    ds : Dataset
+        Dataset with a time coordinate
+
+    Returns
+    -------
+    Dataset
+    """
+    TIME_STR = internal_names.TIME_STR
+    if TIME_STR not in ds.dims:
+        time = convert_scalar_to_indexable_coord(ds[TIME_STR])
+        ds = ds.set_coords(TIME_STR)
+        for name in ds.variables:
+            if ((name not in internal_names.GRID_ATTRS_NO_TIMES) and
+               (name != TIME_STR)):
+                da = ds[name]
+                da, _ = xr.broadcast(da, time)
+                da[TIME_STR] = time
+                ds[name] = da
+    return ds
+
+
+def convert_scalar_to_indexable_coord(scalar_da):
+    """Convert a scalar coordinate to an indexable one.
+
+    In xarray, scalar coordinates cannot be indexed. This converts
+    a scalar coordinate-containing ``DataArray`` to one that can
+    be indexed using ``da.sel`` and ``da.isel``.
+
+    Parameters
+    ----------
+    scalar_da : DataArray
+        Must contain a scalar coordinate
+
+    Returns
+    -------
+    DataArray
+    """
+    data = [scalar_da.values.item()]
+    da = xr.DataArray(data, coords=[data], dims=[scalar_da.name],
+                      name=scalar_da.name)
+    da.attrs = scalar_da.attrs
+    return da

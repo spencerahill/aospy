@@ -112,12 +112,19 @@ class CalcInterface(object):
 
               - 'reg.av', 'reg.std', 'reg.ts' : analogous to 'av', 'std', 'ts'
 
-      dtype_out_vert : {None, 'vert_av', 'vert_int'}, optional
+        dtype_out_vert : {None, 'vert_av', 'vert_int'}, optional
             How to reduce the data vertically:
 
             - None : no vertical reduction (i.e. output is defined vertically)
             - 'vert_av' : mass-weighted vertical average
             - 'vert_int' : mass-weighted vertical integral
+
+        time_offset : {None, dict}, optional
+            How to offset input data in time to correct for metadata errors
+
+            - None : no time offset applied
+            - dict : e.g. ``{'hours': -3}`` to offset times by -3 hours
+              See :py:meth:`aospy.utils.times.apply_time_offset`.
 
         """
 

@@ -1,7 +1,7 @@
 import os
 
 from aospy import Proj, Model, Run, Var, Region
-from aospy.data_loader import DictDataLoader
+from aospy.data_loader import NestedDictDataLoader
 
 ROOT_PATH = os.path.dirname(__file__)
 
@@ -9,23 +9,27 @@ ROOT_PATH = os.path.dirname(__file__)
 def total_precipitation(convection_rain, condensation_rain):
     return convection_rain + condensation_rain
 
-
-files = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
-                     '000[4-6]0101.precip_monthly.nc')
-file_map = {'monthly': files}
+precip_files = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                            '000[4-6]0101.precip_monthly.nc')
+sphum_files = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                           '00060101.sphum_monthly.nc')
+file_map = {'monthly': {'condensation_rain': precip_files,
+                        'convection_rain': precip_files,
+                        'sphum': sphum_files,
+                        'ps': sphum_files}}
 example_run = Run(
     name='example_run',
     description=(
         'Control simulation of the idealized moist model'
     ),
-    data_loader=DictDataLoader(file_map)
+    data_loader=NestedDictDataLoader(file_map)
 )
 
 example_model = Model(
     name='example_model',
     grid_file_paths=(
         (os.path.join(os.path.split(ROOT_PATH)[0],
-                      'netcdf', '00040101.precip_monthly.nc'),
+                      'netcdf', '00060101.sphum_monthly.nc'),
          os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                       'im.landmask.nc')),
     ),
@@ -59,6 +63,20 @@ precip = Var(
     description=('total precipitation rate'),
     func=total_precipitation,
     variables=(convection_rain, condensation_rain)
+)
+
+ps = Var(
+    name='ps',
+    def_time=True,
+    description=('surface pressure'),
+    def_vert=False
+)
+
+sphum = Var(
+    name='sphum',
+    def_time=True,
+    description=('specific humidity'),
+    def_vert=True
 )
 
 globe = Region(
