@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=2.7
+  - python=3.5
   - sphinx=1.4.1
   - numpy=1.11
   - numpydoc=0.6
@@ -11,6 +11,6 @@ dependencies:
   - pandas=0.19.0
   - hdf4
   - netCDF4
-  - xarray=0.8.2
+  - xarray=0.9.1
   - ipython=5.1.0
   - matplotlib=1.5.3

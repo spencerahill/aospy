@@ -17,7 +17,7 @@ Important links
 
 setuptools.setup(
     name="aospy",
-    version="0.1",
+    version="0.1.1",
     packages=setuptools.find_packages(),
     author="Spencer A. Hill and Spencer Clark",
     author_email="shill@atmos.ucla.edu",
@@ -25,8 +25,7 @@ setuptools.setup(
     long_description=LONG_DESCRIPTION,
     install_requires=['numpy >= 1.7', 'scipy >= 0.16', 'pandas >= 0.15.0',
                       'netCDF4 >= 1.2', 'toolz >= 0.7.2', 'dask >= 0.12',
-                      'xarray >= 0.9'],
-    setup_requires=['pytest-runner'],
+                      'xarray >= 0.9.1'],
     tests_require=['pytest >= 2.7.1'],
     package_data={'aospy': ['test/data/netcdf/*.nc']},
     license="Apache",
