@@ -42,8 +42,10 @@ AVERAGE_T1_STR = 'average_T1'
 AVERAGE_T2_STR = 'average_T2'
 TIME_WEIGHTS_STR = 'time_weights'
 NV_STR = 'nv'
-AVG_START_DATE_STR = 'avg_start_date'
-AVG_END_DATE_STR = 'avg_end_date'
+RAW_START_DATE_STR = 'raw_data_start_date'
+RAW_END_DATE_STR = 'raw_data_end_date'
+SUBSET_START_DATE_STR = 'subset_start_date'
+SUBSET_END_DATE_STR = 'subset_end_date'
 TIME_VAR_STRS = [TIME_STR, TIME_BOUNDS_STR, TIME_WEIGHTS_STR]
 
 GRID_ATTRS = OrderedDict(
@@ -63,8 +65,8 @@ GRID_ATTRS = OrderedDict(
      (TIME_WEIGHTS_STR, ('time_weights', 'average_DT',)),
      (TIME_BOUNDS_STR, ('time_bounds', 'time_bnds')),
      (NV_STR, ('nv',)),
-     (AVG_START_DATE_STR, ('avg_start_date',)),
-     (AVG_END_DATE_STR, ('avg_end_date',))]
+     (RAW_START_DATE_STR, ('raw_data_start_date',)),
+     (RAW_END_DATE_STR, ('raw_data_end_date',))]
 )
 
 GRID_ATTRS_NO_TIMES = GRID_ATTRS.copy()

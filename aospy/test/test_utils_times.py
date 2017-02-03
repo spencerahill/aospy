@@ -10,8 +10,8 @@ import xarray as xr
 
 from aospy.data_loader import set_grid_attrs_as_coords
 from aospy.internal_names import (
-    TIME_STR, TIME_BOUNDS_STR, NV_STR, TIME_WEIGHTS_STR, AVG_START_DATE_STR,
-    AVG_END_DATE_STR
+    TIME_STR, TIME_BOUNDS_STR, NV_STR, TIME_WEIGHTS_STR, RAW_START_DATE_STR,
+    RAW_END_DATE_STR, SUBSET_START_DATE_STR, SUBSET_END_DATE_STR
 )
 from aospy.utils.times import (
     apply_time_offset,
@@ -23,14 +23,14 @@ from aospy.utils.times import (
     numpy_datetime_workaround_encode_cf,
     month_indices,
     _month_conditional,
-    create_monthly_time_array,
-    extract_date_range_and_months,
+    extract_months,
     ensure_time_avg_has_cf_metadata,
     _assert_has_data_for_time,
     add_uniform_time_weights,
     assert_matching_time_coord,
     ensure_time_as_dim,
-    convert_scalar_to_indexable_coord
+    convert_scalar_to_indexable_coord,
+    sel_time
 )
 
 
@@ -128,11 +128,18 @@ class TestUtilsTimes(UtilsTimesTestCase):
 
     def test_numpy_datetime_range_workaround(self):
         self.assertEqual(numpy_datetime_range_workaround(
-            datetime.datetime(pd.Timestamp.min.year + 1, 1, 1)
+            datetime.datetime(pd.Timestamp.min.year + 1, 1, 1),
+            pd.Timestamp.min.year + 1
         ), datetime.datetime(pd.Timestamp.min.year + 1, 1, 1))
+
         self.assertEqual(
-            numpy_datetime_range_workaround(datetime.datetime(1, 1, 1)),
-            datetime.datetime(pd.Timestamp.min.year + 1, 1, 1)
+            numpy_datetime_range_workaround(datetime.datetime(3, 1, 1), 1),
+            datetime.datetime(pd.Timestamp.min.year + 3, 1, 1)
+        )
+
+        self.assertEqual(
+            numpy_datetime_range_workaround(datetime.datetime(5, 1, 1), 4),
+            datetime.datetime(pd.Timestamp.min.year + 2, 1, 1)
         )
 
     def test_numpy_datetime_workaround_encode_cf(self):
@@ -142,7 +149,7 @@ class TestUtilsTimes(UtilsTimesTestCase):
         ds = xr.Dataset(coords={TIME_STR: time})
         ds[TIME_STR].attrs['units'] = 'days since 0001-01-01 00:00:00'
         ds[TIME_STR].attrs['calendar'] = 'noleap'
-        actual = numpy_datetime_workaround_encode_cf(ds)
+        actual, min_year = numpy_datetime_workaround_encode_cf(ds)
 
         time_desired = xr.DataArray([days], dims=[TIME_STR])
         desired = xr.Dataset(coords={TIME_STR: time_desired})
@@ -154,16 +161,17 @@ class TestUtilsTimes(UtilsTimesTestCase):
         assert actual.identical(desired)
         self.assertEqual(xr.decode_cf(actual).time.values[0],
                          np.datetime64('1678-02-04'))
+        self.assertEqual(min_year, 700)
 
         # Test a case where times are in the Timestamp-valid range
-        days = 10
-        time = xr.DataArray([days], dims=[TIME_STR])
+        time = xr.DataArray([10], dims=[TIME_STR])
         ds = xr.Dataset(coords={TIME_STR: time})
         ds[TIME_STR].attrs['units'] = 'days since 2000-01-01 00:00:00'
         ds[TIME_STR].attrs['calendar'] = 'noleap'
-        actual = numpy_datetime_workaround_encode_cf(ds)
+        actual, min_year = numpy_datetime_workaround_encode_cf(ds)
         self.assertEqual(xr.decode_cf(actual).time.values[0],
                          np.datetime64('2000-01-11'))
+        self.assertEqual(min_year, 2000)
 
     def test_month_indices(self):
         np.testing.assert_array_equal(month_indices('ann'), range(1, 13))
@@ -206,26 +214,9 @@ class TestUtilsTimes(UtilsTimesTestCase):
         np.testing.assert_array_equal(result_march,
                                       np.array([False, False]))
 
-    def test_create_monthly_time_array(self):
-        start = datetime.datetime(1, 2, 2)
-        end = datetime.datetime(2, 6, 5)
-        # using feb and march
-        months_bool = [True] * 2 + [False] * 10 + [True] * 2 + [False] * 3
-        actual = create_monthly_time_array(start, end, 'fm')
-        all_months = pd.date_range(
-            start=datetime.datetime(pd.Timestamp.min.year + 1, start.month,
-                                    start.day),
-            end=datetime.datetime(pd.Timestamp.min.year + 2, end.month,
-                                  end.day), freq='M'
-        )
-        desired = xr.DataArray(all_months, dims=[TIME_STR])[months_bool]
-        assert actual.identical(desired)
-
-    def test_extract_date_range_and_months(self):
-        time = xr.DataArray(pd.date_range(start='2000-02-18', end='2002-07-12',
+    def test_extract_months(self):
+        time = xr.DataArray(pd.date_range(start='2001-02-18', end='2002-07-12',
                                           freq='1D'), dims=[TIME_STR])
-        start_date = datetime.datetime(2000, 8, 1)
-        end_date = datetime.datetime(2002, 6, 30)
         months = 'mam'  # March-April-May
         desired = xr.concat([
             xr.DataArray(pd.date_range(start='2001-03-01', end='2001-05-31',
@@ -233,20 +224,16 @@ class TestUtilsTimes(UtilsTimesTestCase):
             xr.DataArray(pd.date_range(start='2002-03-01', end='2002-05-31',
                                        freq='1D'), dims=[TIME_STR])
         ], dim=TIME_STR)
-        actual = extract_date_range_and_months(time, start_date, end_date,
-                                               months)
-        assert actual.identical(desired)
+        actual = extract_months(time, months)
+        xr.testing.assert_identical(actual, desired)
 
-    def test_extract_date_range_and_months_single_month(self):
+    def test_extract_months_single_month(self):
         time = xr.DataArray(pd.date_range(start='1678-01-01', end='1678-01-31',
                                           freq='1M'), dims=[TIME_STR])
-        start_date = datetime.datetime(1678, 1, 1)
-        end_date = datetime.datetime(1678, 1, 31)
         months = 1
         desired = time
-        actual = extract_date_range_and_months(time, start_date, end_date,
-                                               months)
-        assert actual.identical(desired)
+        actual = extract_months(time, months)
+        xr.testing.assert_identical(actual, desired)
 
     def test_ensure_time_avg_has_cf_metadata(self):
         time_bounds = np.array([[0, 31], [31, 59], [59, 90]])
@@ -288,13 +275,13 @@ class TestUtilsTimes(UtilsTimesTestCase):
         average_DT_expected[TIME_STR].attrs['calendar'] = cal_str
         assert ds[TIME_WEIGHTS_STR].identical(average_DT_expected)
 
-        self.assertEqual(ds[AVG_START_DATE_STR].values, [0])
-        self.assertEqual(ds[AVG_START_DATE_STR].attrs['units'], units_str)
-        self.assertEqual(ds[AVG_START_DATE_STR].attrs['calendar'], cal_str)
+        self.assertEqual(ds[RAW_START_DATE_STR].values, [0])
+        self.assertEqual(ds[RAW_START_DATE_STR].attrs['units'], units_str)
+        self.assertEqual(ds[RAW_START_DATE_STR].attrs['calendar'], cal_str)
 
-        self.assertEqual(ds[AVG_END_DATE_STR].values, [90])
-        self.assertEqual(ds[AVG_END_DATE_STR].attrs['units'], units_str)
-        self.assertEqual(ds[AVG_END_DATE_STR].attrs['calendar'], cal_str)
+        self.assertEqual(ds[RAW_END_DATE_STR].values, [90])
+        self.assertEqual(ds[RAW_END_DATE_STR].attrs['units'], units_str)
+        self.assertEqual(ds[RAW_END_DATE_STR].attrs['calendar'], cal_str)
 
     def test_add_uniform_time_weights(self):
         time = np.array([15, 46, 74])
@@ -394,6 +381,33 @@ class TestUtilsTimes(UtilsTimesTestCase):
         expected = xr.DataArray([1], coords=[[1]], dims=['a'], name='a')
         expected.attrs['test'] = 'c'
         xr.testing.assert_identical(indexable_coord, expected)
+
+    def test_sel_time(self):
+        time_bounds = np.array([[0, 31], [31, 59], [59, 90]])
+        nv = np.array([0, 1])
+        time = np.array([15, 46, 74])
+        data = np.zeros((3))
+        var_name = 'a'
+        ds = xr.DataArray(data,
+                          coords=[time],
+                          dims=[TIME_STR],
+                          name=var_name).to_dataset()
+        ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
+                                           coords=[time, nv],
+                                           dims=[TIME_STR, NV_STR],
+                                           name=TIME_BOUNDS_STR)
+        units_str = 'days since 2000-01-01 00:00:00'
+        ds[TIME_STR].attrs['units'] = units_str
+        ds = ensure_time_avg_has_cf_metadata(ds)
+        ds = set_grid_attrs_as_coords(ds)
+        ds = xr.decode_cf(ds)
+        da = ds[var_name]
+
+        start_date = np.datetime64('2000-02-01')
+        end_date = np.datetime64('2000-03-31')
+        result = sel_time(da, start_date, end_date)
+        self.assertEqual(result[SUBSET_START_DATE_STR].values, start_date)
+        self.assertEqual(result[SUBSET_END_DATE_STR].values, end_date)
 
 if __name__ == '__main__':
     sys.exit(unittest.main())

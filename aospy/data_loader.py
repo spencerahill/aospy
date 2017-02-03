@@ -109,10 +109,11 @@ def _prep_time_data(ds):
 
     Returns
     -------
-    Dataset
+    Dataset, int
+        The processed Dataset and minimum year in the loaded data
     """
     ds = times.ensure_time_as_dim(ds)
-    ds = times.numpy_datetime_workaround_encode_cf(ds)
+    ds, min_year = times.numpy_datetime_workaround_encode_cf(ds)
     if internal_names.TIME_BOUNDS_STR in ds:
         ds = times.ensure_time_avg_has_cf_metadata(ds)
     else:
@@ -123,7 +124,7 @@ def _prep_time_data(ds):
     ds = xr.decode_cf(
         ds, decode_times=True, decode_coords=False, mask_and_scale=False
     )
-    return ds
+    return ds, min_year
 
 
 def _load_data_from_disk(file_set):
@@ -188,12 +189,13 @@ class DataLoader(object):
         file_set = self._generate_file_set(var=var, start_date=start_date,
                                            end_date=end_date, **DataAttrs)
         ds = _load_data_from_disk(file_set)
-        ds = _prep_time_data(ds)
+        ds, min_year = _prep_time_data(ds)
         ds = set_grid_attrs_as_coords(ds)
         da = _sel_var(ds, var)
         da = self._maybe_apply_time_shift(da, time_offset, **DataAttrs)
 
-        start_date_xarray = times.numpy_datetime_range_workaround(start_date)
+        start_date_xarray = times.numpy_datetime_range_workaround(
+            start_date, min_year)
         end_date_xarray = start_date_xarray + (end_date - start_date)
         return times.sel_time(da, np.datetime64(start_date_xarray),
                               np.datetime64(end_date_xarray)).load()

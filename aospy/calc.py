@@ -199,15 +199,6 @@ class CalcInterface(object):
         else:
             self.start_date = utils.times.ensure_datetime(date_range[0])
             self.end_date = utils.times.ensure_datetime(date_range[-1])
-        self.date_range = utils.times.create_monthly_time_array(
-            self.start_date, self.end_date, self.intvl_out
-        )
-        # Workaround for limited date range support due to nanosecond
-        # precison.  See https://github.com/spencerahill/aospy/issues/98
-        self.start_date_xarray = utils.times.numpy_datetime_range_workaround(
-            self.start_date)
-        self.end_date_xarray = (self.start_date_xarray +
-                                (self.end_date - self.start_date))
 
         self.time_offset = time_offset
         self.data_loader = self.data_loader[0]
@@ -307,9 +298,8 @@ class Calc(object):
 
     def _to_desired_dates(self, arr):
         """Restrict the xarray DataArray or Dataset to the desired months."""
-        times = utils.times.extract_date_range_and_months(
-            arr[internal_names.TIME_STR], self.start_date_xarray,
-            self.end_date_xarray, self.months
+        times = utils.times.extract_months(
+            arr[internal_names.TIME_STR], self.months
         )
         return arr.sel(time=times)
 

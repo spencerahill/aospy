@@ -15,7 +15,8 @@ from aospy.internal_names import (LAT_STR, LON_STR, TIME_STR, TIME_BOUNDS_STR,
                                   NV_STR, SFC_AREA_STR, ETA_STR,
                                   TIME_WEIGHTS_STR)
 from aospy.utils import io
-from .data.objects.examples import condensation_rain, convection_rain, precip
+from .data.objects.examples import (condensation_rain, convection_rain, precip,
+                                    example_run, ROOT_PATH)
 
 
 class AospyDataLoaderTestCase(unittest.TestCase):
@@ -117,8 +118,9 @@ class TestDataLoader(AospyDataLoaderTestCase):
 
     def test_prep_time_data(self):
         assert (TIME_WEIGHTS_STR not in self.inst_ds)
-        ds = _prep_time_data(self.inst_ds)
+        ds, min_year = _prep_time_data(self.inst_ds)
         assert (TIME_WEIGHTS_STR in ds)
+        self.assertEqual(min_year, 2000)
 
 
 class TestDictDataLoader(TestDataLoader):
@@ -367,6 +369,23 @@ class TestGFDLDataLoader(TestDataLoader):
         result = io.data_name_gfdl('temp', 'atmos', 'av_ts',
                                    'seasonal', 2010, None, 2000, 6)
         self.assertEqual(result, expected)
+
+
+class LoadVariableTestCase(unittest.TestCase):
+    def setUp(self):
+        self.data_loader = example_run.data_loader
+
+    def tearDown(self):
+        pass
+
+    def test_load_variable(self):
+        result = self.data_loader.load_variable(
+            condensation_rain, datetime(5, 1, 1), datetime(5, 12, 31),
+            intvl_in='monthly')
+        filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                                '00050101.precip_monthly.nc')
+        expected = xr.open_dataset(filepath)['condensation_rain']
+        np.testing.assert_array_equal(result.values, expected.values)
 
 
 if __name__ == '__main__':

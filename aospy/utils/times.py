@@ -143,7 +143,7 @@ def datetime_or_default(date, default):
         return ensure_datetime(date)
 
 
-def numpy_datetime_range_workaround(date):
+def numpy_datetime_range_workaround(date, min_year):
     """Reset a date to earliest allowable year if outside of valid range.
 
     Hack to address np.datetime64, and therefore pandas and xarray, not
@@ -155,6 +155,8 @@ def numpy_datetime_range_workaround(date):
     Parameters
     ----------
     date : datetime.datetime object
+    min_year : int
+        Year in the units attribute of the raw loaded data
 
     Returns
     -------
@@ -162,11 +164,11 @@ def numpy_datetime_range_workaround(date):
         Original datetime.datetime object if the original date is within the
         permissible dates, otherwise a datetime.datetime object with the year
         offset to the earliest allowable year.
-
     """
     if date < pd.Timestamp.min:
-        return datetime.datetime(pd.Timestamp.min.year + 1, date.month,
-                                 date.day)
+        return datetime.datetime(
+            date.year - min_year + pd.Timestamp.min.year + 1,
+            date.month, date.day)
     return date
 
 
@@ -189,16 +191,17 @@ def numpy_datetime_workaround_encode_cf(ds):
 
     Returns
     -------
-    xarray.Dataset
-
+    xarray.Dataset, int
+        Dataset with time units adjusted as needed, and minimum year
+        in loaded data.
     """
     time = ds[internal_names.TIME_STR]
     units = time.attrs['units']
     units_yr = units.split(' since ')[1].split('-')[0]
-    min_yr_decoded = xr.decode_cf(time.to_dataset('dummy'))
+    min_yr_decoded = xr.decode_cf(time.to_dataset(name='dummy'))
     min_date = min_yr_decoded[internal_names.TIME_STR].values[0]
     if isinstance(min_date, np.datetime64):
-        return ds
+        return ds, pd.Timestamp(min_date).year
     else:
         min_yr = min_date.year
         new_units_yr = pd.Timestamp.min.year + 2 - min_yr
@@ -208,7 +211,7 @@ def numpy_datetime_workaround_encode_cf(ds):
             if VAR_STR in ds:
                 var = ds[VAR_STR]
                 var.attrs['units'] = new_units
-        return ds
+        return ds, min_yr
 
 
 def month_indices(months):
@@ -282,47 +285,14 @@ def _month_conditional(time, months):
     return cond
 
 
-def create_monthly_time_array(start_date, end_date, months):
-    """Create an array of months compliant with numpy datetime limited range.
-
-    Parameters
-    ----------
-    start_date, end_date : datetime.datetime
-    months : int, str, or xarray.DataArray of times
-        Specifies which months in each year to include via `_month_conditonal`
-
-    Returns
-    -------
-    xarray.DataArray
-        Array spans the specified date range and includes only the specified
-        months of the year.  Year is also reset to start at the beginning of
-        the range of dates that np.datetime64 can support if originally out of
-        range.
-
-    See Also
-    --------
-    _month_conditional : Generate boolean array specifying desired months
-
-    """
-    start_compliant = numpy_datetime_range_workaround(start_date)
-    end_compliant = start_compliant + (end_date - start_date)
-    all_months = pd.date_range(start=start_compliant, end=end_compliant,
-                               freq='M')
-    time = xr.DataArray(all_months, dims=[internal_names.TIME_STR])
-    return time[_month_conditional(time, months)]
-
-
-def extract_date_range_and_months(time, start_date, end_date, months):
-    """Extract times within a specified date range and months of the year.
+def extract_months(time, months):
+    """Extract times within specified months of the year.
 
     Parameters
     ----------
     time : xarray.DataArray
          Array of times that can be represented by numpy.datetime64 objects
          (i.e. the year is between 1678 and 2262).
-    start_date, end_date : datetime.datetime
-        Desired start and end date
-    end_date : Desired end date
     months : Desired months of the year to include
 
     Returns
@@ -330,8 +300,6 @@ def extract_date_range_and_months(time, start_date, end_date, months):
     xarray.DataArray of the desired times
     """
     inds = _month_conditional(time, months)
-    inds &= (time[internal_names.TIME_STR] <= np.datetime64(end_date))
-    inds &= (time[internal_names.TIME_STR] >= np.datetime64(start_date))
     return time.sel(time=inds)
 
 
@@ -363,8 +331,8 @@ def ensure_time_avg_has_cf_metadata(ds):
     Dataset or DataArray
         Time average metadata attributes added if needed.
     """
-    AVG_START_DATE_STR = internal_names.AVG_START_DATE_STR
-    AVG_END_DATE_STR = internal_names.AVG_END_DATE_STR
+    RAW_START_DATE_STR = internal_names.RAW_START_DATE_STR
+    RAW_END_DATE_STR = internal_names.RAW_END_DATE_STR
     TIME_BOUNDS_STR = internal_names.TIME_BOUNDS_STR
     TIME_STR = internal_names.TIME_STR
     NV_STR = internal_names.NV_STR
@@ -376,11 +344,11 @@ def ensure_time_avg_has_cf_metadata(ds):
         ds[TIME_WEIGHTS_STR] = time_weights.drop(NV_STR)
 
     avg_start_date = ds[TIME_BOUNDS_STR].isel(**{TIME_STR: 0, NV_STR: 0})
-    ds[AVG_START_DATE_STR] = avg_start_date.drop([TIME_STR, NV_STR])
+    ds[RAW_START_DATE_STR] = avg_start_date.drop([TIME_STR, NV_STR])
     avg_end_date = ds[TIME_BOUNDS_STR].isel(**{TIME_STR: -1, NV_STR: 1})
-    ds[AVG_END_DATE_STR] = avg_end_date.drop([TIME_STR, NV_STR])
+    ds[RAW_END_DATE_STR] = avg_end_date.drop([TIME_STR, NV_STR])
 
-    for coord in [TIME_BOUNDS_STR, AVG_START_DATE_STR, AVG_END_DATE_STR]:
+    for coord in [TIME_BOUNDS_STR, RAW_START_DATE_STR, RAW_END_DATE_STR]:
         ds[coord].attrs['units'] = ds[TIME_STR].attrs['units']
         if 'calendar' in ds[TIME_STR].attrs:
             ds[coord].attrs['calendar'] = ds[TIME_STR].attrs['calendar']
@@ -433,9 +401,9 @@ def _assert_has_data_for_time(da, start_date, end_date):
     AssertionError
          if the time range is not within the time range of the DataArray
     """
-    if internal_names.AVG_START_DATE_STR in da:
-        da_start = da[internal_names.AVG_START_DATE_STR].values
-        da_end = da[internal_names.AVG_END_DATE_STR].values
+    if internal_names.RAW_START_DATE_STR in da:
+        da_start = da[internal_names.RAW_START_DATE_STR].values
+        da_end = da[internal_names.RAW_END_DATE_STR].values
     else:
         times = da.time.isel(**{internal_names.TIME_STR: [0, -1]})
         da_start, da_end = times.values
@@ -450,6 +418,7 @@ def sel_time(da, start_date, end_date):
     """Subset a DataArray or Dataset for a given date range.
 
     Ensures that data are present for full extent of requested range.
+    Appends start and end date of the subset to the DataArray.
 
     Parameters
     ----------
@@ -472,6 +441,8 @@ def sel_time(da, start_date, end_date):
         requested range
     """
     _assert_has_data_for_time(da, start_date, end_date)
+    da[internal_names.SUBSET_START_DATE_STR] = xr.DataArray(start_date)
+    da[internal_names.SUBSET_END_DATE_STR] = xr.DataArray(end_date)
     return da.sel(**{internal_names.TIME_STR: slice(start_date, end_date)})
 
 

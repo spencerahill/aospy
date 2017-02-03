@@ -5,11 +5,11 @@ v0.1.1
 ------
 This release includes fixes for a number of bugs mistakenly introduced in the
 refactoring of the variable loading step of ``calc.py`` (:pull:`90`), as well as
-support for xarray version 0.9.0.
+support for xarray version 0.9.1.
 
 Ehancements
 ~~~~~~~~~~~
-- Support for xarray version 0.9.0.  By `Spencer Clark <https://github.com/spencerkclark>`_.
+- Support for xarray version 0.9.1.  By `Spencer Clark <https://github.com/spencerkclark>`_.
 
 Bug fixes
 ~~~~~~~~~
@@ -30,6 +30,9 @@ Bug fixes
   :py:class:`aospy.Var` (:pull:`128`).  By `Spencer Clark <https://github.com/spencerkclark>`_.
 - Enable calculations to be completed using data saved as a single time-slice
   on disk (fixes :issue:`132` through :pull:`135`).  By `Spencer Clark <https://github.com/spencerkclark>`_.
+- Fix bug where workaround for dates outside the ``pd.Timestamp`` valid range
+  caused a mismatch between the data loaded and the data requested (fixes
+  :issue:`138` through :pull:`139`). By `Spencer Clark <https://github.com/spencerkclark>`_.
 
 v0.1 (24 January 2017)
 ----------------------
