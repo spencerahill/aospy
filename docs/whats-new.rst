@@ -9,10 +9,13 @@ support for xarray version 0.9.1.
 
 Ehancements
 ~~~~~~~~~~~
-- Support for xarray version 0.9.1.  By `Spencer Clark <https://github.com/spencerkclark>`_.
+- Support for xarray version 0.9.1 and require it or a later xarray version.  By `Spencer Clark <https://github.com/spencerkclark>`_ and `Spencer Hill <https://github.com/spencerahill>`_.
+- Better support for variable names relating to "bounds" dimension of input data files.  "bnds", "bounds", and "nv" now all supported (:pull:`140`).  By `Spencer Hill <https://github.com/spencerahill>`_.
+- When coercing dims of input data to aospy's internal names, for scalars change only the name; for non-scalars change the name, force them to have a coord, and copy over their attrs (:pull:`140`).  By `Spencer Hill <https://github.com/spencerahill>`_.
 
 Bug fixes
 ~~~~~~~~~
+- Fix bug involving loading data that has dims that lack coords (which is possible as of xarray v0.9.0).  By `Spencer Hill <https://github.com/spencerahill>`_.
 - Fix an instance where the name for pressure half levels was mistakenly
   replaced with the name for the pressure full levels (:pull:`126`).  By
   `Spencer Clark <https://github.com/spencerkclark>`_.

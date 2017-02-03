@@ -8,12 +8,12 @@ import numpy as np
 import xarray as xr
 
 from aospy.data_loader import (DataLoader, DictDataLoader, GFDLDataLoader,
-                               NestedDictDataLoader, rename_grid_attrs,
+                               NestedDictDataLoader, grid_attrs_to_aospy_names,
                                set_grid_attrs_as_coords, _sel_var,
                                _prep_time_data)
 from aospy.internal_names import (LAT_STR, LON_STR, TIME_STR, TIME_BOUNDS_STR,
-                                  NV_STR, SFC_AREA_STR, ETA_STR,
-                                  TIME_WEIGHTS_STR)
+                                  BOUNDS_STR, SFC_AREA_STR, ETA_STR, PHALF_STR,
+                                  TIME_WEIGHTS_STR, GRID_ATTRS)
 from aospy.utils import io
 from .data.objects.examples import (condensation_rain, convection_rain, precip,
                                     example_run, ROOT_PATH)
@@ -28,7 +28,7 @@ class AospyDataLoaderTestCase(unittest.TestCase):
             intvl_in='monthly', dtype_in_vert='sigma', dtype_in_time='ts',
             intvl_out=None)
         time_bounds = np.array([[0, 31], [31, 59], [59, 90]])
-        nv = np.array([0, 1])
+        bounds = np.array([0, 1])
         time = np.array([15, 46, 74])
         data = np.zeros((3, 1, 1))
         lat = [0]
@@ -40,8 +40,8 @@ class AospyDataLoaderTestCase(unittest.TestCase):
                           dims=[TIME_STR, self.ALT_LAT_STR, LON_STR],
                           name=self.var_name).to_dataset()
         ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
-                                           coords=[time, nv],
-                                           dims=[TIME_STR, NV_STR],
+                                           coords=[time, bounds],
+                                           dims=[TIME_STR, BOUNDS_STR],
                                            name=TIME_BOUNDS_STR)
         units_str = 'days since 2000-01-01 00:00:00'
         ds[TIME_STR].attrs['units'] = units_str
@@ -64,11 +64,41 @@ class TestDataLoader(AospyDataLoaderTestCase):
     def test_rename_grid_attrs_ds(self):
         assert LAT_STR not in self.ds
         assert self.ALT_LAT_STR in self.ds
-        ds = rename_grid_attrs(self.ds)
+        ds = grid_attrs_to_aospy_names(self.ds)
         assert LAT_STR in ds
 
+    def test_rename_grid_attrs_dim_no_coord(self):
+        bounds_dim = 'nv'
+        assert bounds_dim not in self.ds
+        assert bounds_dim in GRID_ATTRS[BOUNDS_STR]
+        # Create DataArray with all dims lacking coords
+        values = self.ds[self.var_name].values
+        arr = xr.DataArray(values, name='dummy')
+        # Insert name to be replaced (its physical meaning doesn't matter here)
+        ds = arr.rename({'dim_0': bounds_dim}).to_dataset()
+        assert not ds[bounds_dim].coords
+        result = grid_attrs_to_aospy_names(ds)
+        assert result[BOUNDS_STR].coords
+
+    def test_rename_grid_attrs_skip_scalar_dim(self):
+        phalf_dim = 'phalf'
+        assert phalf_dim not in self.ds
+        assert phalf_dim in GRID_ATTRS[PHALF_STR]
+        ds = self.ds.copy()
+        ds[phalf_dim] = 4
+        ds = ds.set_coords(phalf_dim)
+        result = grid_attrs_to_aospy_names(ds)
+        xr.testing.assert_identical(result[phalf_dim], ds[phalf_dim])
+
+    def test_rename_grid_attrs_copy_attrs(self):
+        orig_attrs = {'dummy_key': 'dummy_val'}
+        ds_orig = self.ds.copy()
+        ds_orig[self.ALT_LAT_STR].attrs = orig_attrs
+        ds = grid_attrs_to_aospy_names(ds_orig)
+        self.assertEqual(ds[LAT_STR].attrs, orig_attrs)
+
     def test_set_grid_attrs_as_coords(self):
-        ds = rename_grid_attrs(self.ds)
+        ds = grid_attrs_to_aospy_names(self.ds)
         sfc_area = ds[self.var_name].isel(**{TIME_STR: 0}).drop(TIME_STR)
         ds[SFC_AREA_STR] = sfc_area
 

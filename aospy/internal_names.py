@@ -37,17 +37,17 @@ ZSURF_STR = 'zsurf'
 TIME_STR = 'time'
 TIME_BOUNDS_STR = 'time_bounds'
 YEAR_STR = 'year'
-BOUNDS_STR = 'bnds'
+BOUNDS_STR = 'bounds'
 AVERAGE_T1_STR = 'average_T1'
 AVERAGE_T2_STR = 'average_T2'
 TIME_WEIGHTS_STR = 'time_weights'
-NV_STR = 'nv'
 RAW_START_DATE_STR = 'raw_data_start_date'
 RAW_END_DATE_STR = 'raw_data_end_date'
 SUBSET_START_DATE_STR = 'subset_start_date'
 SUBSET_END_DATE_STR = 'subset_end_date'
 TIME_VAR_STRS = [TIME_STR, TIME_BOUNDS_STR, TIME_WEIGHTS_STR]
 
+# All attributes associated with data's spatiotemporal grid.
 GRID_ATTRS = OrderedDict(
     [(LAT_STR, ('lat', 'latitude', 'LATITUDE', 'y', 'yto')),
      (LAT_BOUNDS_STR, ('latb', 'lat_bnds', 'lat_bounds')),
@@ -64,7 +64,7 @@ GRID_ATTRS = OrderedDict(
      (TIME_STR, ('time',)),
      (TIME_WEIGHTS_STR, ('time_weights', 'average_DT',)),
      (TIME_BOUNDS_STR, ('time_bounds', 'time_bnds')),
-     (NV_STR, ('nv',)),
+     (BOUNDS_STR, ('bounds', 'bnds', 'nv')),
      (RAW_START_DATE_STR, ('raw_data_start_date',)),
      (RAW_END_DATE_STR, ('raw_data_end_date',))]
 )

@@ -14,11 +14,18 @@ from .utils import times, io
 dask.set_options(get=dask.async.get_sync)
 
 
-def rename_grid_attrs(data):
+def grid_attrs_to_aospy_names(data):
     """Rename grid attributes to be consistent with aospy conventions.
 
-    This function does not compare to Model coordinates or
-    add missing coordinates from Model objects.
+    Search all of the dataset's coords and dims looking for matches to known
+    grid attribute names; any that are found subsequently get renamed to the
+    aospy name as specified in ``aospy.internal_names.GRID_ATTRS``.
+
+    Also forces any renamed grid attribute that is saved as a dim without a
+    coord to have a coord, which facilitates subsequent slicing/subsetting.
+
+    This function does not compare to Model coordinates or add missing
+    coordinates from Model objects.
 
     Parameters
     ----------
@@ -31,9 +38,14 @@ def rename_grid_attrs(data):
         conventions
     """
     for name_int, names_ext in internal_names.GRID_ATTRS.items():
-        data_coord_name = set(names_ext).intersection(set(data.variables))
+        dims_and_vars = set(data.variables).union(set(data.dims))
+        data_coord_name = set(names_ext).intersection(dims_and_vars)
         if data_coord_name:
             data = data.rename({data_coord_name.pop(): name_int})
+            # Unless a dim is scalar, force it to have a coord.
+            # Prevents headaches when subsequently sub-setting.
+            if name_int in data.dims and not data[name_int].coords:
+                data = data.assign_coords(**{name_int: data[name_int]})
     return data
 
 
@@ -143,7 +155,7 @@ def _load_data_from_disk(file_set):
     Dataset
     """
     apply_preload_user_commands(file_set)
-    return xr.open_mfdataset(file_set, preprocess=rename_grid_attrs,
+    return xr.open_mfdataset(file_set, preprocess=grid_attrs_to_aospy_names,
                              concat_dim=internal_names.TIME_STR,
                              decode_cf=False)
 

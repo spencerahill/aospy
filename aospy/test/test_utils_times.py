@@ -10,8 +10,9 @@ import xarray as xr
 
 from aospy.data_loader import set_grid_attrs_as_coords
 from aospy.internal_names import (
-    TIME_STR, TIME_BOUNDS_STR, NV_STR, TIME_WEIGHTS_STR, RAW_START_DATE_STR,
-    RAW_END_DATE_STR, SUBSET_START_DATE_STR, SUBSET_END_DATE_STR
+    TIME_STR, TIME_BOUNDS_STR, BOUNDS_STR, TIME_WEIGHTS_STR,
+    RAW_START_DATE_STR, RAW_END_DATE_STR, SUBSET_START_DATE_STR,
+    SUBSET_END_DATE_STR
 )
 from aospy.utils.times import (
     apply_time_offset,
@@ -246,7 +247,7 @@ class TestUtilsTimes(UtilsTimesTestCase):
                           name='a').to_dataset()
         ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
                                            coords=[time, nv],
-                                           dims=[TIME_STR, NV_STR],
+                                           dims=[TIME_STR, BOUNDS_STR],
                                            name=TIME_BOUNDS_STR)
         units_str = 'days since 2000-01-01 00:00:00'
         cal_str = 'noleap'
@@ -316,7 +317,7 @@ class TestUtilsTimes(UtilsTimesTestCase):
                           name=var_name).to_dataset()
         ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
                                            coords=[time, nv],
-                                           dims=[TIME_STR, NV_STR],
+                                           dims=[TIME_STR, BOUNDS_STR],
                                            name=TIME_BOUNDS_STR)
         units_str = 'days since 2000-01-01 00:00:00'
         ds[TIME_STR].attrs['units'] = units_str
@@ -394,7 +395,7 @@ class TestUtilsTimes(UtilsTimesTestCase):
                           name=var_name).to_dataset()
         ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
                                            coords=[time, nv],
-                                           dims=[TIME_STR, NV_STR],
+                                           dims=[TIME_STR, BOUNDS_STR],
                                            name=TIME_BOUNDS_STR)
         units_str = 'days since 2000-01-01 00:00:00'
         ds[TIME_STR].attrs['units'] = units_str
@@ -408,6 +409,7 @@ class TestUtilsTimes(UtilsTimesTestCase):
         result = sel_time(da, start_date, end_date)
         self.assertEqual(result[SUBSET_START_DATE_STR].values, start_date)
         self.assertEqual(result[SUBSET_END_DATE_STR].values, end_date)
+
 
 if __name__ == '__main__':
     sys.exit(unittest.main())
