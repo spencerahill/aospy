@@ -8,18 +8,22 @@ environment:
     - PYTHON: "C:\\Python27-conda32"
       PYTHON_VERSION: "2.7"
       PYTHON_ARCH: "32"
+      CONDA_ENV: "py27"
 
     - PYTHON: "C:\\Python34-conda64"
       PYTHON_VERSION: "3.4"
       PYTHON_ARCH: "64"
+      CONDA_ENV: "py34"
 
     - PYTHON: "C:\\Python35-conda64"
       PYTHON_VERSION: "3.5"
       PYTHON_ARCH: "64"
+      CONDA_ENV: "py35"
 
     - PYTHON: "C:\\Python36-conda64"
       PYTHON_VERSION: "3.6"
       PYTHON_ARCH: "64"
+      CONDA_ENV: "py36"
 
 install:
   # Install miniconda Python
@@ -35,8 +39,9 @@ install:
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
 
   # install xarray and depenencies
-  - "conda install --yes --quiet -c conda-forge pip pytest numpy scipy pandas netCDF4 toolz dask xarray"
-  - "python setup.py install"
+  - "conda env create --file ./ci/environment-%CONDA_ENV%.yml"
+  - "activate test_env"
+  - "pip install -e ."
 
 build: false
 
