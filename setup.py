@@ -25,7 +25,7 @@ setuptools.setup(
     long_description=LONG_DESCRIPTION,
     install_requires=['numpy >= 1.7', 'scipy >= 0.16', 'pandas >= 0.15.0',
                       'netCDF4 >= 1.2', 'toolz >= 0.7.2', 'dask >= 0.12',
-                      'xarray >= 0.9.1'],
+                      'xarray >= 0.9.1', 'cloudpickle >= 0.2.1'],
     tests_require=['pytest >= 2.7.1'],
     package_data={'aospy': ['test/data/netcdf/*.nc']},
     license="Apache",
