@@ -21,6 +21,21 @@ computations.
 Please visit our documentation for futher information:
 http://aospy.readthedocs.io
 
+Quickstart
+----------
+Install via pip ::
+
+  pip install cloudpickle aospy
+
+And that's it!  Then checkout the documentation for instructions on
+how to get started.
+
+(The "cloudpickle" part is a temporary fix for a missing dependency;
+future versions will be installable via simply ``pip install aospy``.
+Also, a version will be available on conda-forge very soon; at that
+point installing via ``conda`` will become the preferred installation
+method.)
+
 Troubleshooting
 ---------------
 
@@ -30,7 +45,7 @@ Github repo.
 Copyright and license
 ---------------------
 
-Copyright 2017, the aospy developers.  
+Copyright 2017, the aospy developers.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,4 +65,3 @@ limitations under the License.
    :height: 300px
    :width: 300px
    :name: aospy-logo
-
