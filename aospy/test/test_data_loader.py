@@ -122,7 +122,7 @@ class TestDataLoader(AospyDataLoaderTestCase):
         result = _sel_var(ds, condensation_rain)
         self.assertEqual(result.name, condensation_rain.name)
 
-        with self.assertRaises(KeyError):
+        with self.assertRaises(LookupError):
             _sel_var(ds, precip)
 
     def test_maybe_apply_time_shift(self):

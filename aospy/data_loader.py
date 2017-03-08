@@ -98,8 +98,8 @@ def _sel_var(ds, var):
             return da.rename(var.name)
         except KeyError:
             pass
-    raise KeyError('{0} not found in '
-                   'among names:{1} in {2}'.format(var, var.names, ds))
+    msg = '{0} not found among names: {1} in\n{2}'.format(var, var.names, ds)
+    raise LookupError(msg)
 
 
 def _prep_time_data(ds):
