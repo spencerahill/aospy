@@ -23,24 +23,26 @@ http://aospy.readthedocs.io
 
 Quickstart
 ----------
-Install via pip ::
 
-  pip install cloudpickle aospy
+Install via `conda <http://conda.pydata.org/docs/>`_ ::
 
-And that's it!  Then checkout the documentation for instructions on
-how to get started.
+  conda install -c conda-forge aospy
 
-(The "cloudpickle" part is a temporary fix for a missing dependency;
-future versions will be installable via simply ``pip install aospy``.
-Also, a version will be available on conda-forge very soon; at that
-point installing via ``conda`` will become the preferred installation
-method.)
+And that's it!  We're also available via pip: ``pip install aospy``.
+Then checkout the `official documentation
+<http://aospy.readthedocs.io>`_ for instructions on how to get
+started.
 
 Troubleshooting
 ---------------
 
-Questions of any kind are welcome and best placed as Issues on the
-Github repo.
+Questions of any kind are welcome and best placed as `Issues
+<https://github.com/spencerahill/aospy/issues`_ on our official
+`Github repo <https://github.com/spencerahill/aospy`_.
+
+Please don't hesitate to ask a question, especially if you're new to
+the package and/or Python!  We are eager to help people get started
+with the package.
 
 Copyright and license
 ---------------------
