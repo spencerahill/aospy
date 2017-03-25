@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 
 from aospy import Proj, Model, Run, Var, Region
@@ -22,7 +23,9 @@ example_run = Run(
     description=(
         'Control simulation of the idealized moist model'
     ),
-    data_loader=NestedDictDataLoader(file_map)
+    data_loader=NestedDictDataLoader(file_map),
+    default_start_date=datetime(4, 1, 1),
+    default_end_date=datetime(6, 12, 31)
 )
 
 example_model = Model(
@@ -40,7 +43,7 @@ example_proj = Proj(
     'example_proj',
     direc_out=os.path.join(os.path.dirname(__file__), 'test-files'),
     tar_direc_out=os.path.join(os.path.dirname(__file__), 'test-tar-files'),
-    models=(example_model,)
+    models=[example_model]
 )
 
 condensation_rain = Var(

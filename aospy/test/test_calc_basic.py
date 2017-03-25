@@ -86,7 +86,7 @@ class TestCalcBasic(unittest.TestCase):
     def test_simple_reg_av(self):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.av',
-                                 region={'globe': globe},
+                                 region=[globe],
                                  **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
@@ -96,7 +96,7 @@ class TestCalcBasic(unittest.TestCase):
     def test_simple_reg_ts(self):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.ts',
-                                 region={'globe': globe},
+                                 region=[globe],
                                  **self.test_params)
         calc = Calc(calc_int)
         calc.compute()
@@ -106,7 +106,7 @@ class TestCalcBasic(unittest.TestCase):
     def test_complex_reg_av(self):
         calc_int = CalcInterface(intvl_out='ann',
                                  dtype_out_time='reg.av',
-                                 region={'sahel': sahel},
+                                 region=[sahel],
                                  **self.test_params)
         calc = Calc(calc_int)
         calc.compute()

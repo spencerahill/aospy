@@ -11,4 +11,5 @@ dependencies:
   - future
   - pip:
     - coveralls
+    - multiprocess
     - pytest-cov

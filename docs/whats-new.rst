@@ -1,6 +1,24 @@
 What's New
 ==========
 
+v0.1.2 (XX March 2017)
+----------------------
+
+This release improves the process of submitting multiple calculations
+for automatic execution: the user interface, documentation, internal
+logic, and packaging all received upgrades.
+
+Enhancements
+~~~~~~~~~~~~
+
+- Improve readability/usability of the included example script
+  ``aospy_main.py`` for submitting aospy calculations by moving all
+  internal logic into new ``automate.py`` module (fixes :issue:`152` via
+  :pull:`155`).
+- Include an example library of aospy objects that works
+  out-of-the-box with the provided example main script (fixes
+  :issue:`151` via :pull:`155`).
+
 v0.1.1 (2 March 2017)
 ---------------------
 This release includes fixes for a number of bugs mistakenly introduced in the

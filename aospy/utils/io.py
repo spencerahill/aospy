@@ -5,9 +5,6 @@ import subprocess
 import numpy as np
 
 
-logging.basicConfig(level=logging.INFO)
-
-
 def _robust_bool(obj):
     try:
         return bool(obj)
@@ -36,39 +33,6 @@ def get_parent_attr(obj, attr, strict=False):
                                  % (attr, obj))
         else:
             return None
-
-
-def dict_name_keys(objs):
-    """Create dict whose keys are the 'name' attr of the objects."""
-    assert isinstance(objs, (tuple, list, dict, set))
-    if isinstance(objs, (tuple, list, set)):
-        try:
-            return {obj.name: obj for obj in objs}
-        except AttributeError as e:
-            raise AttributeError(e)
-    return objs
-
-
-def to_dup_list(x, n, single_to_list=True):
-    """
-    Convert singleton or iterable into length-n list.  If the input is
-    a list, with length-1, its lone value gets duplicated n times.  If
-    the input is a list with length-n, leave it the same.  If the
-    input is any other data type, replicate it as a length-n list.
-    """
-
-    if isinstance(x, list):
-        if len(x) == n:
-            return x
-        elif len(x) == 1:
-            return x*n
-        msg = "Input {0} must have length 1 or {1}: len({0})= {2}"
-        raise ValueError(msg.format(x, n, len(x)))
-    if n == 1:
-        if single_to_list:
-            return [x]
-        return x
-    return [x]*n
 
 
 def data_in_label(intvl_in, dtype_in_time, dtype_in_vert=False):
@@ -205,4 +169,4 @@ def dmget(files_list):
             files_list = [files_list]
         subprocess.call(['dmget'] + files_list)
     except OSError:
-        logging.warning('dmget command not found in this machine')
+        logging.debug('dmget command not found in this machine')

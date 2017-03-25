@@ -19,8 +19,7 @@ from . import proj
 from .proj import Proj
 from . import calc
 from .calc import CalcInterface, Calc
-from . import find_obj
-from .find_obj import to_iterable, to_proj, to_model, to_run, to_var, to_region
+from .automate import submit_mult_calcs
 
 __all__ = ['Proj', 'Model', 'Run', 'Var', 'Units', 'Constant', 'Region',
            'units', 'calc', 'constants', 'utils']

@@ -137,7 +137,7 @@ class CalcInterface(object):
         for r in run:
             msg = ("Model '{0}' has no run '{1}'.  Calc object "
                    "will not be generated.".format(model, run))
-            if r not in model.runs.values():
+            if r not in model.runs:
                 raise AttributeError(msg)
         proj = tuple([proj])
         model = tuple([model])
@@ -557,7 +557,7 @@ class Calc(object):
             ), arr[internal_names.TIME_WEIGHTS_STR]).rename('pressure')
         # Loop over the regions, performing the calculation.
         reg_dat = {}
-        for reg in self.region.values():
+        for reg in self.region:
             # Just pass along the data if averaged already.
             if 'av' in self.dtype_in_time:
                 data_out = reg.ts(arr)
@@ -640,6 +640,7 @@ class Calc(object):
         for dtype_time, data in reduced.items():
             self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
                       save_files=save_files, save_tar_files=save_tar_files)
+        return self
 
     def _save_files(self, data, dtype_out_time):
         """Save the data to netcdf files in direc_out."""
@@ -659,7 +660,7 @@ class Calc(object):
             data_out = data
         if isinstance(data_out, xr.DataArray):
             data_out = xr.Dataset({self.name: data_out})
-        data_out.to_netcdf(path)
+        data_out.to_netcdf(path, engine='scipy')
 
     def _save_tar_files(self, dtype_out_time):
         """Add the data to the tar file in tar_out_direc."""

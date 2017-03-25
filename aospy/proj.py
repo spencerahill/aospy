@@ -41,7 +41,7 @@ class Proj(object):
 """
 
     def __init__(self, name, description=None, models=None,
-                 default_models='all', regions=None, direc_out='',
+                 default_models=None, regions=None, direc_out='',
                  tar_direc_out=''):
         """
         Parameters
@@ -82,20 +82,20 @@ class Proj(object):
         self.tar_direc_out = tar_direc_out
 
         if models is None:
-            self.models = {}
+            self.models = []
         else:
-            self.models = utils.io.dict_name_keys(models)
-        if default_models == 'all':
-            self.default_models = self.models
+            self.models = models
+        if default_models is None:
+            self.default_models = []
         else:
-            self.default_models = utils.io.dict_name_keys(default_models)
+            self.default_models = default_models
         if regions is None:
-            self.regions = {}
+            self.regions = []
         else:
-            self.regions = utils.io.dict_name_keys(regions)
+            self.regions = regions
 
         # Set the `proj` attribute of the children models.
-        for model in self.models.values():
+        for model in self.models:
             setattr(model, 'proj', self)
 
     def __str__(self):

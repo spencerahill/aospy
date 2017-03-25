@@ -121,11 +121,10 @@ class Model(object):
         A description of the model
     proj : {None, aospy.Proj}
         The model's parent aospy.Proj object
-    runs : dict
-        A dictionary with entries of the form ``{run_obj.name: run_obj}``,
-        for each of this model's child Run objects
-    default_runs : dict
-        The default subset of chidl run objects on which to perform
+    runs : list
+        A list of this model's child Run objects
+    default_runs : list
+        The default subset of child run objects on which to perform
         calculations via `aospy.Calc` with this model if not otherwise
         specified
     grid_file_paths : list
@@ -191,12 +190,13 @@ class Model(object):
         self.default_start_date = default_start_date
         self.default_end_date = default_end_date
 
-        self.runs = utils.io.dict_name_keys(runs)
-        [setattr(run, 'parent', self) for run in self.runs.values()]
-        if default_runs:
-            self.default_runs = utils.io.dict_name_keys(default_runs)
+        self.runs = runs
+        [setattr(run, 'parent', self) for run in self.runs]
+
+        if default_runs is None:
+            self.default_runs = []
         else:
-            self.default_runs = {}
+            self.default_runs = default_runs
 
         self._grid_data_is_set = False
         if load_grid_data:
