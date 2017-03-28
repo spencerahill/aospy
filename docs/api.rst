@@ -136,7 +136,7 @@ no direct interfacing with ``Calc`` or it's helper class,
 ``CalcInterface`` is required by the user, in which case this section
 should be skipped entirely.
 
-Also included is the ``find_obj`` module, which enables aospy e.g. in
+Also included is the ``automate`` module, which enables aospy e.g. in
 the main script to find objects in the user's object library that the
 user specifies via their string names rather than having to import the
 objects themselves.
@@ -156,10 +156,10 @@ CalcInterface and Calc
 
     .. automethod:: aospy.calc.Calc.__init__
 
-find_obj
+automate
 --------
 
-.. automodule:: aospy.find_obj
+.. automodule:: aospy.automate
     :members:
     :undoc-members:
 

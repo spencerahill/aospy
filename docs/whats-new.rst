@@ -1,23 +1,49 @@
+.. _whats-new:
+
 What's New
 ==========
+
+.. _whats-new.0.1.2:
 
 v0.1.2 (XX March 2017)
 ----------------------
 
 This release improves the process of submitting multiple calculations
-for automatic execution: the user interface, documentation, internal
-logic, and packaging all received upgrades.
+for automatic execution. the user interface, documentation, internal
+logic, and packaging all received upgrades and/or bugfixes.
 
 Enhancements
 ~~~~~~~~~~~~
 
 - Improve readability/usability of the included example script
   ``aospy_main.py`` for submitting aospy calculations by moving all
-  internal logic into new ``automate.py`` module (fixes :issue:`152` via
-  :pull:`155`).
+  internal logic into new ``automate.py`` module (fixes :issue:`152`
+  via :pull:`155`).  By `Spencer Clark
+  <https://github.com/spencerkclark>`_ and `Spencer Hill
+  <https://github.com/spencerahill>`_.
 - Include an example library of aospy objects that works
   out-of-the-box with the provided example main script (fixes
-  :issue:`151` via :pull:`155`).
+  :issue:`151` via :pull:`155`).  By `Spencer Clark
+  <https://github.com/spencerkclark>`_ and `Spencer Hill
+  <https://github.com/spencerahill>`_.
+- Enable user to specify whether or not to write output to .tar files
+  (in addition to the standard output).  Also document an error that
+  occurs when writing output to .tar files for sufficiently old
+  versions of tar (including the version that ships standard on
+  MacOS), and print a warning when errors are caught during the 'tar'
+  call (fixes one-half of :issue:`157` via :pull:`160`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
+
+Bug fixes
+~~~~~~~~~
+
+- Use the 'scipy' engine for the `xarray.DataArray.to_netcdf
+  <http://xarray.pydata.org/en/stable/generated/xarray.DataArray.to_netcdf.html?highlight=to_netcdf>`_
+  call when writing aospy calculation outputs to disk to prevent a bug
+  when trying to re-write to an existing netCDF file (fixes one-half
+  of :issue:`157` via :pull:`160`).
+
+.. _whats-new.0.1.1:
 
 v0.1.1 (2 March 2017)
 ---------------------
@@ -72,6 +98,8 @@ Bug fixes
   valid range caused a mismatch between the data loaded and the data
   requested (fixes :issue:`138` through :pull:`139`). By `Spencer
   Clark <https://github.com/spencerkclark>`_.
+
+.. _whats-new.0.1:
 
 v0.1 (24 January 2017)
 ----------------------

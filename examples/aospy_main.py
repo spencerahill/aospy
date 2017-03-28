@@ -54,6 +54,8 @@ from aospy import submit_mult_calcs
 import example_obj_lib as lib
 
 
+# This dictionary contains all of the specifications of calculations that you
+# wish to permute over.
 calc_suite_specs = dict(
     # Consult `CalcInterface` API reference for further explanation
     # of each option and accepted values.
@@ -99,15 +101,26 @@ calc_suite_specs = dict(
 
 )
 
-# Submit all calculations in parallel.  Requires 'multiprocess' package
-# (which can be obtained e.g. via `pip install multiprocess`).
-parallelize = False
 
-# List calculations to be performed and prompt for your verification.
-prompt_verify = True
+# This dictionary contains options regarding how the calculations are displayed
+# to you, submitted for execution, and saved upon execution.
+calc_exec_options = dict(
+    # List calculations to be performed and prompt for your verification before
+    # submitting them for execution.
+    prompt_verify=True,
+
+    # Submit all calculations in parallel.  Requires 'multiprocess' package
+    # (which can be obtained e.g. via `pip install multiprocess`).
+    parallelize=False,
+
+    # Save results of calculations to .tar files, one for each Run object.
+    # These tar files are placed using the same directory structure as the
+    # standard output relative to their root directory, which is specified via
+    # the `tar_direc_out` argument of each Proj object's instantiation.
+    write_to_tar=True,
+)
 
 
 # Don't modify this statement.
 if __name__ == '__main__':
-    calcs = submit_mult_calcs(calc_suite_specs, parallelize=parallelize,
-                              prompt_verify=prompt_verify)
+    calcs = submit_mult_calcs(calc_suite_specs, calc_exec_options)

@@ -9,7 +9,8 @@ from aospy.automate import (_get_attr_by_tag, _permuted_dicts_of_specs,
                             _get_all_objs_of_type, _merge_dicts,
                             _input_func_py2_py3, AospyException,
                             _user_verify, CalcSuite, _MODELS_STR, _RUNS_STR,
-                            _VARIABLES_STR, _REGIONS_STR, submit_mult_calcs)
+                            _VARIABLES_STR, _REGIONS_STR,
+                            _compute_or_skip_on_error, submit_mult_calcs)
 from .data.objects import examples as lib
 from .data.objects.examples import (
     example_proj, example_model, example_run, condensation_rain,
@@ -174,14 +175,43 @@ def calcsuite_init_specs_single_calc(calcsuite_init_specs):
     yield specs
     # Teardown procedure
     for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
-        shutil.rmtree(direc)
+        shutil.rmtree(direc, ignore_errors=True)
 
 
-@pytest.mark.parametrize(('parallelize'), [False, True])
-def test_submit_mult_calcs(calcsuite_init_specs_single_calc, parallelize):
-    calc = submit_mult_calcs(calcsuite_init_specs_single_calc, parallelize)[0]
+@pytest.fixture
+def calc(calcsuite_init_specs_single_calc):
+    return CalcSuite(calcsuite_init_specs_single_calc).create_calcs()[0]
+
+
+def test_compute_or_skip_on_error(calc, caplog):
+    result = _compute_or_skip_on_error(calc, dict(write_to_tar=False))
+    assert result is calc
+
+    calc.start_date = 'dummy'
+    result = _compute_or_skip_on_error(calc, dict(write_to_tar=False))
+    log_record = caplog.record_tuples[-1][-1]
+    assert log_record.startswith("Skipping aospy calculation")
+    assert result is None
+
+
+@pytest.mark.parametrize(
+    ('exec_options'),
+    [dict(parallelize=False, write_to_tar=False),
+     dict(parallelize=True, write_to_tar=False),
+     dict(parallelize=False, write_to_tar=True),
+     dict(parallelize=True, write_to_tar=True),
+     None])
+def test_submit_mult_calcs(calcsuite_init_specs_single_calc, exec_options):
+    calc = submit_mult_calcs(calcsuite_init_specs_single_calc, exec_options)[0]
     assert isfile(calc.path_out['av'])
-    assert isfile(calc.path_tar_out)
+    if exec_options is None:
+        write_to_tar = True
+    else:
+        write_to_tar = exec_options.pop('write_to_tar', True)
+    if write_to_tar:
+        assert isfile(calc.path_tar_out)
+    else:
+        assert not isfile(calc.path_tar_out)
 
 
 @pytest.fixture

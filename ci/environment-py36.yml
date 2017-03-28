@@ -13,3 +13,4 @@ dependencies:
     - coveralls
     - multiprocess
     - pytest-cov
+    - pytest-catchlog

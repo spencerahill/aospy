@@ -56,8 +56,7 @@ class CalcInterface(object):
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
-                 dtype_out_vert=None, level=None, time_offset=None,
-                 verbose=True):
+                 dtype_out_vert=None, level=None, time_offset=None):
         """Instantiate a CalcInterface object.
 
         Parameters
@@ -165,7 +164,6 @@ class CalcInterface(object):
         self.domain = self.var.domain
         self.def_time = self.var.def_time
         self.def_vert = self.var.def_vert
-        self.verbose = verbose
 
         try:
             self.function = self.var.func
@@ -627,7 +625,7 @@ class Calc(object):
             eddy = self._full_to_yearly_ts(eddy, full_dt)
         return full, monthly, eddy
 
-    def compute(self, save_files=True, save_tar_files=True):
+    def compute(self, write_to_tar=True):
         """Perform all desired calculations on the data and save externally."""
         data = self._prep_data(self._get_all_data(self.start_date,
                                                   self.end_date),
@@ -639,7 +637,7 @@ class Calc(object):
         logging.info("Writing desired gridded outputs to disk.")
         for dtype_time, data in reduced.items():
             self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
-                      save_files=save_files, save_tar_files=save_tar_files)
+                      save_files=True, write_to_tar=write_to_tar)
         return self
 
     def _save_files(self, data, dtype_out_time):
@@ -662,7 +660,7 @@ class Calc(object):
             data_out = xr.Dataset({self.name: data_out})
         data_out.to_netcdf(path, engine='scipy')
 
-    def _save_tar_files(self, dtype_out_time):
+    def _write_to_tar(self, dtype_out_time):
         """Add the data to the tar file in tar_out_direc."""
         if not os.path.isdir(self.dir_tar_out):
             os.makedirs(self.dir_tar_out)
@@ -684,10 +682,20 @@ class Calc(object):
                 # The os module treats files on archive as non-empty
                 # directories, so can't use os.remove or os.rmdir.
                 shutil.rmtree(old_data_path)
-                subprocess.call([
+                retcode = subprocess.call([
                     "tar", "--delete", "--file={}".format(self.path_tar_out),
                     self.file_name[dtype_out_time]
                 ])
+                if retcode:
+                    msg = ("The 'tar' command to save your aospy output "
+                           "exited with an error.  Most likely, this is due "
+                           "to using an old version of 'tar' (especially if "
+                           "you are on a Mac).  Consider installing a newer "
+                           "version of 'tar' or disabling tar output by "
+                           "setting `write_to_tar=False` in the "
+                           "`calc_exec_options` argument of "
+                           "`submit_mult_calcs`.")
+                    logging.warn(msg)
         with tarfile.open(self.path_tar_out, 'a') as tar:
             tar.add(self.path_out[dtype_out_time],
                     arcname=self.file_name[dtype_out_time])
@@ -700,13 +708,13 @@ class Calc(object):
             self.data_out = {dtype: data}
 
     def save(self, data, dtype_out_time, dtype_out_vert=False,
-             save_files=True, save_tar_files=False):
+             save_files=True, write_to_tar=False):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
         if save_files:
             self._save_files(data, dtype_out_time)
-        if save_tar_files and self.proj[0].tar_direc_out:
-            self._save_tar_files(dtype_out_time)
+        if write_to_tar and self.proj[0].tar_direc_out:
+            self._write_to_tar(dtype_out_time)
         logging.info('\t{}'.format(self.path_out[dtype_out_time]))
 
     def _load_from_disk(self, dtype_out_time, dtype_out_vert=False,

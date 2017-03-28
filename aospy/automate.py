@@ -4,6 +4,7 @@ from __future__ import print_function
 import itertools
 import logging
 import pprint
+import traceback
 
 from .calc import Calc, CalcInterface
 from .region import Region
@@ -241,36 +242,88 @@ class CalcSuite(object):
                 self._combine_core_aux_specs()]
 
 
-def _compute_or_skip_on_error(calc):
-    """Execute the Calc, catching and logging exceptions, but no re-raise.
+def _compute_or_skip_on_error(calc, compute_kwargs):
+    """Execute the Calc, catching and logging exceptions, but don't re-raise.
 
     Prevents one failed calculation from stopping a larger requested set
     of calculations.
     """
     try:
-        result = calc.compute()
-    except RuntimeError as e:
-        logging.warn(repr(e))
-    else:
-        return result
+        return calc.compute(**compute_kwargs)
+    except Exception as e:
+        msg = ("Skipping aospy calculation `{0}` due to error with the "
+               "following traceback: \n{1}")
+        logging.warn(msg.format(calc, traceback.format_exc()))
+        return None
 
 
-def exec_calcs(calcs, parallelize=False):
+def _exec_calcs(calcs, parallelize=False, **compute_kwargs):
+    """Execute the given calculations.
+
+    Parameters
+    ----------
+    calcs : Sequence of ``aospy.Calc`` objects
+    parallelize : bool, default False
+        Whether to submit the calculations in parallel or not
+    compute_kwargs : dict of keyword arguments passed to ``Calc.compute``
+
+    Returns
+    -------
+    A list of the values returned by each Calc object that was executed.
+    """
     if parallelize:
         pool = multiprocess.Pool()
-        return pool.map(lambda calc: _compute_or_skip_on_error(calc), calcs)
+        return pool.map(lambda calc:
+                        _compute_or_skip_on_error(calc, compute_kwargs),
+                        calcs)
     else:
-        return [_compute_or_skip_on_error(calc) for calc in calcs]
+        return [_compute_or_skip_on_error(calc, compute_kwargs)
+                for calc in calcs]
 
 
-def submit_mult_calcs(calc_suite_specs, parallelize=False,
-                      prompt_verify=False, verbose=True):
-    """Generate and execute all specified computations."""
+def _print_suite_summary(calc_suite_specs):
+    """Print summary of requested calculations."""
+    return ('\nRequested aospy calculations:\n' +
+            pprint.pformat(calc_suite_specs) + '\n')
+
+
+def submit_mult_calcs(calc_suite_specs, exec_options=None):
+    """Generate and execute all specified computations.
+
+    Parameters
+    ----------
+    calc_suite_specs : dict
+        The specifications describing the full set of calculations to be
+        generated and potentially executed.
+    exec_options : dict or None (default None)
+        Options regarding how the calculations are reported, submitted, and
+        saved.  If None, default settings are used for all options.  Currently
+        supported options (each should be either `True` or `False`):
+
+        - prompt_verify : If True, print summary of calculations to be
+              performed and prompt user to confirm before submitting for
+              execution
+        - parallelize : If True, submit calculations in parallel
+        - write_to_tar : If True, write results of calculations to .tar files,
+              one for each object.  These tar files have an identical directory
+              structures the standard output relative to their root directory,
+              which is specified via the `tar_direc_out` argument of each Proj
+              object's instantiation.
+
+    Returns
+    -------
+    A list of the values returned by each Calc object that was executed.
+
+    Raises
+    ------
+    AospyException : if the ``prompt_verify`` option is set to True and the
+        user does not respond affirmatively to the prompt.
+    """
+    if exec_options is None:
+        exec_options = dict()
+    if exec_options.pop('prompt_verify', False):
+        _print_suite_summary(calc_suite_specs)
+        _user_verify()
     calc_suite = CalcSuite(calc_suite_specs)
     calcs = calc_suite.create_calcs()
-    if prompt_verify:
-        print('\nRequested aospy calculations:\n')
-        pprint.pprint(calc_suite_specs)
-        print()
-        _user_verify()
-    return exec_calcs(calcs, parallelize=parallelize)
+    return _exec_calcs(calcs, **exec_options)
