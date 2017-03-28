@@ -34,8 +34,11 @@ setuptools.setup(
     tests_require=['pytest >= 2.7.1',
                    'pytest-catchlog >= 1.0'],
     package_data={'aospy': ['test/data/netcdf/*.nc']},
+    scripts=['examples/aospy_main.py',
+             'examples/example_obj_lib.py',
+             'examples/tutorial.ipynb'],
     license="Apache",
-    keywords="climate science netcdf",
+    keywords="climate science netcdf xarray",
     url="https://github.com/spencerahill/aospy",
     classifiers=[
         'Development Status :: 4 - Beta',

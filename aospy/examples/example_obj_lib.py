@@ -6,7 +6,7 @@ from aospy.data_loader import DictDataLoader
 
 
 _file_map = {'monthly':
-             '../aospy/test/data/netcdf/000[4-6]0101.precip_monthly.nc'}
+             '../test/data/netcdf/000[4-6]0101.precip_monthly.nc'}
 example_run = Run(
     name='example_run',
     description=(
@@ -21,8 +21,8 @@ example_run = Run(
 example_model = Model(
     name='example_model',
     grid_file_paths=(
-        '../aospy/test/data/netcdf/00040101.precip_monthly.nc',
-        '../aospy/test/data/netcdf/im.landmask.nc'
+        '../test/data/netcdf/00040101.precip_monthly.nc',
+        '../test/data/netcdf/im.landmask.nc'
     ),
     runs=[example_run]
 )
