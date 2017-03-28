@@ -16,9 +16,11 @@ aospy: automated climate data analysis and management
 
 aospy is a Python-based tool for automating computations involving
 gridded climate data and the management of the results of those
-computations.
+computations.  Use it to accelerate your science by automating your
+climate data workflow.
 
-Please visit our documentation for futher information:
+Please visit our documentation for more detailed information: what it
+does, how to install, how to use, how it works, etc.:
 http://aospy.readthedocs.io
 
 Quickstart
@@ -37,12 +39,12 @@ Troubleshooting
 ---------------
 
 Questions of any kind are welcome and best placed as `Issues
-<https://github.com/spencerahill/aospy/issues`_ on our official
-`Github repo <https://github.com/spencerahill/aospy`_.
+<https://github.com/spencerahill/aospy/issues>`_ on our official
+`Github repo <https://github.com/spencerahill/aospy>`_.
 
 Please don't hesitate to ask a question, especially if you're new to
 the package and/or Python!  We are eager to help people get started
-with the package.
+using aospy.
 
 Copyright and license
 ---------------------

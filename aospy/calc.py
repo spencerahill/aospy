@@ -18,6 +18,7 @@ from .var import Var
 
 logging.basicConfig(level=logging.INFO)
 
+
 dp = Var(
     name='dp',
     units='Pa',
@@ -276,7 +277,7 @@ class Calc(object):
 
     def __init__(self, calc_interface):
         self.__dict__ = vars(calc_interface)
-        logging.info(self._print_verbose(
+        logging.debug(self._print_verbose(
             'Initializing Calc instance:', self.__str__()
         ))
 

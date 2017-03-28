@@ -75,3 +75,7 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# aospy-specific
+example-output/
+example-tar-output/
