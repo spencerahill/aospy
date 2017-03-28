@@ -322,7 +322,7 @@ def submit_mult_calcs(calc_suite_specs, exec_options=None):
     if exec_options is None:
         exec_options = dict()
     if exec_options.pop('prompt_verify', False):
-        _print_suite_summary(calc_suite_specs)
+        print(_print_suite_summary(calc_suite_specs))
         _user_verify()
     calc_suite = CalcSuite(calc_suite_specs)
     calcs = calc_suite.create_calcs()
