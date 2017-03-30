@@ -20,6 +20,7 @@ from .proj import Proj
 from . import calc
 from .calc import CalcInterface, Calc
 from .automate import submit_mult_calcs
+from . import examples
 
 __all__ = ['Proj', 'Model', 'Run', 'Var', 'Units', 'Constant', 'Region',
            'units', 'calc', 'constants', 'utils']

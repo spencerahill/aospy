@@ -228,9 +228,9 @@ class Calc(object):
 
     def __str__(self):
         """String representation of the object."""
-        return "Calc object: " + ', '.join(
+        return "<aospy.Calc instance: " + ', '.join(
             (self.name, self.proj_str, self.model_str, self.run_str_full)
-        )
+        ) + ">"
 
     __repr__ = __str__
 
@@ -238,15 +238,13 @@ class Calc(object):
         """Create string of the data directory to save individual .nc files."""
         ens_label = utils.io.ens_label(self.ens_mem)
         return os.path.join(self.proj[0].direc_out, self.proj_str,
-                            self.model_str, self.run_str, ens_label,
-                            self.name)
+                            self.model_str, self.run_str, ens_label, self.name)
 
     def _dir_tar_out(self):
         """Create string of the data directory to store a tar file."""
         ens_label = utils.io.ens_label(self.ens_mem)
-        return os.path.join(self.proj[0].tar_direc_out,
-                            self.proj_str, 'data', self.model_str,
-                            self.run_str, ens_label)
+        return os.path.join(self.proj[0].tar_direc_out, self.proj_str,
+                            self.model_str, self.run_str, ens_label)
 
     def _file_name(self, dtype_out_time, extension='nc'):
         """Create the name of the aospy file."""

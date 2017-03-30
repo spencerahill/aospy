@@ -1,20 +1,13 @@
+.. _using-aospy:
+
 ###########
 Using aospy
 ###########
 
 This section provides a high-level summary of how to use aospy.  See
-the Examples section and associated Jupyter Notebook for concrete
+the :ref:`Overview <overview>` section of this documentation for more
+background information, or the :ref:`Examples` section for concrete
 examples.
-
-.. note::
-
-   There is a non-trivial amount of effort required (mainly in
-   creating and populating your object library, described below)
-   before you will be able to perform any calculations.  However, once
-   the object library is in place, there is essentially no limit to
-   the number of calculations that can be performed on your data
-   either together at the same time or at different times.  In other
-   words, the spinup time should be well worth it.
 
 Your aospy object library
 =========================
@@ -27,100 +20,97 @@ Describing your data on disk
 ----------------------------
 
 aospy needs to know where the data you want to use is located on disk
-and how it is organized across different simulations, models, and
-projects.  This involves a hierarchy of three classes, ``Proj``,
-``Model``, and ``Run``.
+and how it is organized across different projects, models, and model
+runs (i.e. simulations).  This involves a hierarchy of three classes,
+:py:class:`aospy.Proj`, :py:class:`aospy.Model`, and
+:py:class:`aospy.Run`.
 
-1. ``Proj``: This represents a single project that involves analysis of
-   data from one or more models and simulations.
+1. :py:class:`aospy.Proj`: This represents a single project that
+   involves analysis of data from one or more models and simulations.
 
-2. ``Model``: This represents a single climate model, other numerical
-   model, observational data source, etc.
+2. :py:class:`aospy.Model`: This represents a single climate model,
+   other numerical model, observational data source, etc.
 
-3. ``Run``: This represents a single simulation, version of
-   observational data, etc.
+3. :py:class:`aospy.Run`: This represents a single simulation,
+   version of observational data, etc.
 
-So each user's object library will contain one or more ``Proj``
-objects, each of which will have one or more child ``Model`` objects,
-which in turn will each have one or more child ``Run`` objects.
+So each user's object library will contain one or more
+:py:class:`aospy.Proj` objects, each of which will have one or more
+child :py:class:`aospy.Model` objects, which in turn will each have
+one or more child :py:class:`aospy.Run` objects.
 
 .. note::
 
    Currently, the Proj-Model-Run hierarchy is rigid, in that each Run
-   has a parent Model, and each Model has a parent Proj.  For small
-   projects, this can lead to a lot of boilerplate code.  Work is
-   ongoing to relax this constraint to facilitate easier exploratory
-   analysis.
+   has a parent Model, and each Model has a parent Proj.  Work is
+   ongoing to relax this to a more generic parent-child framework.
 
 Physical variables
 ------------------
 
-The ``Var`` class is used to represent physical variables,
+The :py:class:`aospy.Var` class is used to represent physical variables,
 e.g. precipitation rate or potential temperature.  This includes both
 variables which are directly available in netCDF files (e.g. they were
-directly outputted by your climate model) as well as those fields that
-must be computed from other variables (e.g. they weren't directly
-outputted but can be computed from other variables that were
-outputted).
+directly outputted by your model or gridded data product) as well as
+those fields that must be computed from other variables (e.g. they
+weren't directly outputted but can be computed from other variables
+that were outputted).
 
 Geographical regions
 --------------------
 
-The ``Region`` class is used to define geographical regions over which
-quantities can be averaged (in addition to gridpoint-by-gridpoint
-values).  Like ``Var`` objects, they are more generic than the objects
-of the ``Proj`` - ``Model`` - ``Run`` hierarchy, in that they
-correspond to the generic physical quantities/regions rather than the
-data of a particular project, model, or simulation.
+The :py:class:`aospy.Region` class is used to define geographical
+regions over which quantities can be averaged (in addition to
+gridpoint-by-gridpoint values).  Like :py:class:`aospy.Var` objects,
+they are more generic than the objects of the :py:class:`aospy.Proj` -
+:py:class:`aospy.Model` - :py:class:`aospy.Run` hierarchy, in that
+they correspond to the generic physical quantities/regions rather than
+the data of a particular project, model, or simulation.
 
-Configuring your object library
-===============================
-
-Required components
--------------------
-
-In order for your object library to work with the main script, it must
-include the following two objects:
-
-1. ``projs`` : A container of ``Proj`` objects
-2. ``variables`` : A container of ``Var`` objects
-
-(The ``Model``, ``Run``, and ``Region`` objects are all included
-within their parent ``Proj`` objects and thus don't require analogous
-top-level containers.)
-
-These must be accessible from the object library's toplevel namespace,
-i.e. the Python commands ``import my_obj_lib.projs`` and ``import
-my_obj_lib.variables`` must work, where ``my_obj_lib`` is the name
-you've given to your library.  Which leads to the next topic: how to
-structure your object library within one or more ``.py`` files.
-
-File/directory structure
+Object library structure
 ------------------------
 
-The simplest way to structure your object library is to define
-everything in a single module (i.e. a single ``.py`` file).  This
-works great for small projects and for initially trying out aospy.
+The officially supported way to submit calculations is the
+:py:meth:`aospy.submit_mult_calcs` function.  In order for this to
+work, your object library must follow one or the other of these
+structures:
 
-As an object library grows, however, it can become desirable to split
-it into multiple ``.py`` files.  This effectively changes it from a
-module to a proper Python package.  Python packages require a specific
-directory structure and specification of things to include at each
-level via ``__init__.py`` files.  See the `official documentation
+1. All :py:class:`aospy.Proj` and :py:class:`aospy.Var` objects are
+   accessible as attributes of your library.  This means that
+   ``my_obj_lib.my_obj`` works, where ``my_obj_lib`` is
+   your object library, and ``my_obj`` is the object in question.
+2. All :py:class:`aospy.Proj` objects are stored in a container called
+   ``projs``, where ``projs`` is an attribute of your library
+   (i.e. ``my_obj_lib.projs``).  And likewise for
+   :py:class:`aospy.Var` objects in a ``variables`` attribute.
+
+Beyond that, you can structure your object library however you wish.
+In particular, it can be structured as a Python module (i.e. a single
+".py" file) or as a package (i.e. multiple ".py" files linked
+together; see the `official documentation
 <https://docs.python.org/3.6/tutorial/modules.html#packages>`_ on
-packages for further guidance.
+package structuring).
 
-For an example of a large object library that is structured as a
-proper package, see `here
+A single module works great for small projects and for initially
+trying out aospy (this is how the example object library,
+:py:mod:`aospy.examples.example_obj_lib`, is structured).  But as
+your object library grows, it can become easier to manage as a package
+of multiple files.  For an example of a large object library that is
+structured as a formal package, see `here
 <https://github.com/spencerahill/aospy-obj-lib>`_.
 
-Making your object library visible to Python
---------------------------------------------
+Accessing your library
+----------------------
 
-Whether it is structured as a single module or as a proper package,
-you'll likely have to add the directory containing your object library
-to the ``PYTHONPATH`` environment variable in order for Python to be
-able to import it::
+If your current working directory is the one containing your library,
+you can import your library via ``import my_obj_lib`` (replacing
+``my_obj_lib`` with whatever you've named yours) in order to pass it
+to :py:meth:`aospy.submit_mult_calcs`.
+
+Once you start using aospy a lot, however, this requirement of being
+in the same directory becomes cumbersome.  As a solution, you can add
+the directory containing your object library to the ``PYTHONPATH``
+environment variable.  E.g if you're using the bash shell: ::
 
   export PYTHONPATH=/path/to/your/object/library:${PYTHONPATH}
 
@@ -128,7 +118,8 @@ Of course, replace ``/path/to/your/object/library`` with the actual
 path to yours.  This command places your object library at the front
 of the ``PYTHONPATH`` environment variable, which is essentially the
 first place where Python looks to find packages and modules to be
-imported.
+imported.  (For more, see Python's `official documentation on
+PYTHONPATH <https://docs.python.org/3.6/using/cmdline.html>`_).
 
 .. note::
 
@@ -136,54 +127,30 @@ imported.
    for the bash shell on Linux or Mac, ``~/.bash_profile``) so that
    you don't have to call it again in every new terminal session.
 
-.. note::
-
-   For object libraries structured as packages, it is also possible to
-   properly install your object library by creating a properly set-up
-   ``setup.py`` file and ``python setup.py install``.  But unless
-   you're prevented from modifying ``PYTHONPATH`` for some reason,
-   there's no advantage of this versus the simpler
-   ``PYTHONPATH`` alternative above.
-
-Once this has been done, you should be able to import your object
-library from within Python via ``import my_obj_lib``, where
-``my_obj_lib`` is the name you've given to your library.  You will not
-be able to use the main script until this works.
+To test this is working, run ``python -c "import my_obj_lib"`` from a
+directory other than where the library is located (again replacing
+``my_obj_lib`` with the name you've given to your library).  If this
+runs without error, you should be good to go.
 
 Executing calculations
 ======================
 
-The main script contents
-------------------------
+As noted above, the officially supported way to submit calculations is the
+:py:meth:`aospy.submit_mult_calcs` function.
 
-Calculations are performed by specifying in a "main script" the
-desired parameters and then running the script.
-
-We provide a template main script within aospy.  You should copy it to
-the location of your choice and in the copy replace the given names
-with the names of your own project, model, etc. objects that you want
-to perform computations on.  (If you accidentally change the original,
-you can always get a `fresh copy from Github
-<https://github.com/spencerahill/aospy/tree/develop/examples>`_.)
-
-Except where noted otherwise in the template script's comments, all
-parameters should be submitted as lists, even if they are a single
-element.  E.g. ``models = ['name-of-my-model']``.
-
-.. note::
-
-   Although the main script is the recommended way to perform
-   calculations, it's possible to submit calculations by other means.
-   For example, one could explicitly create ``Calc`` objects and call
-   their ``compute`` method, as is done in the example Jupyter
-   notebook.
+We provide a template "main" script with aospy that uses this
+function.  We recommend copying it to the location of your choice.  In
+the copy, replace the example object library and associated objects
+with your own.  (If you accidentally change the original, you can
+always get a `fresh copy from Github
+<https://github.com/spencerahill/aospy/blob/develop/aospy/examples/aospy_main.py>`_).
 
 Running the main script
 -----------------------
 Once the main script parameters are all modified as desired, execute
 the script from the command line as follows ::
 
-  /path/to/your/main.py
+  /path/to/your/aospy_main.py
 
 This should generate a text summary of the specified parameters and a
 prompt as to whether to proceed or not with the calculations.  An
@@ -202,6 +169,9 @@ the number of permutations.
    line, run the script and then start an interactive IPython session
    via ``ipython -i /path/to/your/main.py``.
 
+   Or you can call :py:func:`aospy.submit_mult_calcs` directly within
+   an interactive session.
+
 As the calculations are performed, logging information will be printed
 to the terminal displaying their progress.
 
@@ -211,7 +181,8 @@ Parallelized calculations
 The calculations generated by the main script can be executed in
 parallel provided the optional dependency ``multiprocess`` is
 installed.  (It is available via pip: ``pip install multiprocess``.)
-Otherwise, or if the user sets ``parallelize`` to ``False`` in the main
+Otherwise, or if the user sets ``parallelize=False`` in the
+``calc_exec_options`` argument of :py:func:`aospy.submit_mult_calcs`,
 script, the calculations will be executed one-by-one.
 
 Particularly on instititutional clusters with many cores, this
@@ -225,7 +196,6 @@ calculations are generated.
    up interwoven with one another, leading to output that is confusing
    to follow.  Work is ongoing to improve the logging output when the
    computations are parallelized.
-   
 
 Finding the output
 ------------------
@@ -239,19 +209,49 @@ and in the directory structure within which they are saved.
 - File name :
   ``varname.intvl_out.dtype_out_time.'from_'intvl_in'_'dtype_in_time.model.run.date_range.nc``
 
-See the API reference documentation of ``CalcInterface`` for explanation of each of these components of the path and file name.
+See the :ref:`api-ref` on :py:class:`aospy.CalcInterface` for
+explanation of each of these components of the path and file name.
 
 Under the hood
---------------
+==============
 
-The main script encodes each permutation of the input parameters into
-a ``CalcInterface`` object.  This object, in turn, is used to
-instantiate a ``Calc`` object.  The ``Calc`` object, in turn, performs
-the calculation.
+:py:func:`aospy.submit_mult_calcs` creates a :py:class:`aospy.CalcSuite`
+object that permutes over the provided lists of calculation
+specifications, encoding each permutation into a
+:py:class:`aospy.CalcInterface` object.
 
-Unlike ``Proj``, ``Model``, ``Run``, ``Var``, and ``Region``, these
-objects are not intended to be saved in ``.py`` files for continual
-re-use.  Instead, they are generated as needed, perform their desired
-tasks, and then go away.
+.. note::
 
-See the API reference documentation for further details.
+   Actually, when multiple regions and/or output time/regional
+   reductions are specified, these all get passed to each
+   :py:class:`aospy.CalcInterface` object rather than being permuted
+   over.  They are then looped over during the subsequent
+   calculations.  This is to prevent unnecessary re-loading and
+   re-computing, because, for a given simulation/variable/etc., all
+   regions and reduction methods use the same data.
+
+Each :py:class:`aospy.CalcInterface` object, in turn, is used to
+instantiate a :py:class:`aospy.Calc` object.  The
+:py:class:`aospy.Calc` object, in turn:
+
+- loads the required netCDF data given its simulation, variable, and date range
+- (if necessary) further truncates the data in time (i.e. to the given
+  subset of the annual cycle, and/or if the requested date range
+  doesn't exactly align with the time chunking of the input netCDF
+  files)
+- (if the variable is a function of other variables) executes the
+  function that computes the calculation using this loaded and
+  truncated data
+- applies all specified temporal and regional time reductions
+- writes the results (plus additional metadata) to disk as netCDF
+  files and appends it to its own ``data_out`` attribute
+
+.. note::
+
+   Unlike :py:class:`aospy.Proj`, :py:class:`aospy.Model`,
+   :py:class:`aospy.Run`, :py:class:`aospy.Var`, and
+   :py:class:`aospy.Region`, these objects are not intended to be
+   saved in ``.py`` files for continual re-use.  Instead, they are
+   generated as needed, perform their desired tasks, and then go away.
+
+See the :ref:`API reference <api-ref>` documentation for further details.

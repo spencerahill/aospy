@@ -1,11 +1,14 @@
+.. _api-ref:
+
 #############
 API Reference
 #############
 
 Here we provide the reference documentation for aospy's public API.
 If you are new to the package and/or just trying to get a feel for the
-overall workflow, you are better off starting in the main
-documentation sections.
+overall workflow, you are better off starting in the :ref:`Overview
+<overview>`, :ref:`using-aospy`, or :ref:`examples` sections of this
+documentation.
 
 .. warning::
 
@@ -18,8 +21,8 @@ Core Hierarchy for Input Data
 
 aospy provides three classes for specifying the location and
 characteristics of data saved on disk as netCDF files that the user
-wishes to use as input data for aospy calculations: ``Proj``,
-``Model``, and ``Run``.
+wishes to use as input data for aospy calculations: :py:class:`Proj`,
+:py:class:`Model`, and :py:class:`Run`.
 
 Proj
 ----
@@ -51,15 +54,15 @@ Run
 DataLoaders
 ===========
 
-``Run`` objects rely on a helper "data loader" to specify how to find
+:py:class:`Run` objects rely on a helper "data loader" to specify how to find
 their underlying data that is saved on disk.  This mapping of
 variables, time ranges, and potentially other parameters to the
 location of the corresponding data on disk can differ among modeling
 centers or even between different models at the same center.
 
-Currently supported data loader types are ``DictDataLoader``,
-``NestedDictDataLoader``, and ``GFDLDataLoader`` Each of these inherit
-from the abstract base ``DataLoader`` class.
+Currently supported data loader types are :py:class:`DictDataLoader`,
+:py:class:`NestedDictDataLoader`, and :py:class:`GFDLDataLoader` Each of these inherit
+from the abstract base :py:class:`DataLoader` class.
 
 .. autoclass:: aospy.data_loader.DataLoader
     :members:
@@ -88,14 +91,14 @@ from the abstract base ``DataLoader`` class.
 Variables and Regions
 =====================
 
-The ``Var`` and ``Region`` classes are used to represent,
+The :py:class:`Var` and :py:class:`Region` classes are used to represent,
 respectively, physical quantities the user wishes to be able to
 compute and geographical regions over which the user wishes to
 aggregate their calculations.
 
-Whereas the ``Proj`` - ``Model`` - ``Run`` hierarchy is used to
-describe the data resulting from particular model simulations, ``Var``
-and ``Region`` represent the properties of generic physical entities
+Whereas the :py:class:`Proj` - :py:class:`Model` - :py:class:`Run` hierarchy is used to
+describe the data resulting from particular model simulations, :py:class:`Var`
+and :py:class:`Region` represent the properties of generic physical entities
 that do not depend on the underlying data.
 
 Var
@@ -119,24 +122,24 @@ Region
 Calculations
 ============
 
-``Calc`` is the engine that combines the user's specifications of (1)
-the data on disk via ``Proj``, ``Model``, and ``Run``, (2) the
-physical quantity to compute and regions to aggregate over via ``Var``
-and ``Region``, and (3) the desired date range, time reduction method,
+:py:class:`Calc` is the engine that combines the user's specifications of (1)
+the data on disk via :py:class:`Proj`, :py:class:`Model`, and :py:class:`Run`, (2) the
+physical quantity to compute and regions to aggregate over via :py:class:`Var`
+and :py:class:`Region`, and (3) the desired date range, time reduction method,
 and other characteristics to actually perform the calculation
 
-Whereas ``Proj``, ``Model``, ``Run``, ``Var``, and ``Region`` are all
-intended to be saved in ``.py`` files for reuse, ``Calc`` objects are
+Whereas :py:class:`Proj`, :py:class:`Model`, :py:class:`Run`, :py:class:`Var`, and :py:class:`Region` are all
+intended to be saved in ``.py`` files for reuse, :py:class:`Calc` objects are
 intended to be generated dynamically by a main script and then not
 retained after they have written their outputs to disk following the
 user's specifications.
 
 Moreover, if the ``main.py`` script is used to execute calculations,
-no direct interfacing with ``Calc`` or it's helper class,
-``CalcInterface`` is required by the user, in which case this section
+no direct interfacing with :py:class:`Calc` or it's helper class,
+:py:class:`CalcInterface` is required by the user, in which case this section
 should be skipped entirely.
 
-Also included is the ``automate`` module, which enables aospy e.g. in
+Also included is the :py:class:`automate` module, which enables aospy e.g. in
 the main script to find objects in the user's object library that the
 user specifies via their string names rather than having to import the
 objects themselves.
@@ -168,7 +171,7 @@ operator
 
 .. warning::
 
-    The ``operator`` module is in the process of being re-vamped and
+    The :py:class:`operator` module is in the process of being re-vamped and
     is therefore currently not supported.
 
 .. automodule:: aospy.operator
@@ -178,21 +181,25 @@ operator
 Units and Constants
 ===================
 
-aospy provides the classes ``Constant`` and ``Units`` for
-representing, respectively, physical constants (e.g. Earth's
+aospy provides the classes :py:class:`Constant` and :py:class:`Units`
+for representing, respectively, physical constants (e.g. Earth's
 gravitational acceleration at the surface = 9.81 m/s^2) and physical
 units (e.g. meters per second squared in that example).
 
 aospy comes with several commonly used constants saved within the
-``constants`` module in which the ``Constant`` class is also defined.
-In contrast, there are no pre-defined ``Units`` objects; the user must
-define any ``Units`` objects they wish to use (e.g. to populate the
-``units`` attribute of their ``Var`` objects).
+:py:class:`constants` module in which the :py:class:`Constant` class
+is also defined.  In contrast, there are no pre-defined
+:py:class:`Units` objects; the user must define any :py:class:`Units`
+objects they wish to use (e.g. to populate the :py:class:`units`
+attribute of their :py:class:`Var` objects).
 
-Similarly, whereas these baked-in ``Constant`` objects are used by
-aospy in various places, aospy currently does not actually use the
-``Var.units`` attribute or the ``Units`` class more generally; they
-are for the user's own informational purposes.
+.. warning::
+
+   Whereas these baked-in :py:class:`Constant` objects are used by
+   aospy in various places, aospy currently does not actually use the
+   ``Var.units`` attribute during calculations or the
+   :py:class:`Units` class more generally; they are solely for the
+   user's own informational purposes.
 
 constants
 ---------
@@ -212,8 +219,8 @@ units
 
    There has been discussion of implementing units-handling upstream
    within xarray (see `here
-   <https://github.com/pydata/xarray/issues/525>`_).  If and when that
-   happens, the ``Units`` class will likely be deprecated and replaced
+   <https://github.com/pydata/xarray/issues/525>`_).  If that happens,
+   the :py:class:`Units` class will likely be deprecated and replaced
    with the upstream version.
 
 Utilities

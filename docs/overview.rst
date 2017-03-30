@@ -1,79 +1,58 @@
+.. _overview:
+
 Overview: Why aospy?
 ====================
 
-Motivations
------------
+Use cases
+---------
 
-Climate models generally output a wide array of useful quantities, but
-almost invariably not all needed quantities are directly outputted.
-Even for those that are, further slicing and dicing in time and/or
-space are required.  Moreover, these multiple computations and
-spatiotemporal reductions are needed for not just a single simulation
-but across multiple models, simulations, time durations, subsets of
-the annual cycle, and so on.
+If you've ever found yourself saying or thinking anything along these
+lines, then aospy may be a great tool for you:
 
-Performing these computations across all of the desired parameter
-combinations quickly becomes impractical without some automation.  But
-even once some automation is in place, the resulting plethora of data
-quickly becomes unusable unless it is easily found and imbued with
-sufficient metadata to describe precisely what it is and how it was
-computed.
+- "What is this precip01.dat file in my home directory that I vaguely
+  remember creating a few weeks ago?  Better just delete it and re-do
+  the calculation to be sure."
+- "I really need to analyze variable X.  But the models/observational
+  products I'm using don't provide it.  They do provide variables Y
+  and Z, from which I can compute quantity X."
+- "I need to calculate quantity X from 4 different simulations
+  repeated in 5 different models; computing monthly, seasonal, and
+  annual averages and standard deviations; gridpoint-by-gridpoint and
+  averaged over these 10 regions.  That's impractical -- I'll just do
+  a small subset."
 
-What aospy does
----------------
+Each of these common problems is easily solved by using aospy.
 
-aospy provides functionality that enables users to perform commonly
-needed tasks in climate, weather, and related sciences as:
-
-* Repeating a calculation across multiple simulations in a single
-  climate model
-* Repeating a calculation across the same simulations performed in
-  multiple models, even if variable names or other quantities differ
-  among the models or simulations
-* Repeating a calculation across multiple timespans, both in terms of
-  the start date and end date and in terms of sub-annual sampling:
-  e.g. annual mean, seasonal-means, monthly means.
-* Computing multiple statistical (e.g. mean, standard deviation) and
-  physical (e.g. column integrals or averages; zonal integrals or
-  averages) reductions on any given computation, both on a
-  gridpoint-by-gridpoint basis and over an arbitrary number of
-  geographical regions
-* Any combination of the above, plus many more!
+.. _design-philosophy:
 
 Design philosophy
 -----------------
 
-Key to enabling this automation and handling of model- and
-simulation-level idiosyncrasies is separating
+aospy's ability to automate calculations (while properly handling
+model- and simulation-level idiosyncrasies) relies on separating your
+code into three distinct categories.
 
-1. Code that describes the data that you want to work with
-2. Code that specifies any physical calculations you eventually want
-   to perform
-3. Code that specifies the set of computations the user wishes to
-   perform at a given time
+1. Code characterizing the data you want to work with: "Where is your
+   data and what does it represent?"
+2. Code describing abstract physical quantities and geographical
+   regions you eventually want to examine: "What things are you
+   generally interested in calculating?"
+3. Code specifying the exact parameters of calculations you want to
+   perform right now: "Ok, time to actually crunch some numbers.
+   Exactly what all do you want to compute from your data, and how do
+   you want to slice and dice it?"
 
-For (1), the user defines objects at three distinct levels: `Proj`,
-`Model`, and `Run`, that specify where the data is located that you
-want to work with.  For (2), the user defines `Var` objects that
-describe the physical quantities to be computed, including any
-functions that transform one or more directly model-outputted
-quantities into the ultimately desired quantity, as well as `Region`
-objects that describe any geographical regions over which to perform
-averages.  Once these objects have been defined, the user can proceed
-with (3) via a simple script that specifies any models, simulations,
-physical quantities, etc. to be performed.
-
-The run script can be modified and re-submitted as further
-calculations are desired.  Similarly, new objects can be defined at
-any time describing new simulations, models, or variables.  More
-detailed instructions are available in the "Using aospy" section.
+How you'll actually interact with aospy in order to achieve each of
+these three steps is described in the :ref:`using-aospy` section of
+this documentation, and explicit examples using included sample data
+are in the :ref:`examples` section.
 
 Open Science & Reproducible Research
 ------------------------------------
 
-aospy promotes `open science
-<https://en.wikipedia.org/wiki/Open_science>`_ and `reproducible
-research
+This separation of your code into three categories promotes `open
+science <https://en.wikipedia.org/wiki/Open_science>`_ and
+`reproducible research
 <https://en.wikipedia.org/wiki/Reproducibility#Reproducible_research>`_
 in multiple ways:
 
@@ -81,7 +60,7 @@ in multiple ways:
   used to compute particular physical quantities, the latter can be
   written in a generic form that closely mimics the physical form of
   the particular expression.  The resulting code is easier to read and
-  debut and therefore to share with others.
+  debug and therefore to share with others.
 - By enabling automation of calculations across an arbitrary number of
   parameter combinations, aospy facilitates more rigorous analyses
   and/or analyses encompassing a larger span of input data than would
@@ -89,9 +68,6 @@ in multiple ways:
 - By outputting the results of calculations as netCDF files in a
   highly organized directory structure with lots of metadata embued
   within the file path, file name, and the netCDF file itself, aospy
-  facilitates the sharing of data with others.
-
-  It also enhances the usability of one's own data, providing a remedy
-  to the familiar refrain among scientists along the lines of "What is
-  this data1.txt file that was created six months ago?  Better just
-  delete it and re-do the calculations to be sure.")
+  facilitates the sharing of results with others (including your
+  future self that has forgotten the myriad details of how you
+  have computed things right now).

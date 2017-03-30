@@ -35,8 +35,8 @@ The recommended installation method is via `conda
           of packages on Python 3.4.  Please use one of the
           alternative installation methods described below.
 
-Alternative method #1: via ``pip``
-----------------------------------
+Alternative method #1: pip
+--------------------------
 
 aospy is available from the official `Python Packaging Index (PyPI)
 <https://pypi.io>`_ via ``pip``::

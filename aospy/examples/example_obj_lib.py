@@ -1,12 +1,17 @@
 """Sample aospy object library using the included example data."""
 import datetime
+import os
 
+import aospy
 from aospy import Model, Proj, Region, Run, Var
 from aospy.data_loader import DictDataLoader
 
 
-_file_map = {'monthly':
-             '../test/data/netcdf/000[4-6]0101.precip_monthly.nc'}
+rootdir = os.path.join(aospy.__path__[0], 'test', 'data', 'netcdf')
+
+
+_file_map = {'monthly': os.path.join(rootdir,
+                                     '000[4-6]0101.precip_monthly.nc')}
 example_run = Run(
     name='example_run',
     description=(
@@ -20,10 +25,8 @@ example_run = Run(
 
 example_model = Model(
     name='example_model',
-    grid_file_paths=(
-        '../test/data/netcdf/00040101.precip_monthly.nc',
-        '../test/data/netcdf/im.landmask.nc'
-    ),
+    grid_file_paths=(os.path.join(rootdir, '00040101.precip_monthly.nc'),
+                     os.path.join(rootdir, 'im.landmask.nc')),
     runs=[example_run]
 )
 

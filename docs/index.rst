@@ -3,6 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. _main-page:
+
 .. image:: aospy_logo.png
    :alt: aospy logo
    :align: center
@@ -14,23 +16,28 @@
 aospy: automated climate data analysis and management
 #####################################################
 
-**aospy** is an open source Python package for automating computations
-that use gridded climate data (namely data stored as netCDF files)
-and the management of the results of those computations.
+**aospy** is an open source Python package for automating your
+computations that use gridded climate and weather data (namely data
+stored as netCDF files) and the management of the results of those
+computations.
 
-Once a user describes where their data is stored on disk using aospy's
-built-in tools, they can subsequently use the provided main script at
-any time to fire off calculations to be performed in parallel using
-the permutation of an arbitrary number of climate models, simulations,
+aospy enables firing off multiple calculations in parallel using the
+permutation of an arbitrary number of climate models, simulations,
 variables to be computed, date ranges, sub-annual-sampling, and many
-other parameters.  Their results get saved in a highly structured
-directory format as netCDF files.
+other parameters.  In other words, it is possible using aospy to
+submit and execute *all* calculations for a particular project
+(e.g. paper, class project, or thesis chapter) with a single command!
 
-The eventual goal is for aospy to become the "industry standard" for
+The results get saved in a highly organized directory tree as netCDF
+files, making it easy to subsequently find and use the data (e.g. for
+plotting) and preventing "orphan" files with vague filenames and
+insufficient metadata to remember what they are and/or how they were
+computed.
+
+The eventual goal is for aospy to become the community standard for
 gridded climate data analysis and, in so doing, accelerate progress in
 climate science and make the results of climate research more easily
-reproducible and shareable.  aospy relies heavily on the `xarray
-<http://xarray.pydata.org>`_ package.
+reproducible and shareable.
 
 Documentation
 =============
@@ -44,13 +51,27 @@ Documentation
    install
    api
 
+See also
+========
+
+- Spencer Hill's talk on aospy (`slides
+  <https://ams.confex.com/ams/97Annual/webprogram/Handout/Paper310912/2017-01-24ams-aospy.pdf>`_,
+  `recorded talk
+  <https://ams.confex.com/ams/97Annual/recordingredirect.cgi/id/37391?entry_password=660615&uniqueid=Paper310912>`_)
+  at the Seventh Symposium on Advances in Modeling and Analysis Using
+  Python, recorded 2017 January 24 as part of the 2017 American
+  Meteorological Society Annual Meeting.
+- The `xarray <http://xarray.pydata.org>`_ package, upon which aospy
+  relies heavily.
+
 Get in touch
 ============
 
 - Troubleshooting: We are actively seeking new users and are eager to
   help you get started with aospy!  Usage questions, bug reports, and
   any other correspondence are all welcome and best placed as `Issues
-  on the Github repo <https://github.com/spencerahill/aospy>`_.
+  <https://github.com/spencerahill/aospy/issues>`_ on our `Github repo
+  <https://github.com/spencerahill/aospy>`_.
 - Contributing: We are also actively seeking new developers!  Please
   get in touch by opening an Issue or submitting a Pull Request.
 

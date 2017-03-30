@@ -290,34 +290,133 @@ def _print_suite_summary(calc_suite_specs):
 def submit_mult_calcs(calc_suite_specs, exec_options=None):
     """Generate and execute all specified computations.
 
+    Once the calculations are prepped and submitted for execution, any
+    calculation that triggers any exception or error is skipped, and the rest
+    of the calculations proceed unaffected.  This prevents an error in a single
+    calculation from crashing a large suite of calculations.
+
     Parameters
     ----------
     calc_suite_specs : dict
         The specifications describing the full set of calculations to be
-        generated and potentially executed.
+        generated and potentially executed.  Accepted keys and their values:
+
+        library : module or package comprising an aospy object library
+            The aospy object library for these calculations.
+        projects : list of aospy.Proj objects
+            The projects to permute over.
+        models : 'all', 'default', or list of aospy.Model objects
+            The models to permute over.  If 'all', use all models in the
+            ``models`` attribute of each ``Proj``.  If 'default', use all
+            models in the ``default_models`` attribute of each ``Proj``.
+        runs : 'all', 'default', or list of aospy.Run objects
+            The runs to permute over.  If 'all', use all runs in the
+            ``runs`` attribute of each ``Model``.  If 'default', use all
+            runs in the ``default_runs`` attribute of each ``Model``.
+        variables : list of aospy.Var objects
+            The variables to be calculated.
+        regions : 'all' or list of aospy.Region objects
+            The region(s) over which any regional reductions will be performed.
+            If 'all', use all regions in the ``regions`` attribute of each
+            ``Proj``.
+        date_ranges : 'default' or tuple of datetime.datetime objects
+            The range of dates (inclusive) over which to perform calculations.
+            If 'default', use the ``default_start_date`` and
+            ``default_end_date`` attribute of each ``Run``.
+        output_time_intervals : {'ann', season-string, month-integer}
+            The sub-annual time interval over which to aggregate.
+
+            - 'ann' : Annual mean
+            - season-string : E.g. 'JJA' for June-July-August
+            - month-integer : 1 for January, 2 for February, etc.  Each one is
+                  a separate reduction, e.g. [1, 2] would produce averages (or
+                  other specified time reduction) over all Januaries, and
+                  separately over all Februaries.
+
+        output_time_regional_reductions : list of reduction string identifiers
+            Unlike most other keys, these are not permuted over when creating
+            the :py:class:`aospy.Calc` objects that execute the calculations;
+            each :py:class:`aospy.Calc` performs all of the specified
+            reductions.  Accepted string identifiers are:
+
+            - Gridpoint-by-gridpoint output:
+
+              - 'av' : Gridpoint-by-gridpoint time-average
+              - 'std' : Gridpoint-by-gridpoint temporal standard deviation
+              - 'ts' : Gridpoint-by-gridpoint time-series
+
+            - Averages over each region specified via `region`:
+
+              - 'reg.av', 'reg.std', 'reg.ts' : analogous to 'av', 'std', 'ts'
+
+        output_vertical_reductions : {None, 'vert_av', 'vert_int'}, optional
+            How to reduce the data vertically:
+
+            - None : no vertical reduction
+            - 'vert_av' : mass-weighted vertical average
+            - 'vert_int' : mass-weighted vertical integral
+        input_time_intervals : {'annual', 'monthly', 'daily', '#hr'}
+            A string specifying the time resolution of the input data.  In
+            '#hr' above, the '#' stands for a number, e.g. 3hr or 6hr, for
+            sub-daily output.  These are the suggested specifiers, but others
+            may be used if they are also used by the DataLoaders for the given
+            Runs.
+        input_time_datatypes : {'inst', 'ts', 'av'}
+            What the time axis of the input data represents:
+
+            - 'inst' : Timeseries of instantaneous values
+            - 'ts' : Timeseries of averages over the period of each time-index
+            - 'av' : A single value averaged over a date range
+
+        input_vertical_datatypes : {False, 'pressure', 'sigma'}, optional
+            The vertical coordinate system used by the input data:
+
+            - False : not defined vertically
+            - 'pressure' : pressure coordinates
+            - 'sigma' : hybrid sigma-pressure coordinates
+
+        input_time_offsets : {None, dict}, optional
+            How to offset input data in time to correct for metadata errors
+
+            - None : no time offset applied
+            - dict : e.g. ``{'hours': -3}`` to offset times by -3 hours
+              See :py:meth:`aospy.utils.times.apply_time_offset`.
+
     exec_options : dict or None (default None)
         Options regarding how the calculations are reported, submitted, and
         saved.  If None, default settings are used for all options.  Currently
         supported options (each should be either `True` or `False`):
 
-        - prompt_verify : If True, print summary of calculations to be
-              performed and prompt user to confirm before submitting for
-              execution
-        - parallelize : If True, submit calculations in parallel
-        - write_to_tar : If True, write results of calculations to .tar files,
-              one for each object.  These tar files have an identical directory
-              structures the standard output relative to their root directory,
-              which is specified via the `tar_direc_out` argument of each Proj
-              object's instantiation.
+        - prompt_verify : (default False) If True, print summary of
+              calculations to be performed and prompt user to confirm before
+              submitting for execution.
+        - parallelize : (default False) If True, submit calculations in
+              parallel.  This requires the `multiprocess` library, which can be
+              installed via `pip install multiprocess`.
+        - write_to_tar : (default True) If True, write results of calculations
+              to .tar files, one for each :py:class:`aospy.Run` object.  These tar files have an
+              identical directory structures the standard output relative to
+              their root directory, which is specified via the `tar_direc_out`
+              argument of each Proj object's instantiation.
 
     Returns
     -------
-    A list of the values returned by each Calc object that was executed.
+    A list of the return values from each :py:meth:`aospy.Calc.compute` call
+        If a calculation ran without error, this value is the
+        :py:class:`aospy.Calc` object itself, with the results of its
+        calculations saved in its ``data_out`` attribute.  ``data_out`` is a
+        dictionary, with the keys being the temporal-regional reduction
+        identifiers (e.g. 'reg.av'), and the values being the corresponding
+        result.
+
+    If any error occurred during a calculation, the return value is None.
 
     Raises
     ------
-    AospyException : if the ``prompt_verify`` option is set to True and the
-        user does not respond affirmatively to the prompt.
+    AospyException
+        If the ``prompt_verify`` option is set to True and the user does not
+        respond affirmatively to the prompt.
+
     """
     if exec_options is None:
         exec_options = dict()
