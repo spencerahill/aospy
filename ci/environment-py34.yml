@@ -9,8 +9,11 @@ dependencies:
   - dask
   - pytest
   - future
+  - matplotlib
+  - ipython
   - pip:
     - coveralls
     - multiprocess
     - pytest-cov
     - pytest-catchlog
+    - runipy
