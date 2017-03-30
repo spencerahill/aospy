@@ -54,15 +54,15 @@ Documentation
 See also
 ========
 
-- Spencer Hill's talk on aospy (`slides
-  <https://ams.confex.com/ams/97Annual/webprogram/Handout/Paper310912/2017-01-24ams-aospy.pdf>`_,
-  `recorded talk
-  <https://ams.confex.com/ams/97Annual/recordingredirect.cgi/id/37391?entry_password=660615&uniqueid=Paper310912>`_)
-  at the Seventh Symposium on Advances in Modeling and Analysis Using
-  Python, recorded 2017 January 24 as part of the 2017 American
-  Meteorological Society Annual Meeting.
-- The `xarray <http://xarray.pydata.org>`_ package, upon which aospy
-  relies heavily.
+- Spencer Hill's talk on aospy (`slides`_, `recorded talk`_) at the
+  Seventh Symposium on Advances in Modeling and Analysis Using Python,
+  recorded 2017 January 24 as part of the 2017 American Meteorological
+  Society Annual Meeting.
+- The `xarray`_ package, upon which aospy relies heavily.
+
+.. _slides: https://ams.confex.com/ams/97Annual/webprogram/Handout/Paper310912/2017-01-24ams-aospy.pdf
+.. _recorded talk: https://ams.confex.com/ams/97Annual/recordingredirect.cgi/id/37391?entry_password=660615&uniqueid=Paper310912
+.. _xarray:  http://xarray.pydata.org
 
 Get in touch
 ============
@@ -72,8 +72,12 @@ Get in touch
   any other correspondence are all welcome and best placed as `Issues
   <https://github.com/spencerahill/aospy/issues>`_ on our `Github repo
   <https://github.com/spencerahill/aospy>`_.
+- Our `mailing list`_: join it!  Questions, bug reports, and comments
+  are welcome there also.
 - Contributing: We are also actively seeking new developers!  Please
   get in touch by opening an Issue or submitting a Pull Request.
+
+.. _mailing list: https://groups.google.com/d/forum/aospy
 
 License
 =======

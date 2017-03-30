@@ -1,5 +1,6 @@
 import setuptools
 
+
 LONG_DESCRIPTION = """
 **aospy**: automated gridded climate data analysis and management
 
@@ -11,16 +12,18 @@ you to fire off an arbitrary number of calculations using that data.
 Important links
 ---------------
 - HTML documentation: http://aospy.readthedocs.io/en/latest
+- Mailing list: https://groups.google.com/d/forum/aospy
 - Issue tracker: https://github.com/spencerahill/aospy/issues
 - Source code: https://github.com/spencerahill/aospy
 """
+
 
 setuptools.setup(
     name="aospy",
     version="0.1.1",
     packages=setuptools.find_packages(),
-    author="Spencer A. Hill and Spencer Clark",
-    author_email="shill@atmos.ucla.edu",
+    author="aospy Developers",
+    author_email="aospy@googlegroups.com",
     description="Automated gridded climate data analysis and management",
     long_description=LONG_DESCRIPTION,
     install_requires=['numpy >= 1.7',

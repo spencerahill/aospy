@@ -12,6 +12,11 @@ This release improves the process of submitting multiple calculations
 for automatic execution.  The user interface, documentation, internal
 logic, and packaging all received upgrades and/or bugfixes.
 
+We also now have a `mailing list`_.  Join it to follow and/or post
+your own usage questions, bug reports, suggestions, etc.
+
+.. _mailing list: https://groups.google.com/d/forum/aospy
+
 Enhancements
 ~~~~~~~~~~~~
 
@@ -45,8 +50,8 @@ Bug fixes
 - Use the 'scipy' engine for the `xarray.DataArray.to_netcdf
   <http://xarray.pydata.org/en/stable/generated/xarray.DataArray.to_netcdf.html?highlight=to_netcdf>`_
   call when writing aospy calculation outputs to disk to prevent a bug
-  when trying to re-write to an existing netCDF file (fixes one-half
-  of :issue:`157` via :pull:`160`).  By `Spencer Hill
+  when trying to re-write to an existing netCDF file (fixes
+  :issue:`157` via :pull:`160`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
 
 .. _whats-new.0.1.1:

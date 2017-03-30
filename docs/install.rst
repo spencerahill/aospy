@@ -74,11 +74,15 @@ information below.
 Troubleshooting
 ---------------
 
-Please search through our `Issues page
-<https://github.com/spencerahill/aospy/issues>`_ to see if any open or
-closed Issues match the problem you're facing.  If none do, then
-please open a `new issue
-<https://github.com/spencerahill/aospy/issues/new>`_.
+Please search through our `Issues page`_ on Github and our `mailing
+list`_ to see if anybody else has had the same problem you're facing.
+If none do, then please send a message on the list or open a new
+Issue.
 
 Please don't hesitate, especially if you're new to the package and/or
-Python!  We are eager to help people get started with the package.
+Python!  We are eager to help people get started.  Even you suspect
+it's something simple or obvious -- that just means we didn't make it
+clear/easy enough!
+
+.. _Issues page: https://github.com/spencerahill/aospy/issues
+.. _mailing list: https://groups.google.com/d/forum/aospy
