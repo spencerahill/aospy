@@ -20,7 +20,7 @@ Important links
 
 setuptools.setup(
     name="aospy",
-    version="0.1.1",
+    version="0.1.2",
     packages=setuptools.find_packages(),
     author="aospy Developers",
     author_email="aospy@googlegroups.com",

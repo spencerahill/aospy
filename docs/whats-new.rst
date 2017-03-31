@@ -5,7 +5,7 @@ What's New
 
 .. _whats-new.0.1.2:
 
-v0.1.2 (XX March 2017)
+v0.1.2 (30 March 2017)
 ----------------------
 
 This release improves the process of submitting multiple calculations
@@ -20,13 +20,13 @@ your own usage questions, bug reports, suggestions, etc.
 Enhancements
 ~~~~~~~~~~~~
 
-- Improve Examples page of the documentation by using the newly
-  improved example main script and object libraries (:pull:`164`).  By
-  `Spencer Hill <https://github.com/spencerahill>`_.
 - Include an example library of aospy objects that works
   out-of-the-box with the provided example main script (:pull:`155`).
   By `Spencer Clark <https://github.com/spencerkclark>`_ and `Spencer
   Hill <https://github.com/spencerahill>`_.
+- Improve :ref:`examples` page of the documentation by using this new
+  example object library (:pull:`164`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
 - Improve readability/usability of the included example script
   ``aospy_main.py`` for submitting aospy calculations by moving all
   internal logic into new ``automate.py`` module (:pull:`155`).  By
@@ -47,12 +47,13 @@ Bug fixes
   and tutorial notebook actually ship with aospy as intended (fixes
   :issue:`149` via :pull:`161`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
-- Use the 'scipy' engine for the `xarray.DataArray.to_netcdf
-  <http://xarray.pydata.org/en/stable/generated/xarray.DataArray.to_netcdf.html?highlight=to_netcdf>`_
+- Use the 'scipy' engine for the `xarray.DataArray.to_netcdf`_
   call when writing aospy calculation outputs to disk to prevent a bug
   when trying to re-write to an existing netCDF file (fixes
   :issue:`157` via :pull:`160`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
+
+.. _xarray.DataArray.to_netcdf : http://xarray.pydata.org/en/stable/generated/xarray.DataArray.to_netcdf.html
 
 .. _whats-new.0.1.1:
 
