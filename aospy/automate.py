@@ -1,6 +1,10 @@
 """Functionality for specifying and cycling through multiple calculations."""
 from __future__ import print_function
+from multiprocessing import cpu_count
 
+import dask
+import dask.bag as db
+import distributed
 import itertools
 import logging
 import pprint
@@ -9,11 +13,6 @@ import traceback
 from .calc import Calc, CalcInterface
 from .region import Region
 from .var import Var
-
-try:
-    import multiprocess
-except ImportError:
-    pass
 
 
 _OBJ_LIB_STR = 'library'
@@ -257,7 +256,25 @@ def _compute_or_skip_on_error(calc, compute_kwargs):
         return None
 
 
-def _exec_calcs(calcs, parallelize=False, **compute_kwargs):
+def _submit_calcs_on_client(calcs, client, func):
+    """Submit calculations via dask.bag and a distributed client"""
+    logging.info('Connected to client: {}'.format(client))
+    with dask.set_options(get=client.get):
+        return db.from_sequence(calcs).map(func).compute()
+
+
+def _n_workers_for_local_cluster(calcs):
+    """The number of workers used in a LocalCluster
+
+    An upper bound is set at the cpu_count or the number of calcs submitted,
+    depending on which is smaller.  This is to prevent more workers from
+    being started than needed (but also to prevent too many workers from
+    being started in the case that a large number of calcs are submitted).
+    """
+    return min(cpu_count(), len(calcs))
+
+
+def _exec_calcs(calcs, parallelize=False, client=None, **compute_kwargs):
     """Execute the given calculations.
 
     Parameters
@@ -265,6 +282,9 @@ def _exec_calcs(calcs, parallelize=False, **compute_kwargs):
     calcs : Sequence of ``aospy.Calc`` objects
     parallelize : bool, default False
         Whether to submit the calculations in parallel or not
+    client : distributed.Client or None
+        The distributed Client used if parallelize is set to True; if None
+        a distributed LocalCluster is used.
     compute_kwargs : dict of keyword arguments passed to ``Calc.compute``
 
     Returns
@@ -272,10 +292,18 @@ def _exec_calcs(calcs, parallelize=False, **compute_kwargs):
     A list of the values returned by each Calc object that was executed.
     """
     if parallelize:
-        pool = multiprocess.Pool()
-        return pool.map(lambda calc:
-                        _compute_or_skip_on_error(calc, compute_kwargs),
-                        calcs)
+        def func(calc):
+            """Wrap _compute_or_skip_on_error to require only the calc
+            argument"""
+            return _compute_or_skip_on_error(calc, compute_kwargs)
+
+        if client is None:
+            n_workers = _n_workers_for_local_cluster(calcs)
+            with distributed.LocalCluster(n_workers=n_workers) as cluster:
+                with distributed.Client(cluster) as client:
+                    return _submit_calcs_on_client(calcs, client, func)
+        else:
+            return _submit_calcs_on_client(calcs, client, func)
     else:
         return [_compute_or_skip_on_error(calc, compute_kwargs)
                 for calc in calcs]
@@ -391,8 +419,10 @@ def submit_mult_calcs(calc_suite_specs, exec_options=None):
               calculations to be performed and prompt user to confirm before
               submitting for execution.
         - parallelize : (default False) If True, submit calculations in
-              parallel.  This requires the `multiprocess` library, which can be
-              installed via `pip install multiprocess`.
+              parallel.
+        - client : distributed.Client or None (default None) The
+              dask.distributed Client used to schedule computations.  If None
+              and parallelize is True, a LocalCluster will be started.
         - write_to_tar : (default True) If True, write results of calculations
               to .tar files, one for each :py:class:`aospy.Run` object.  These tar files have an
               identical directory structures the standard output relative to

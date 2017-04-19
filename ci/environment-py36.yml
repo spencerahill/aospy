@@ -7,13 +7,13 @@ dependencies:
   - netCDF4
   - xarray
   - dask
+  - distributed
   - pytest
   - future
   - matplotlib
   - ipython
   - pip:
     - coveralls
-    - multiprocess
     - pytest-cov
     - pytest-catchlog
     - runipy

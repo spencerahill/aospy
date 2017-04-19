@@ -9,10 +9,6 @@ import xarray as xr
 from . import internal_names
 from .utils import times, io
 
-# Dask must use its serial scheduler if computations are to be performed
-# in parallel using multiprocess
-dask.set_options(get=dask.async.get_sync)
-
 
 def grid_attrs_to_aospy_names(data):
     """Rename grid attributes to be consistent with aospy conventions.

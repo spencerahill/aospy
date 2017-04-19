@@ -109,9 +109,12 @@ calc_exec_options = dict(
     # submitting them for execution.
     prompt_verify=True,
 
-    # Submit all calculations in parallel.  Requires 'multiprocess' package
-    # (which can be obtained e.g. via `pip install multiprocess`).
+    # Submit all calculations in parallel.  If parallelize is True and client
+    # is None, a LocalCluster will be started; the client argument can be used
+    # to specify an external dask.distributed Client for use in parallelizing
+    # computations
     parallelize=False,
+    client=None,
 
     # Save results of calculations to .tar files, one for each Run object.
     # These tar files are placed using the same directory structure as the

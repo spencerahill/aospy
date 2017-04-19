@@ -661,8 +661,14 @@ class Calc(object):
 
     def _write_to_tar(self, dtype_out_time):
         """Add the data to the tar file in tar_out_direc."""
-        if not os.path.isdir(self.dir_tar_out):
+        # When submitted in parallel and the directory does not exist yet
+        # multiple processes may try to create a new directory; this leads
+        # to an OSError for all processes that tried to make the
+        # directory, but were later than the first.
+        try:
             os.makedirs(self.dir_tar_out)
+        except OSError:
+            pass
         # tarfile 'append' mode won't overwrite the old file, which we want.
         # So open in 'read' mode, extract the file, and then delete it.
         # But 'read' mode throws OSError if file doesn't exist: make it first.

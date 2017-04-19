@@ -1,7 +1,9 @@
+from multiprocessing import cpu_count
 from os.path import isfile
 import shutil
 import sys
 
+import distributed
 import pytest
 
 from aospy import Var, Proj
@@ -10,7 +12,8 @@ from aospy.automate import (_get_attr_by_tag, _permuted_dicts_of_specs,
                             _input_func_py2_py3, AospyException,
                             _user_verify, CalcSuite, _MODELS_STR, _RUNS_STR,
                             _VARIABLES_STR, _REGIONS_STR,
-                            _compute_or_skip_on_error, submit_mult_calcs)
+                            _compute_or_skip_on_error, submit_mult_calcs,
+                            _n_workers_for_local_cluster)
 from .data.objects import examples as lib
 from .data.objects.examples import (
     example_proj, example_model, example_run, condensation_rain,
@@ -179,6 +182,18 @@ def calcsuite_init_specs_single_calc(calcsuite_init_specs):
 
 
 @pytest.fixture
+def calcsuite_init_specs_two_calcs(calcsuite_init_specs):
+    specs = calcsuite_init_specs.copy()
+    specs['variables'] = [condensation_rain, convection_rain]
+    specs['regions'] = [None]
+    specs['output_time_regional_reductions'] = ['av']
+    yield specs
+    # Teardown procedure
+    for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
+        shutil.rmtree(direc, ignore_errors=True)
+
+
+@pytest.fixture
 def calc(calcsuite_init_specs_single_calc):
     return CalcSuite(calcsuite_init_specs_single_calc).create_calcs()[0]
 
@@ -194,6 +209,40 @@ def test_compute_or_skip_on_error(calc, caplog):
     assert result is None
 
 
+@pytest.fixture
+def external_client():
+    cluster = distributed.LocalCluster()
+    client = distributed.Client(cluster)
+    yield client
+    client.shutdown()
+    cluster.close()
+
+
+def assert_calc_files_exist(calcs, write_to_tar, dtypes_out_time):
+    """Check that expected calcs were written to files"""
+    for calc in calcs:
+        for dtype_out_time in dtypes_out_time:
+            assert isfile(calc.path_out[dtype_out_time])
+            if write_to_tar:
+                assert isfile(calc.path_tar_out)
+            else:
+                assert not isfile(calc.path_tar_out)
+
+
+@pytest.mark.parametrize(
+    ('exec_options'),
+    [dict(parallelize=True, write_to_tar=False),
+     dict(parallelize=True, write_to_tar=True)])
+def test_submit_mult_calcs_external_client(calcsuite_init_specs_single_calc,
+                                           external_client, exec_options):
+    exec_options.update(client=external_client)
+    calcs = submit_mult_calcs(calcsuite_init_specs_single_calc, exec_options)
+    write_to_tar = exec_options.pop('write_to_tar', True)
+    assert_calc_files_exist(
+        calcs, write_to_tar,
+        calcsuite_init_specs_single_calc['output_time_regional_reductions'])
+
+
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=False, write_to_tar=False),
@@ -202,16 +251,53 @@ def test_compute_or_skip_on_error(calc, caplog):
      dict(parallelize=True, write_to_tar=True),
      None])
 def test_submit_mult_calcs(calcsuite_init_specs_single_calc, exec_options):
-    calc = submit_mult_calcs(calcsuite_init_specs_single_calc, exec_options)[0]
-    assert isfile(calc.path_out['av'])
+    calcs = submit_mult_calcs(calcsuite_init_specs_single_calc, exec_options)
     if exec_options is None:
         write_to_tar = True
     else:
         write_to_tar = exec_options.pop('write_to_tar', True)
-    if write_to_tar:
-        assert isfile(calc.path_tar_out)
+    assert_calc_files_exist(
+        calcs, write_to_tar,
+        calcsuite_init_specs_single_calc['output_time_regional_reductions'])
+
+
+@pytest.mark.parametrize(
+    ('exec_options'),
+    [dict(parallelize=True, write_to_tar=False),
+     dict(parallelize=True, write_to_tar=True)])
+def test_submit_two_calcs_external_client(calcsuite_init_specs_two_calcs,
+                                          external_client, exec_options):
+    exec_options.update(client=external_client)
+    calcs = submit_mult_calcs(calcsuite_init_specs_two_calcs, exec_options)
+    write_to_tar = exec_options.pop('write_to_tar', True)
+    assert_calc_files_exist(
+        calcs, write_to_tar,
+        calcsuite_init_specs_two_calcs['output_time_regional_reductions'])
+
+
+@pytest.mark.parametrize(
+    ('exec_options'),
+    [dict(parallelize=False, write_to_tar=False),
+     dict(parallelize=True, write_to_tar=False),
+     dict(parallelize=False, write_to_tar=True),
+     dict(parallelize=True, write_to_tar=True),
+     None])
+def test_submit_two_calcs(calcsuite_init_specs_two_calcs, exec_options):
+    calcs = submit_mult_calcs(calcsuite_init_specs_two_calcs, exec_options)
+    if exec_options is None:
+        write_to_tar = True
     else:
-        assert not isfile(calc.path_tar_out)
+        write_to_tar = exec_options.pop('write_to_tar', True)
+    assert_calc_files_exist(
+        calcs, write_to_tar,
+        calcsuite_init_specs_two_calcs['output_time_regional_reductions'])
+
+
+def test_n_workers_for_local_cluster(calcsuite_init_specs_two_calcs):
+    calcs = CalcSuite(calcsuite_init_specs_two_calcs).create_calcs()
+    expected = min(cpu_count(), len(calcs))
+    result = _n_workers_for_local_cluster(calcs)
+    assert result == expected
 
 
 @pytest.fixture
