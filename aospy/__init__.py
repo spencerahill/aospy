@@ -5,8 +5,6 @@ from .constants import Constant
 from . import utils
 from . import units
 from .units import Units
-from . import operator
-from .operator import Operator
 from . import var
 from .var import Var
 from . import region

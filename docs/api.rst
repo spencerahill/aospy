@@ -166,18 +166,6 @@ automate
     :members:
     :undoc-members:
 
-operator
---------
-
-.. warning::
-
-    The :py:class:`operator` module is in the process of being re-vamped and
-    is therefore currently not supported.
-
-.. automodule:: aospy.operator
-    :members:
-    :undoc-members:
-
 Units and Constants
 ===================
 

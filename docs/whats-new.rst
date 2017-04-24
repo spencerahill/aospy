@@ -25,6 +25,12 @@ Dependencies
 - ``aospy`` now requires an installation of ``dask`` with version greater than or equal
   to 0.14 (see discussion in pull request :pull:`172`).
 
+Bug Fixes
+~~~~~~~~~
+
+- Remove obsolete ``operator.py`` module (fixes :issue:`174` via :pull:`175`).
+  By `Spencer Clark <https://github.com/spencerkclark>`_.
+
 .. _whats-new.0.1.2:
 
 v0.1.2 (30 March 2017)
