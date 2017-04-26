@@ -12,24 +12,30 @@ Enhancements
 ~~~~~~~~~~~~
 
 - Use ``dask.bag`` coupled with ``dask.distributed`` rather than
-  ``multiprocess`` to parallelize computations (closes :issue:`169` 
+  ``multiprocess`` to parallelize computations (closes :issue:`169`
   via :pull:`172`).  This enables the optional use of an external
   ``distributed.Client`` to leverage computational resources across
-  multiple nodes of a cluster. By `Spencer Clark <https://github.com/spencerkclark>`_.
+  multiple nodes of a cluster. By `Spencer Clark
+  <https://github.com/spencerkclark>`_.
 
 Dependencies
 ~~~~~~~~~~~~
 
 - ``multiprocess`` is no longer required for submitting ``aospy`` calculations
   in parallel (see discussion in :issue:`169` and pull request :pull:`172`).
-- ``aospy`` now requires an installation of ``dask`` with version greater than or equal
-  to 0.14 (see discussion in pull request :pull:`172`).
+- ``aospy`` now requires an installation of ``dask`` with version
+  greater than or equal to 0.14 (see discussion in pull request
+  :pull:`172`).
 
 Bug Fixes
 ~~~~~~~~~
 
-- Remove obsolete ``operator.py`` module (fixes :issue:`174` via :pull:`175`).
-  By `Spencer Clark <https://github.com/spencerkclark>`_.
+- Only run tests that require optional dependencies if those
+  dependencies are actually installed (fixes :issue:`167` via
+  :pull:`176`).  By `Spencer Hill <https://github.com/spencerahill>`_.
+- Remove obsolete ``operator.py`` module (fixes :issue:`174` via
+  :pull:`175`).  By `Spencer Clark
+  <https://github.com/spencerkclark>`_.
 
 .. _whats-new.0.1.2:
 

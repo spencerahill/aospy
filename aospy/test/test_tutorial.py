@@ -1,15 +1,15 @@
 import os
+
 import pytest
 
 import aospy
 
-from . import requires_ipython, requires_matplotlib, requires_runipy
 
-
-@requires_ipython
-@requires_matplotlib
-@requires_runipy
 def test_tutorial_notebook():
+    pytest.importorskip('IPython')
+    pytest.importorskip('matplotlib')
+    pytest.importorskip('runipy')
+
     from IPython.nbformat.current import read
     from runipy.notebook_runner import NotebookRunner
 
