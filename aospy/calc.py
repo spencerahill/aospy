@@ -44,16 +44,6 @@ ps = Var(
 class CalcInterface(object):
     """Interface to the Calc class."""
 
-    def _set_data_attrs(self):
-        for attr in ('default_start_date',
-                     'default_end_date',
-                     'data_loader'):
-            attr_val = tuple([
-                utils.io.get_parent_attr(rn, attr, strict=False)
-                for rn in self.run
-            ])
-            setattr(self, attr, attr_val)
-
     def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
@@ -127,38 +117,16 @@ class CalcInterface(object):
               See :py:meth:`aospy.utils.times.apply_time_offset`.
 
         """
-
-        # TODO: This tuple-izing is for support of calculations where variables
-        #       come from different runs.  However, this is a very fragile way
-        #       of implementing that functionality.  Eventually it will be
-        #       replaced with something better.
-        if not isinstance(run, (list, tuple)):
-            run = tuple([run])
-        for r in run:
-            msg = ("Model '{0}' has no run '{1}'.  Calc object "
-                   "will not be generated.".format(model, run))
-            if r not in model.runs:
-                raise AttributeError(msg)
-        proj = tuple([proj])
-        model = tuple([model])
-
-        # Make tuples the same length.
-        if len(proj) == 1 and (len(model) > 1 or len(run) > 1):
-            proj = tuple(list(proj)*len(run))
-        if len(model) == 1 and len(run) > 1:
-            model = tuple(list(model)*len(run))
-
+        if run not in model.runs:
+            raise AttributeError("Model '{0}' has no run '{1}'.  Calc object "
+                                 "will not be generated.".format(model, run))
         self.proj = proj
         self.model = model
+
         self.run = run
-
-        self._set_data_attrs()
-
-        self.proj_str = '_'.join(set([p.name for p in self.proj]))
-        self.model_str = '_'.join(set([m.name for m in self.model]))
-        run_names = [r.name for r in self.run]
-        self.run_str = '_'.join(set(run_names))
-        self.run_str_full = '_'.join(run_names)
+        self.default_start_date = self.run.default_start_date
+        self.default_end_date = self.run.default_end_date
+        self.data_loader = self.run.data_loader
 
         self.var = var
         self.name = self.var.name
@@ -192,15 +160,14 @@ class CalcInterface(object):
         self.months = utils.times.month_indices(intvl_out)
         if date_range == 'default':
             self.start_date = utils.times.ensure_datetime(
-                self.run[0].default_start_date)
+                self.run.default_start_date)
             self.end_date = utils.times.ensure_datetime(
-                self.run[0].default_end_date)
+                self.run.default_end_date)
         else:
             self.start_date = utils.times.ensure_datetime(date_range[0])
             self.end_date = utils.times.ensure_datetime(date_range[-1])
 
         self.time_offset = time_offset
-        self.data_loader = self.data_loader[0]
         self.data_loader_attrs = dict(
             domain=self.domain, intvl_in=self.intvl_in,
             dtype_in_vert=self.dtype_in_vert,
@@ -229,7 +196,7 @@ class Calc(object):
     def __str__(self):
         """String representation of the object."""
         return "<aospy.Calc instance: " + ', '.join(
-            (self.name, self.proj_str, self.model_str, self.run_str_full)
+            (self.name, self.proj.name, self.model.name, self.run.name)
         ) + ">"
 
     __repr__ = __str__
@@ -237,14 +204,16 @@ class Calc(object):
     def _dir_out(self):
         """Create string of the data directory to save individual .nc files."""
         ens_label = utils.io.ens_label(self.ens_mem)
-        return os.path.join(self.proj[0].direc_out, self.proj_str,
-                            self.model_str, self.run_str, ens_label, self.name)
+        return os.path.join(self.proj.direc_out, self.proj.name,
+                            self.model.name, self.run.name,
+                            ens_label, self.name)
 
     def _dir_tar_out(self):
         """Create string of the data directory to store a tar file."""
         ens_label = utils.io.ens_label(self.ens_mem)
-        return os.path.join(self.proj[0].tar_direc_out, self.proj_str,
-                            self.model_str, self.run_str, ens_label)
+        return os.path.join(self.proj.tar_direc_out, self.proj.name,
+                            self.model.name, self.run.name,
+                            ens_label)
 
     def _file_name(self, dtype_out_time, extension='nc'):
         """Create the name of the aospy file."""
@@ -255,8 +224,8 @@ class Calc(object):
         ens_lbl = utils.io.ens_label(self.ens_mem)
         yr_lbl = utils.io.yr_label((self.start_date.year, self.end_date.year))
         return '.'.join(
-            [self.name, out_lbl, in_lbl, self.model_str, self.run_str,
-             ens_lbl, yr_lbl, extension]
+            [self.name, out_lbl, in_lbl, self.model.name,
+             self.run.name, ens_lbl, yr_lbl, extension]
         ).replace('..', '.')
 
     def _path_out(self, dtype_out_time):
@@ -279,7 +248,7 @@ class Calc(object):
             'Initializing Calc instance:', self.__str__()
         ))
 
-        [mod.set_grid_data() for mod in self.model]
+        self.model.set_grid_data()
 
         if isinstance(calc_interface.ens_mem, int):
             self.data_direc = self.data_direc[calc_interface.ens_mem]
@@ -300,12 +269,12 @@ class Calc(object):
         )
         return arr.sel(time=times)
 
-    def _add_grid_attributes(self, ds, n=0):
+    def _add_grid_attributes(self, ds):
         """Add model grid attributes to a dataset"""
         for name_int, names_ext in self._grid_attrs.items():
             ds_coord_name = set(names_ext).intersection(set(ds.coords) |
                                                         set(ds.data_vars))
-            model_attr = getattr(self.model[n], name_int, None)
+            model_attr = getattr(self.model, name_int, None)
             if ds_coord_name:
                 # Force coords to have desired name.
                 ds = ds.rename({list(ds_coord_name)[0]: name_int})
@@ -315,8 +284,8 @@ class Calc(object):
                         msg = ("Values for '{0}' are nearly (but not exactly) "
                                "the same in the Run {1} and the Model {2}.  "
                                "Therefore replacing Run's values with the "
-                               "model's.".format(name_int, self.run[n],
-                                                 self.model[n]))
+                               "model's.".format(name_int, self.run,
+                                                 self.model))
                         logging.info(msg)
                         ds[name_int].values = model_attr.values
                     else:
@@ -336,12 +305,12 @@ class Calc(object):
                 self.pressure = ds.level
         return ds
 
-    def _get_pressure_from_p_coords(self, ps, name='p', n=0):
+    def _get_pressure_from_p_coords(self, ps, name='p'):
         """Get pressure or pressure thickness array for data on p-coords."""
         if np.any(self.pressure):
             pressure = self.pressure
         else:
-            pressure = self.model[n].level
+            pressure = self.model.level
         if name == 'p':
             return pressure
         if name == 'dp':
@@ -349,11 +318,11 @@ class Calc(object):
         raise ValueError("name must be 'p' or 'dp':"
                          "'{}'".format(name))
 
-    def _get_pressure_from_eta_coords(self, ps, name='p', n=0):
+    def _get_pressure_from_eta_coords(self, ps, name='p'):
         """Get pressure (p) or p thickness array for data on model coords."""
-        bk = self.model[n].bk
-        pk = self.model[n].pk
-        pfull_coord = self.model[n].pfull
+        bk = self.model.bk
+        pk = self.model.pk
+        pfull_coord = self.model.pfull
         if name == 'p':
             return utils.vertcoord.pfull_from_ps(bk, pk, ps, pfull_coord)
         if name == 'dp':
@@ -361,7 +330,7 @@ class Calc(object):
         raise ValueError("name must be 'p' or 'dp':"
                          "'{}'".format(name))
 
-    def _get_pressure_vals(self, var, start_date, end_date, n=0):
+    def _get_pressure_vals(self, var, start_date, end_date):
         """Get pressure array, whether sigma or standard levels."""
         try:
             ps = self._ps_data
@@ -371,24 +340,20 @@ class Calc(object):
                 **self.data_loader_attrs)
             name = self._ps_data.name
             self._ps_data = self._add_grid_attributes(
-                self._ps_data.to_dataset(name=name), 0)
+                self._ps_data.to_dataset(name=name))
             self._ps_data = self._ps_data[name]
 
             ps = self._ps_data
         if self.dtype_in_vert == 'pressure':
-            return self._get_pressure_from_p_coords(ps, name=var.name, n=n)
+            return self._get_pressure_from_p_coords(ps, name=var.name)
         if self.dtype_in_vert == internal_names.ETA_STR:
-            return self._get_pressure_from_eta_coords(ps, name=var.name, n=n)
+            return self._get_pressure_from_eta_coords(ps, name=var.name)
         raise ValueError("`dtype_in_vert` must be either 'pressure' or "
                          "'sigma' for pressure data")
 
-    def _get_input_data(self, var, start_date, end_date, n):
+    def _get_input_data(self, var, start_date, end_date):
         """Get the data for a single variable over the desired date range."""
         logging.info(self._print_verbose("Getting input data:", var))
-        # If only 1 run, use it to load all data.  Otherwise assume that num
-        # runs equals num vars to load.
-        if len(self.run) == 1:
-            n = 0
         # Pass numerical constants as is.
         if isinstance(var, (float, int)):
             return var
@@ -406,7 +371,7 @@ class Calc(object):
                           internal_names.TIME_STR, internal_names.PLEVEL_STR,
                           internal_names.PK_STR, internal_names.BK_STR,
                           internal_names.SFC_AREA_STR):
-            data = getattr(self.model[n], var.name)
+            data = getattr(self.model, var.name)
         else:
             cond_pfull = ((not hasattr(self, internal_names.PFULL_STR))
                           and var.def_vert and
@@ -415,8 +380,7 @@ class Calc(object):
                                                   self.time_offset,
                                                   **self.data_loader_attrs)
             name = data.name
-            data = self._add_grid_attributes(
-                data.to_dataset(name=data.name), 0)
+            data = self._add_grid_attributes(data.to_dataset(name=data.name))
             data = data[name]
             if cond_pfull:
                 try:
@@ -429,7 +393,6 @@ class Calc(object):
             if bool_to_pfull:
                 data = utils.vertcoord.to_pfull_from_phalf(data,
                                                            self.pfull_coord)
-        # Correct GFDL instantaneous data time indexing problem.
         if var.def_time:
             # Restrict to the desired dates within each year.
             if self.dtype_in_time != 'av':
@@ -440,10 +403,12 @@ class Calc(object):
     def _prep_data(self, data, func_input_dtype):
         """Convert data to type needed by the given function.
 
-        :param data: List of xarray.DataArray objects.
-        :param func_input_dtype: One of (None, 'DataArray', 'Dataset',
-                                 'numpy'). Specifies which datatype to convert
-                                 to.
+        Parameters
+        ----------
+        data : List of xarray.DataArray objects.
+        func_input_dtype : {None, 'DataArray', 'Dataset', 'numpy'}
+            Which datatype to convert to
+
         """
         if func_input_dtype in (None, 'DataArray'):
             return data
@@ -459,7 +424,7 @@ class Calc(object):
     def _get_all_data(self, start_date, end_date):
         """Get the needed data from all of the vars in the calculation."""
         return [self._prep_data(self._get_input_data(var, start_date,
-                                                     end_date, n),
+                                                     end_date),
                                 self.var.func_input_dtype)
                 for n, var in enumerate(self.variables)]
 
@@ -489,11 +454,6 @@ class Calc(object):
         dt = dt / np.timedelta64(1, 'D')
         return local_ts, dt
 
-    # TODO: Move to utils.vertcoord
-    def _vert_int(self, arr, dp):
-        """Vertical integral"""
-        return utils.vertcoord.int_dp_g(arr, dp)
-
     def _compute_full_ts(self, data, monthly_mean=False, zonal_asym=False):
         """Perform calculation and create yearly timeseries at each point."""
         # Get results at each desired timestep and spatial point.
@@ -505,9 +465,10 @@ class Calc(object):
         vert_types = ('vert_int', 'vert_av')
         if self.dtype_out_vert in vert_types and self.var.def_vert:
             # Here we need file read-in dates (NOT xarray dates)
-            full_ts = self._vert_int(full_ts, self._get_pressure_vals(
-                dp, self.start_date, self.end_date
-            ))
+            full_ts = utils.vertcoord.int_dp_g(
+                full_ts, self._get_pressure_vals(dp, self.start_date,
+                                                 self.end_date)
+            )
             if self.dtype_out_vert == 'vert_av':
                 full_ts *= (grav.value / self._to_desired_dates(self._ps_data))
         return full_ts, dt
@@ -542,7 +503,7 @@ class Calc(object):
             raise ValueError("Specified time-reduction method '{}' is not "
                              "supported".format(reduction))
 
-    def region_calcs(self, arr, func, n=0):
+    def region_calcs(self, arr, func):
         """Perform a calculation for all regions."""
         # Get pressure values for data output on hybrid vertical coordinates.
         bool_pfull = (self.def_vert and self.dtype_in_vert ==
@@ -718,7 +679,7 @@ class Calc(object):
         self._update_data_out(data, dtype_out_time)
         if save_files:
             self._save_files(data, dtype_out_time)
-        if write_to_tar and self.proj[0].tar_direc_out:
+        if write_to_tar and self.proj.tar_direc_out:
             self._write_to_tar(dtype_out_time)
         logging.info('\t{}'.format(self.path_out[dtype_out_time]))
 
@@ -757,7 +718,7 @@ class Calc(object):
             return ds[self.name]
 
     def _get_data_subset(self, data, region=False, time=False,
-                         vert=False, lat=False, lon=False, n=0):
+                         vert=False, lat=False, lon=False):
         """Subset the data array to the specified time/level/lat/lon, etc."""
         if region:
             raise NotImplementedError
@@ -769,11 +730,11 @@ class Calc(object):
             if self.dtype_in_vert == internal_names.ETA_STR:
                 data = data[{PFULL_STR: vert}]
             else:
-                if np.max(self.model[n].level) > 1e4:
+                if np.max(self.model.level) > 1e4:
                     # Convert from Pa to hPa.
-                    lev_hpa = self.model[n].level*1e-2
+                    lev_hpa = self.model.level*1e-2
                 else:
-                    lev_hpa = self.model[n].level
+                    lev_hpa = self.model.level
                 level_index = np.where(lev_hpa == self.level)
                 if 'ts' in self.dtype_out_time:
                     data = np.squeeze(data[:, level_index])

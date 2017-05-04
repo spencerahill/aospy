@@ -30,6 +30,10 @@ Dependencies
 Bug Fixes
 ~~~~~~~~~
 
+- Remove faulty logic for calculations with data coming from multiple
+  runs.  Eventually this feature will be properly implemented (fixes
+  :issue:`117` via :pull:`178`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
 - Only run tests that require optional dependencies if those
   dependencies are actually installed (fixes :issue:`167` via
   :pull:`176`).  By `Spencer Hill <https://github.com/spencerahill>`_.
