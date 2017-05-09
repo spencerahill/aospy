@@ -10,7 +10,8 @@ import xarray as xr
 from aospy.data_loader import (DataLoader, DictDataLoader, GFDLDataLoader,
                                NestedDictDataLoader, grid_attrs_to_aospy_names,
                                set_grid_attrs_as_coords, _sel_var,
-                               _prep_time_data)
+                               _prep_time_data,
+                               _preprocess_and_rename_grid_attrs)
 from aospy.internal_names import (LAT_STR, LON_STR, TIME_STR, TIME_BOUNDS_STR,
                                   BOUNDS_STR, SFC_AREA_STR, ETA_STR, PHALF_STR,
                                   TIME_WEIGHTS_STR, GRID_ATTRS)
@@ -152,6 +153,24 @@ class TestDataLoader(AospyDataLoaderTestCase):
         assert (TIME_WEIGHTS_STR in ds)
         self.assertEqual(min_year, 2000)
 
+    def test_preprocess_and_rename_grid_attrs(self):
+        def preprocess_func(ds, **kwargs):
+            # Corrupt a grid attribute name so that we test
+            # that grid_attrs_to_aospy_names is still called
+            # after
+            ds = ds.rename({LON_STR: 'LONGITUDE'})
+            ds.attrs['a'] = 'b'
+            return ds
+
+        assert LAT_STR not in self.ds
+        assert self.ALT_LAT_STR in self.ds
+        assert LON_STR in self.ds
+
+        expected = self.ds.rename({self.ALT_LAT_STR: LAT_STR})
+        expected.attrs['a'] = 'b'
+        result = _preprocess_and_rename_grid_attrs(preprocess_func)(self.ds)
+        xr.testing.assert_identical(result, expected)
+
 
 class TestDictDataLoader(TestDataLoader):
     def setUp(self):
@@ -206,6 +225,8 @@ class TestGFDLDataLoader(TestDataLoader):
         self.assertEqual(new.data_dur, self.DataLoader.data_dur)
         self.assertEqual(new.data_start_date, self.DataLoader.data_start_date)
         self.assertEqual(new.data_end_date, self.DataLoader.data_end_date)
+        self.assertEqual(new.preprocess_func,
+                         self.DataLoader.preprocess_func)
 
         new = GFDLDataLoader(self.DataLoader, data_dur=8)
         self.assertEqual(new.data_dur, 8)
@@ -217,6 +238,10 @@ class TestGFDLDataLoader(TestDataLoader):
         new = GFDLDataLoader(self.DataLoader,
                              data_end_date=datetime(2003, 12, 31))
         self.assertEqual(new.data_end_date, datetime(2003, 12, 31))
+
+        new = GFDLDataLoader(self.DataLoader,
+                             preprocess_func=lambda ds: ds)
+        xr.testing.assert_identical(new.preprocess_func(self.ds), self.ds)
 
     def test_maybe_apply_time_offset_inst(self):
         inst_ds = xr.decode_cf(self.inst_ds)
@@ -416,6 +441,30 @@ class LoadVariableTestCase(unittest.TestCase):
                                 '00050101.precip_monthly.nc')
         expected = xr.open_dataset(filepath)['condensation_rain']
         np.testing.assert_array_equal(result.values, expected.values)
+
+    def test_load_variable_preprocess(self):
+        def preprocess(ds, **kwargs):
+            if kwargs['start_date'] == datetime(5, 1, 1):
+                ds['condensation_rain'] = 10. * ds['condensation_rain']
+            return ds
+
+        self.data_loader.preprocess_func = preprocess
+
+        result = self.data_loader.load_variable(
+            condensation_rain, datetime(5, 1, 1), datetime(5, 12, 31),
+            intvl_in='monthly')
+        filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                                '00050101.precip_monthly.nc')
+        expected = 10. * xr.open_dataset(filepath)['condensation_rain']
+        np.testing.assert_allclose(result.values, expected.values)
+
+        result = self.data_loader.load_variable(
+            condensation_rain, datetime(4, 1, 1), datetime(4, 12, 31),
+            intvl_in='monthly')
+        filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                                '00040101.precip_monthly.nc')
+        expected = xr.open_dataset(filepath)['condensation_rain']
+        np.testing.assert_allclose(result.values, expected.values)
 
 
 if __name__ == '__main__':

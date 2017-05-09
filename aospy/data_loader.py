@@ -2,12 +2,41 @@
 import logging
 import os
 
-import dask
 import numpy as np
 import xarray as xr
 
 from . import internal_names
 from .utils import times, io
+
+
+def _preprocess_and_rename_grid_attrs(func, **kwargs):
+    """Call a custom preprocessing method first then rename grid attrs
+
+    This wrapper is needed to generate a single function to pass to the
+    ``preprocesss`` of xr.open_mfdataset.  It makes sure that the
+    user-specified preprocess function is called on the loaded Dataset before
+    aospy's is applied.  An example for why this might be needed is output from
+    the WRF model; one needs to add a CF-compliant units attribute to the time
+    coordinate of all input files, because it is not present by default.  
+
+    Parameters
+    ----------
+    func : function
+       An arbitrary function to call before calling
+       ``grid_attrs_to_aospy_names`` in ``_load_data_from_disk``.  Must take
+       an xr.Dataset as an argument as well as ``**kwargs``.
+
+    Returns
+    -------
+    function
+        A function that calls the provided function ``func`` on the Dataset
+        before calling ``grid_attrs_to_aospy_names``; this is meant to be
+        passed as a ``preprocess`` argument to ``xr.open_mfdataset``.
+    """
+
+    def func_wrapper(ds):
+        return grid_attrs_to_aospy_names(func(ds, **kwargs))
+    return func_wrapper
 
 
 def grid_attrs_to_aospy_names(data):
@@ -135,7 +164,7 @@ def _prep_time_data(ds):
     return ds, min_year
 
 
-def _load_data_from_disk(file_set):
+def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds, **kwargs):
     """Load a Dataset from a list or glob-string of files.
 
     Datasets from files are concatenated along time,
@@ -145,13 +174,17 @@ def _load_data_from_disk(file_set):
     ----------
     file_set : list or str
         List of paths to files or glob-string
+    preprocess_func : function (optional)
+        Custom function to call before applying any aospy logic 
+        to the loaded dataset
 
     Returns
     -------
     Dataset
     """
     apply_preload_user_commands(file_set)
-    return xr.open_mfdataset(file_set, preprocess=grid_attrs_to_aospy_names,
+    func = _preprocess_and_rename_grid_attrs(preprocess_func, **kwargs)
+    return xr.open_mfdataset(file_set, preprocess=func,
                              concat_dim=internal_names.TIME_STR,
                              decode_cf=False)
 
@@ -196,7 +229,9 @@ class DataLoader(object):
         """
         file_set = self._generate_file_set(var=var, start_date=start_date,
                                            end_date=end_date, **DataAttrs)
-        ds = _load_data_from_disk(file_set)
+        ds = _load_data_from_disk(file_set, self.preprocess_func,
+                                  start_date=start_date, end_date=end_date,
+                                  time_offset=time_offset, **DataAttrs)
         ds, min_year = _prep_time_data(ds)
         ds = set_grid_attrs_as_coords(ds)
         da = _sel_var(ds, var)
@@ -238,6 +273,9 @@ class DictDataLoader(DataLoader):
     ----------
     file_map : dict
         A dict mapping an input interval to a list of files
+    preprocess_func : function (optional)
+        A function to apply to every Dataset before processing in aospy.  Must
+        take a Dataset and ``**kwargs`` as its two arguments.
 
     Examples
     --------
@@ -247,10 +285,24 @@ class DictDataLoader(DataLoader):
     >>> file_map = {'monthly': '000[4-6]0101.atmos_month.nc',
     ...             '3hr': '000[4-6]0101.atmos_8xday.nc'}
     >>> data_loader = DictDataLoader(file_map)
+
+    If one wanted to correct a CF-incompliant units attribute on each Dataset 
+    read in, which depended on the ``intvl_in`` of the fileset one could 
+    define a ``preprocess_func`` which took into account the ``intvl_in`` 
+    keyword argument.
+
+    >>> def preprocess(ds, **kwargs):
+    ...     if kwargs['intvl_in'] == 'monthly':
+    ...         ds['time'].attrs['units'] = 'days since 0001-01-0000'
+    ...     if kwargs['intvl_in'] == '3hr':
+    ...         ds['time'].attrs['units'] = 'hours since 0001-01-0000'
+    ...     return ds
+    >>> data_loader = DictDataLoader(file_map, preprocess)
     """
-    def __init__(self, file_map=None):
+    def __init__(self, file_map=None, preprocess_func=lambda ds, **kwargs: ds):
         """Create a new DictDataLoader"""
         self.file_map = file_map
+        self.preprocess_func = preprocess_func
 
     def _generate_file_set(self, var=None, start_date=None, end_date=None,
                            domain=None, intvl_in=None, dtype_in_vert=None,
@@ -279,6 +331,9 @@ class NestedDictDataLoader(DataLoader):
     file_map : dict
         A dict mapping intvl_in to dictionaries mapping Var
         objects to lists of files
+    preprocess_func : function (optional)
+        A function to apply to every Dataset before processing in aospy.  Must
+        take a Dataset and ``**kwargs`` as its two arguments.
 
     Examples
     --------
@@ -288,10 +343,14 @@ class NestedDictDataLoader(DataLoader):
     >>> file_map = {'monthly': {'precl': '000[4-6]0101.precl.nc',
     ...                         'precc': '000[4-6]0101.precc.nc'}}
     >>> data_loader = NestedDictDataLoader(file_map)
+
+    See :py:class:`aospy.data_loader.DictDataLoader` for an example of a
+    possible function to pass as a ``preprocess_func``.
     """
-    def __init__(self, file_map=None):
+    def __init__(self, file_map=None, preprocess_func=lambda ds, **kwargs: ds):
         """Create a new NestedDictDataLoader"""
         self.file_map = file_map
+        self.preprocess_func = preprocess_func
 
     def _generate_file_set(self, var=None, start_date=None, end_date=None,
                            domain=None, intvl_in=None, dtype_in_vert=None,
@@ -326,7 +385,9 @@ class GFDLDataLoader(DataLoader):
         Start date of data files
     data_end_date : datetime.datetime
         End date of data files
-
+    preprocess_func : function (optional)
+        A function to apply to every Dataset before processing in aospy.  Must
+        take a Dataset and ``**kwargs`` as its two arguments.
 
     Examples
     --------
@@ -339,11 +400,16 @@ class GFDLDataLoader(DataLoader):
     Case with a starting template.
 
     >>> data_loader = GFDLDataLoader(base, data_direc='/archive/2xCO2/pp')
+
+    See :py:class:`aospy.data_loader.DictDataLoader` for an example of a
+    possible function to pass as a ``preprocess_func``.
     """
     def __init__(self, template=None, data_direc=None, data_dur=None,
-                 data_start_date=None, data_end_date=None):
+                 data_start_date=None, data_end_date=None,
+                 preprocess_func=lambda ds, **kwargs: ds):
         """Create a new GFDLDataLoader"""
-        attrs = ['data_direc', 'data_dur', 'data_start_date', 'data_end_date']
+        attrs = ['data_direc', 'data_dur', 'data_start_date', 'data_end_date',
+                 'preprocess_func']
         if template:
             for attr in attrs:
                 setattr(self, attr, getattr(template, attr))
@@ -364,11 +430,16 @@ class GFDLDataLoader(DataLoader):
                 self.data_end_date = data_end_date
             else:
                 self.data_end_date = template.data_end_date
+            if preprocess_func is not None:
+                self.preprocess_func = preprocess_func
+            else:
+                self.preprocess_func = template.preprocess_func
         else:
             self.data_direc = data_direc
             self.data_dur = data_dur
             self.data_start_date = data_start_date
             self.data_end_date = data_end_date
+            self.preprocess_func = preprocess_func
 
     @staticmethod
     def _maybe_apply_time_shift(da, time_offset=None, **DataAttrs):

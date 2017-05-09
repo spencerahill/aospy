@@ -17,6 +17,12 @@ Enhancements
   ``distributed.Client`` to leverage computational resources across
   multiple nodes of a cluster. By `Spencer Clark
   <https://github.com/spencerkclark>`_.
+- Allow a user to specify a custom preprocessing function in all
+  DataLoaders to prepare data for processing with aospy.  This could be used,
+  for example, to add a CF-compliant units attribute to the time coordinate if
+  it is not present in a set of files.  This addresses :issue:`177`, and was
+  implemented in :pull:`180`.  By `Spencer Clark
+  <https://github.com/spencerkclark>`_. 
 
 Dependencies
 ~~~~~~~~~~~~
