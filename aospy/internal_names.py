@@ -49,22 +49,22 @@ TIME_VAR_STRS = [TIME_STR, TIME_BOUNDS_STR, TIME_WEIGHTS_STR]
 
 # All attributes associated with data's spatiotemporal grid.
 GRID_ATTRS = OrderedDict(
-    [(LAT_STR, ('lat', 'latitude', 'LATITUDE', 'y', 'yto')),
+    [(LAT_STR, ('lat', 'latitude', 'LATITUDE', 'y', 'yto', 'XLAT')),
      (LAT_BOUNDS_STR, ('latb', 'lat_bnds', 'lat_bounds')),
-     (LON_STR, ('lon', 'longitude', 'LONGITUDE', 'x', 'xto')),
+     (LON_STR, ('lon', 'longitude', 'LONGITUDE', 'x', 'xto', 'XLONG')),
      (LON_BOUNDS_STR, ('lonb', 'lon_bnds', 'lon_bounds')),
-     (ZSURF_STR, ('zsurf',)),
+     (ZSURF_STR, ('zsurf', 'HGT')),
      (SFC_AREA_STR, ('area', 'sfc_area')),
-     (LAND_MASK_STR, ('land_mask',)),
+     (LAND_MASK_STR, ('land_mask', 'LANDFRAC', 'XLAND')),
      (PK_STR, ('pk',)),
      (BK_STR, ('bk',)),
      (PHALF_STR, ('phalf',)),
      (PFULL_STR, ('pfull',)),
      (PLEVEL_STR, ('level', 'lev', 'plev')),
-     (TIME_STR, ('time',)),
+     (TIME_STR, ('time', 'XTIME')),
      (TIME_WEIGHTS_STR, ('time_weights', 'average_DT',)),
      (TIME_BOUNDS_STR, ('time_bounds', 'time_bnds')),
-     (BOUNDS_STR, ('bounds', 'bnds', 'nv')),
+     (BOUNDS_STR, ('bounds', 'bnds', 'nv', 'nbnd')),
      (RAW_START_DATE_STR, ('raw_data_start_date',)),
      (RAW_END_DATE_STR, ('raw_data_end_date',))]
 )

@@ -17,12 +17,16 @@ Enhancements
   ``distributed.Client`` to leverage computational resources across
   multiple nodes of a cluster. By `Spencer Clark
   <https://github.com/spencerkclark>`_.
+- Improve support for WRF and NCAR CAM model data by adding the
+  internal names they use for grid attributes to aospy's lists of
+  potential names to search for.  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
 - Allow a user to specify a custom preprocessing function in all
-  DataLoaders to prepare data for processing with aospy.  This could be used,
-  for example, to add a CF-compliant units attribute to the time coordinate if
-  it is not present in a set of files.  This addresses :issue:`177`, and was
-  implemented in :pull:`180`.  By `Spencer Clark
-  <https://github.com/spencerkclark>`_. 
+  DataLoaders to prepare data for processing with aospy.  This could
+  be used, for example, to add a CF-compliant units attribute to the
+  time coordinate if it is not present in a set of files.  Addresses
+  :issue:`177` via :pull:`180`.  By `Spencer Clark
+  <https://github.com/spencerkclark>`_.
 
 Dependencies
 ~~~~~~~~~~~~
