@@ -50,6 +50,15 @@ Bug Fixes
 - Remove obsolete ``operator.py`` module (fixes :issue:`174` via
   :pull:`175`).  By `Spencer Clark
   <https://github.com/spencerkclark>`_.
+- Fix workaround for dates with years less than 1678 to support units
+  attributes with a reference date years not equal to 0001 (fixes
+  :issue:`188` via :pull:`189`).  By
+  `Spencer Clark <https://github.com/spencerkclark>`_.
+- Fix bug which would prevent users from analyzing a subset within the
+  Timestamp-valid range from a dataset which
+  included data from outside the Timestamp-valid range (fixed in
+  :pull:`189`). By
+  `Spencer Clark <https://github.com/spencerkclark>`_.
 
 .. _whats-new.0.1.2:
 

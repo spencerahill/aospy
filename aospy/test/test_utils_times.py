@@ -130,49 +130,123 @@ class TestUtilsTimes(UtilsTimesTestCase):
     def test_numpy_datetime_range_workaround(self):
         self.assertEqual(numpy_datetime_range_workaround(
             datetime.datetime(pd.Timestamp.min.year + 1, 1, 1),
-            pd.Timestamp.min.year + 1
+            pd.Timestamp.min.year + 1, pd.Timestamp.min.year + 2
         ), datetime.datetime(pd.Timestamp.min.year + 1, 1, 1))
 
         self.assertEqual(
-            numpy_datetime_range_workaround(datetime.datetime(3, 1, 1), 1),
+            numpy_datetime_range_workaround(datetime.datetime(3, 1, 1), 1, 6),
             datetime.datetime(pd.Timestamp.min.year + 3, 1, 1)
         )
 
         self.assertEqual(
-            numpy_datetime_range_workaround(datetime.datetime(5, 1, 1), 4),
+            numpy_datetime_range_workaround(datetime.datetime(5, 1, 1), 4, 6),
             datetime.datetime(pd.Timestamp.min.year + 2, 1, 1)
         )
 
-    def test_numpy_datetime_workaround_encode_cf(self):
-        # 255169 days from 0001-01-01 corresponds to date 700-02-04.
-        days = 255169.
-        time = xr.DataArray([days], dims=[TIME_STR])
-        ds = xr.Dataset(coords={TIME_STR: time})
-        ds[TIME_STR].attrs['units'] = 'days since 0001-01-01 00:00:00'
-        ds[TIME_STR].attrs['calendar'] = 'noleap'
-        actual, min_year = numpy_datetime_workaround_encode_cf(ds)
-
-        time_desired = xr.DataArray([days], dims=[TIME_STR])
-        desired = xr.Dataset(coords={TIME_STR: time_desired})
-        desired[TIME_STR].attrs['units'] = (
-            'days since {0}-01-01 00:00:00'.format(979)
+        # Test min_yr outside valid range
+        self.assertEqual(
+            numpy_datetime_range_workaround(
+                datetime.datetime(pd.Timestamp.min.year + 3, 1, 1),
+                pd.Timestamp.min.year, pd.Timestamp.min.year + 2),
+            datetime.datetime(pd.Timestamp.min.year + 4, 1, 1)
         )
-        desired[TIME_STR].attrs['calendar'] = 'noleap'
 
-        assert actual.identical(desired)
+        # Test max_yr outside valid range
+        self.assertEqual(
+            numpy_datetime_range_workaround(
+                datetime.datetime(pd.Timestamp.max.year + 2, 1, 1),
+                pd.Timestamp.max.year - 1, pd.Timestamp.max.year),
+            datetime.datetime(pd.Timestamp.min.year + 4, 1, 1)
+        )
+
+    def test_numpy_datetime_workaround_encode_cf(self):
+        def create_test_data(days, ref_units, expected_units):
+            # 1095 days corresponds to three years in a noleap calendar
+            # This allows us to generate ranges which straddle the
+            # Timestamp-valid range
+            three_yrs = 1095.
+            time = xr.DataArray([days, days + three_yrs], dims=[TIME_STR])
+            ds = xr.Dataset(coords={TIME_STR: time})
+            ds[TIME_STR].attrs['units'] = ref_units
+            ds[TIME_STR].attrs['calendar'] = 'noleap'
+            actual, min_yr, max_yr = numpy_datetime_workaround_encode_cf(ds)
+
+            time_desired = xr.DataArray([days, days + three_yrs],
+                                        dims=[TIME_STR])
+            desired = xr.Dataset(coords={TIME_STR: time_desired})
+            desired[TIME_STR].attrs['units'] = expected_units
+            desired[TIME_STR].attrs['calendar'] = 'noleap'
+            return actual, min_yr, max_yr, desired
+
+        # 255169 days from 0001-01-01 corresponds to date 700-02-04.
+        actual, min_yr, max_yr, desired = create_test_data(
+            255169., 'days since 0001-01-01 00:00:00',
+            'days since 979-01-01 00:00:00')
+        xr.testing.assert_identical(actual, desired)
         self.assertEqual(xr.decode_cf(actual).time.values[0],
                          np.datetime64('1678-02-04'))
-        self.assertEqual(min_year, 700)
+        self.assertEqual(min_yr, 700)
+        self.assertEqual(max_yr, 703)
 
         # Test a case where times are in the Timestamp-valid range
-        time = xr.DataArray([10], dims=[TIME_STR])
-        ds = xr.Dataset(coords={TIME_STR: time})
-        ds[TIME_STR].attrs['units'] = 'days since 2000-01-01 00:00:00'
-        ds[TIME_STR].attrs['calendar'] = 'noleap'
-        actual, min_year = numpy_datetime_workaround_encode_cf(ds)
+        actual, min_yr, max_yr, desired = create_test_data(
+            10., 'days since 2000-01-01 00:00:00',
+            'days since 2000-01-01 00:00:00')
+        xr.testing.assert_identical(actual, desired)
         self.assertEqual(xr.decode_cf(actual).time.values[0],
                          np.datetime64('2000-01-11'))
-        self.assertEqual(min_year, 2000)
+        self.assertEqual(min_yr, 2000)
+        self.assertEqual(max_yr, 2003)
+
+        # Regression tests for GH188
+        actual, min_yr, max_yr, desired = create_test_data(
+            732., 'days since 0700-01-01 00:00:00',
+            'days since 1676-01-01 00:00:00')
+        xr.testing.assert_identical(actual, desired)
+        self.assertEqual(xr.decode_cf(actual).time.values[0],
+                         np.datetime64('1678-01-03'))
+        self.assertEqual(min_yr, 702)
+        self.assertEqual(max_yr, 705)
+
+        # Non-January 1st reference date
+        actual, min_yr, max_yr, desired = create_test_data(
+            732., 'days since 0700-05-03 00:00:00',
+            'days since 1676-05-03 00:00:00')
+        xr.testing.assert_identical(actual, desired)
+        self.assertEqual(xr.decode_cf(actual).time.values[0],
+                         np.datetime64('1678-05-05'))
+        self.assertEqual(min_yr, 702)
+        self.assertEqual(max_yr, 705)
+
+        # Above Timestamp.max
+        actual, min_yr, max_yr, desired = create_test_data(
+            732., 'days since 2300-01-01 00:00:00',
+            'days since 1676-01-01 00:00:00')
+        xr.testing.assert_identical(actual, desired)
+        self.assertEqual(xr.decode_cf(actual).time.values[0],
+                         np.datetime64('1678-01-03'))
+        self.assertEqual(min_yr, 2302)
+        self.assertEqual(max_yr, 2305)
+
+        # Straddle lower bound
+        actual, min_yr, max_yr, desired = create_test_data(
+            2., 'days since 1677-01-01 00:00:00',
+            'days since 1678-01-01 00:00:00')
+        xr.testing.assert_identical(actual, desired)
+        self.assertEqual(xr.decode_cf(actual).time.values[0],
+                         np.datetime64('1678-01-03'))
+        self.assertEqual(min_yr, 1677)
+        self.assertEqual(max_yr, 1680)
+
+        # Straddle upper bound
+        actual, min_yr, max_yr, desired = create_test_data(
+            2., 'days since 2262-01-01 00:00:00',
+            'days since 1678-01-01 00:00:00')
+        xr.testing.assert_identical(actual, desired)
+        self.assertEqual(xr.decode_cf(actual).time.values[0],
+                         np.datetime64('1678-01-03'))
+        self.assertEqual(min_yr, 2262)
+        self.assertEqual(max_yr, 2265)
 
     def test_month_indices(self):
         np.testing.assert_array_equal(month_indices('ann'), range(1, 13))

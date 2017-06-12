@@ -149,9 +149,10 @@ class TestDataLoader(AospyDataLoaderTestCase):
 
     def test_prep_time_data(self):
         assert (TIME_WEIGHTS_STR not in self.inst_ds)
-        ds, min_year = _prep_time_data(self.inst_ds)
+        ds, min_year, max_year = _prep_time_data(self.inst_ds)
         assert (TIME_WEIGHTS_STR in ds)
         self.assertEqual(min_year, 2000)
+        self.assertEqual(max_year, 2000)
 
     def test_preprocess_and_rename_grid_attrs(self):
         def preprocess_func(ds, **kwargs):
@@ -441,6 +442,31 @@ class LoadVariableTestCase(unittest.TestCase):
                                 '00050101.precip_monthly.nc')
         expected = xr.open_dataset(filepath)['condensation_rain']
         np.testing.assert_array_equal(result.values, expected.values)
+
+    def test_load_variable_non_0001_refdate(self):
+        def preprocess(ds, **kwargs):
+            # This function converts our testing data (encoded with a units
+            # attribute with a reference data of 0001-01-01) to one
+            # with a reference data of 0004-01-01 (to do so we also need
+            # to offset the raw time values by three years).
+            three_yrs = 1095.
+            ds['time'] = ds['time'] - three_yrs
+            ds['time'].attrs['units'] = 'days since 0004-01-01 00:00:00'
+            ds['time_bounds'] = ds['time_bounds'] - three_yrs
+            ds['time_bounds'].attrs['units'] = 'days since 0004-01-01 00:00:00'
+            return ds
+
+        self.data_loader.preprocess_func = preprocess
+
+        for year in [4, 5, 6]:
+            result = self.data_loader.load_variable(
+                condensation_rain, datetime(year, 1, 1),
+                datetime(year, 12, 31),
+                intvl_in='monthly')
+            filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                                    '000{}0101.precip_monthly.nc'.format(year))
+            expected = xr.open_dataset(filepath)['condensation_rain']
+            np.testing.assert_allclose(result.values, expected.values)
 
     def test_load_variable_preprocess(self):
         def preprocess(ds, **kwargs):

@@ -143,7 +143,7 @@ def datetime_or_default(date, default):
         return ensure_datetime(date)
 
 
-def numpy_datetime_range_workaround(date, min_year):
+def numpy_datetime_range_workaround(date, min_year, max_year):
     """Reset a date to earliest allowable year if outside of valid range.
 
     Hack to address np.datetime64, and therefore pandas and xarray, not
@@ -156,7 +156,9 @@ def numpy_datetime_range_workaround(date, min_year):
     ----------
     date : datetime.datetime object
     min_year : int
-        Year in the units attribute of the raw loaded data
+        Minimum year in the raw decoded dataset
+    max_year : int
+        Maximum year in the raw decoded dataset
 
     Returns
     -------
@@ -165,7 +167,9 @@ def numpy_datetime_range_workaround(date, min_year):
         permissible dates, otherwise a datetime.datetime object with the year
         offset to the earliest allowable year.
     """
-    if date < pd.Timestamp.min:
+    min_yr_in_range = pd.Timestamp.min.year < min_year < pd.Timestamp.max.year
+    max_yr_in_range = pd.Timestamp.min.year < max_year < pd.Timestamp.max.year
+    if not (min_yr_in_range and max_yr_in_range):
         return datetime.datetime(
             date.year - min_year + pd.Timestamp.min.year + 1,
             date.month, date.day)
@@ -191,27 +195,30 @@ def numpy_datetime_workaround_encode_cf(ds):
 
     Returns
     -------
-    xarray.Dataset, int
-        Dataset with time units adjusted as needed, and minimum year
-        in loaded data.
+    xarray.Dataset, int, int
+        Dataset with time units adjusted as needed, minimum year
+        in loaded data, and maximum year in loaded data.
     """
     time = ds[internal_names.TIME_STR]
     units = time.attrs['units']
     units_yr = units.split(' since ')[1].split('-')[0]
     min_yr_decoded = xr.decode_cf(time.to_dataset(name='dummy'))
     min_date = min_yr_decoded[internal_names.TIME_STR].values[0]
-    if isinstance(min_date, np.datetime64):
-        return ds, pd.Timestamp(min_date).year
+    max_date = min_yr_decoded[internal_names.TIME_STR].values[-1]
+    if all(isinstance(date, np.datetime64) for date in [min_date, max_date]):
+        return ds, pd.Timestamp(min_date).year, pd.Timestamp(max_date).year
     else:
         min_yr = min_date.year
-        new_units_yr = pd.Timestamp.min.year + 2 - min_yr
+        max_yr = max_date.year
+        offset = int(units_yr) - min_yr + 1
+        new_units_yr = pd.Timestamp.min.year + offset
         new_units = units.replace(units_yr, str(new_units_yr))
 
         for VAR_STR in internal_names.TIME_VAR_STRS:
             if VAR_STR in ds:
                 var = ds[VAR_STR]
                 var.attrs['units'] = new_units
-        return ds, min_yr
+        return ds, min_yr, max_yr
 
 
 def month_indices(months):
