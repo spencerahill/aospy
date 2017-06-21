@@ -1,6 +1,8 @@
 """Functionality pertaining to aggregating data over geographical regions."""
 import logging
 
+import numpy as np
+
 from . import internal_names
 
 
@@ -166,9 +168,14 @@ class Region(object):
         data_masked = self.mask_var(data)
         sfc_area = data.sfc_area
         land_mask = _get_land_mask(data, self.do_land_mask)
-        weights = _sum_over_lat_lon((self.mask_var(sfc_area)*land_mask))
+
+        weights = self.mask_var(sfc_area) * land_mask
+        # Mask weights where data values are initially invalid in addition
+        # to applying the region mask.
+        weights = weights.where(np.isfinite(data))
+        sum_weights = _sum_over_lat_lon(weights)
         return (_sum_over_lat_lon(data_masked*sfc_area*land_mask) /
-                weights)
+                sum_weights)
 
     def av(self, data):
         """Time average of region-average time-series."""

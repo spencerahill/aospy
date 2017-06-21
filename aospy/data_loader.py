@@ -159,7 +159,7 @@ def _prep_time_data(ds):
                         "the case")
         ds = times.add_uniform_time_weights(ds)
     ds = xr.decode_cf(
-        ds, decode_times=True, decode_coords=False, mask_and_scale=False
+        ds, decode_times=True, decode_coords=False, mask_and_scale=True
     )
     return ds, min_year, max_year
 
@@ -186,7 +186,8 @@ def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds, **kwargs):
     func = _preprocess_and_rename_grid_attrs(preprocess_func, **kwargs)
     return xr.open_mfdataset(file_set, preprocess=func,
                              concat_dim=internal_names.TIME_STR,
-                             decode_cf=False)
+                             decode_times=False, decode_coords=False,
+                             mask_and_scale=True)
 
 
 def apply_preload_user_commands(file_set, cmd=io.dmget):

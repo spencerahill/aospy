@@ -492,6 +492,23 @@ class LoadVariableTestCase(unittest.TestCase):
         expected = xr.open_dataset(filepath)['condensation_rain']
         np.testing.assert_allclose(result.values, expected.values)
 
+    def test_load_variable_mask_and_scale(self):
+        def convert_all_to_missing_val(ds, **kwargs):
+            ds['condensation_rain'] = 0. * ds['condensation_rain'] + 1.0e20
+            ds['condensation_rain'].attrs['_FillValue'] = 1.0e20
+            return ds
+
+        self.data_loader.preprocess_func = convert_all_to_missing_val
+
+        data = self.data_loader.load_variable(
+            condensation_rain, datetime(5, 1, 1),
+            datetime(5, 12, 31),
+            intvl_in='monthly')
+
+        num_non_missing = np.isfinite(data).sum().item()
+        expected_num_non_missing = 0
+        self.assertEqual(num_non_missing, expected_num_non_missing)
+
 
 if __name__ == '__main__':
     unittest.main()

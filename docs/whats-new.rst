@@ -59,6 +59,14 @@ Bug Fixes
   included data from outside the Timestamp-valid range (fixed in
   :pull:`189`). By
   `Spencer Clark <https://github.com/spencerkclark>`_.
+- Toggle the ``mask_and_scale`` option to ``True`` when reading in netCDF files
+  to enable missing values encoded as floats to be converted to NaN's
+  (fixes :issue:`190` via :pull:`192`).  By
+  `Spencer Clark <https://github.com/spencerkclark>`_.
+- Force regional calculations to mask gridcell weights where the loaded
+  datapoints were invalid instead of just masking points outside the desired
+  region (fixes :issue:`190` via :pull:`192`).  By
+  `Spencer Clark <https://github.com/spencerkclark>`_. 
 
 .. _whats-new.0.1.2:
 
