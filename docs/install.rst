@@ -49,7 +49,7 @@ Alternative method #2: clone from Github
 You can also directly clone the `Github repo
 <https://github.com/spencerahill/aospy>`_ ::
 
-  git clone https://www.github.com/spencerahill/aospy/aospy.git
+  git clone https://www.github.com/spencerahill/aospy.git
   cd aospy
   python setup.py install
 
