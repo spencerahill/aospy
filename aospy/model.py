@@ -1,17 +1,12 @@
 """Functionality for representing data on disk of individual models."""
 import logging
 
-import dask
 import numpy as np
 import xarray as xr
 
 from .constants import r_e
 from . import internal_names
 from . import utils
-
-# Dask must use its serial scheduler if computations are to be performed
-# in parallel using multiprocess
-dask.set_options(get=dask.async.get_sync)
 
 
 def _get_grid_attr(grid_objs, attr_name):

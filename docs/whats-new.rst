@@ -27,6 +27,11 @@ Enhancements
   time coordinate if it is not present in a set of files.  Addresses
   :issue:`177` via :pull:`180`.  By `Spencer Clark
   <https://github.com/spencerkclark>`_.
+- Remove ``dask.async`` import in ``model.py``; no longer needed, and
+  also prevents warning message from dask regarding location of
+  ``get_sync`` function  (:pull:`195`).  By
+  `Spencer Hill <https://github.com/spencerahill>`_.
+
 
 Dependencies
 ~~~~~~~~~~~~
@@ -66,7 +71,7 @@ Bug Fixes
 - Force regional calculations to mask gridcell weights where the loaded
   datapoints were invalid instead of just masking points outside the desired
   region (fixes :issue:`190` via :pull:`192`).  By
-  `Spencer Clark <https://github.com/spencerkclark>`_. 
+  `Spencer Clark <https://github.com/spencerkclark>`_.
 
 .. _whats-new.0.1.2:
 
