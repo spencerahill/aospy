@@ -295,18 +295,30 @@ def _exec_calcs(calcs, parallelize=False, client=None, **compute_kwargs):
         def func(calc):
             """Wrap _compute_or_skip_on_error to require only the calc
             argument"""
+            if 'write_to_tar' in compute_kwargs:
+                compute_kwargs['write_to_tar'] = False
             return _compute_or_skip_on_error(calc, compute_kwargs)
 
         if client is None:
             n_workers = _n_workers_for_local_cluster(calcs)
             with distributed.LocalCluster(n_workers=n_workers) as cluster:
                 with distributed.Client(cluster) as client:
-                    return _submit_calcs_on_client(calcs, client, func)
+                    result = _submit_calcs_on_client(calcs, client, func)
         else:
-            return _submit_calcs_on_client(calcs, client, func)
+            result = _submit_calcs_on_client(calcs, client, func)
+        if compute_kwargs['write_to_tar']:
+            _serial_write_to_tar(calcs)
+        return result
     else:
         return [_compute_or_skip_on_error(calc, compute_kwargs)
                 for calc in calcs]
+
+
+def _serial_write_to_tar(calcs):
+    for calc in calcs:
+        if calc.proj.tar_direc_out:
+            for dtype_out_time in calc.dtype_out_time:
+                calc._write_to_tar(dtype_out_time)
 
 
 def _print_suite_summary(calc_suite_specs):

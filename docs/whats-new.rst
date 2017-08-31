@@ -75,6 +75,9 @@ Bug Fixes
 - Retain original input data's mask during gridpoint-by-gridpoint
   temporal averages (fixes :issue:`193` via :pull:`196`).  By `Spencer
   Hill <https://github.com/spencerahill>`_.
+- Always write output to a tar file in serial to prevent empty header file
+  errors (fixes :issue:`75` via :pull:`197`).  By `Spencer Clark
+  <https://github.com/spencerkclark>`_
 
 .. _whats-new.0.1.2:
 
