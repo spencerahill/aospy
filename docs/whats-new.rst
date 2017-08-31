@@ -72,6 +72,9 @@ Bug Fixes
   datapoints were invalid instead of just masking points outside the desired
   region (fixes :issue:`190` via :pull:`192`).  By
   `Spencer Clark <https://github.com/spencerkclark>`_.
+- Retain original input data's mask during gridpoint-by-gridpoint
+  temporal averages (fixes :issue:`193` via :pull:`196`).  By `Spencer
+  Hill <https://github.com/spencerahill>`_.
 
 .. _whats-new.0.1.2:
 

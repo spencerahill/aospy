@@ -31,7 +31,8 @@ from aospy.utils.times import (
     assert_matching_time_coord,
     ensure_time_as_dim,
     convert_scalar_to_indexable_coord,
-    sel_time
+    sel_time,
+    yearly_average
 )
 
 
@@ -483,6 +484,50 @@ class TestUtilsTimes(UtilsTimesTestCase):
         result = sel_time(da, start_date, end_date)
         self.assertEqual(result[SUBSET_START_DATE_STR].values, start_date)
         self.assertEqual(result[SUBSET_END_DATE_STR].values, end_date)
+
+
+def test_yearly_average_no_mask():
+    times = pd.to_datetime(['2000-06-01', '2000-06-15',
+                            '2001-07-04', '2001-10-01', '2001-12-31',
+                            '2004-01-01'])
+    arr = xr.DataArray(np.random.random((len(times),)),
+                       dims=[TIME_STR], coords={TIME_STR: times})
+    dt = arr.copy(deep=True)
+    dt.values = np.random.random((len(times),))
+
+    actual = yearly_average(arr, dt)
+
+    yr2000 = (arr[0]*dt[0] + arr[1]*dt[1]) / (dt[0] + dt[1])
+    yr2001 = ((arr[2]*dt[2] + arr[3]*dt[3] + arr[4]*dt[4]) /
+              (dt[2] + dt[3] + dt[4]))
+    yr2004 = arr[-1]
+    yrs_coord = [2000, 2001, 2004]
+    yr_avgs = np.array([yr2000, yr2001, yr2004])
+    desired = xr.DataArray(yr_avgs, dims=['year'], coords={'year': yrs_coord})
+    xr.testing.assert_allclose(actual, desired)
+
+
+def test_yearly_average_masked_data():
+    times = pd.to_datetime(['2000-06-01', '2000-06-15',
+                            '2001-07-04', '2001-10-01', '2001-12-31',
+                            '2004-01-01'])
+    arr = xr.DataArray(np.random.random((len(times),)),
+                       dims=[TIME_STR], coords={TIME_STR: times})
+    arr[0] = -999
+    arr = arr.where(arr != -999)
+    dt = arr.copy(deep=True)
+    dt.values = np.random.random((len(times),))
+
+    actual = yearly_average(arr, dt)
+
+    yr2000 = arr[1]
+    yr2001 = ((arr[2]*dt[2] + arr[3]*dt[3] + arr[4]*dt[4]) /
+              (dt[2] + dt[3] + dt[4]))
+    yr2004 = arr[-1]
+    yrs_coord = [2000, 2001, 2004]
+    yr_avgs = np.array([yr2000, yr2001, yr2004])
+    desired = xr.DataArray(yr_avgs, dims=['year'], coords={'year': yrs_coord})
+    xr.testing.assert_allclose(actual, desired)
 
 
 if __name__ == '__main__':

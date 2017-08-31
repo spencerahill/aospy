@@ -473,18 +473,11 @@ class Calc(object):
                 full_ts *= (grav.value / self._to_desired_dates(self._ps_data))
         return full_ts, dt
 
-    def _avg_by_year(self, arr, dt):
-        """Average a sub-yearly time-series over each year."""
-        utils.times.assert_matching_time_coord(arr, dt)
-        yr_str = internal_names.TIME_STR + '.year'
-        return ((arr*dt).groupby(yr_str).sum(internal_names.TIME_STR) /
-                dt.groupby(yr_str).sum(internal_names.TIME_STR))
-
     def _full_to_yearly_ts(self, arr, dt):
         """Average the full timeseries within each year."""
         time_defined = self.def_time and not ('av' in self.dtype_in_time)
         if time_defined:
-            arr = self._avg_by_year(arr, dt)
+            arr = utils.times.yearly_average(arr, dt)
         return arr
 
     def _time_reduce(self, arr, reduction):

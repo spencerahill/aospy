@@ -102,6 +102,36 @@ def monthly_mean_at_each_ind(monthly_means, sub_monthly_timeseries):
     return arr_new.reindex_like(sub_monthly_timeseries, method='pad')
 
 
+def yearly_average(arr, dt):
+    """Average a sub-yearly time-series over each year.
+
+    Resulting timeseries comprises one value for each year in which the
+    original array had valid data.  Accounts for (i.e. ignores) masked values
+    in original data when computing the annual averages.
+
+    Parameters
+    ----------
+    arr : xarray.DataArray
+        The array to be averaged
+    dt : xarray.DataArray
+        Array of the duration of each timestep
+
+    Returns
+    -------
+    xarray.DataArray
+        Has the same shape and mask as the original ``arr``, except for the
+        time dimension, which is truncated to one value for each year that
+        ``arr`` spanned
+
+    """
+    assert_matching_time_coord(arr, dt)
+    yr_str = internal_names.TIME_STR + '.year'
+    # Retain original data's mask.
+    dt = dt.where(np.isfinite(arr))
+    return ((arr*dt).groupby(yr_str).sum(internal_names.TIME_STR) /
+            dt.groupby(yr_str).sum(internal_names.TIME_STR))
+
+
 def ensure_datetime(obj):
     """Return the object if it is of type datetime.datetime; else raise.
 
