@@ -5,7 +5,7 @@ import os
 import numpy as np
 import xarray as xr
 
-from . import internal_names
+from .internal_names import ETA_STR, GRID_ATTRS, TIME_STR, TIME_BOUNDS_STR
 from .utils import times, io
 
 
@@ -17,7 +17,7 @@ def _preprocess_and_rename_grid_attrs(func, **kwargs):
     user-specified preprocess function is called on the loaded Dataset before
     aospy's is applied.  An example for why this might be needed is output from
     the WRF model; one needs to add a CF-compliant units attribute to the time
-    coordinate of all input files, because it is not present by default.  
+    coordinate of all input files, because it is not present by default.
 
     Parameters
     ----------
@@ -62,7 +62,7 @@ def grid_attrs_to_aospy_names(data):
         Data returned with coordinates consistent with aospy
         conventions
     """
-    for name_int, names_ext in internal_names.GRID_ATTRS.items():
+    for name_int, names_ext in GRID_ATTRS.items():
         dims_and_vars = set(data.variables).union(set(data.dims))
         data_coord_name = set(names_ext).intersection(dims_and_vars)
         if data_coord_name:
@@ -91,7 +91,7 @@ def set_grid_attrs_as_coords(ds):
     Dataset
         Dataset with grid attributes set as coordinates
     """
-    int_names = internal_names.GRID_ATTRS.keys()
+    int_names = GRID_ATTRS.keys()
     grid_attrs_in_ds = set(int_names).intersection(set(ds.coords) |
                                                    set(ds.data_vars))
     ds.set_coords(grid_attrs_in_ds, inplace=True)
@@ -130,13 +130,14 @@ def _sel_var(ds, var):
 def _prep_time_data(ds):
     """Prepare time coord. information in Dataset for use in aospy.
 
-    1. Edit units attribute of time variable if it contains
-    a Timestamp invalid date
-    2. If the Dataset contains a time bounds coordinate, add
-    attributes representing the true beginning and end dates of
-    the time interval used to construct the Dataset
-    3. Decode the times into np.datetime64 objects for time
-    indexing
+    1. Edit units attribute of time variable if it contains a Timestamp invalid
+       date
+    2. If the Dataset contains a time bounds coordinate, add attributes
+       representing the true beginning and end dates of the time interval used
+       to construct the Dataset
+    3. If the Dataset contains a time bounds coordinate, overwrite the time
+       coordinate values with the averages of the time bounds at each timestep
+    4. Decode the times into np.datetime64 objects for time indexing
 
     Parameters
     ----------
@@ -151,16 +152,16 @@ def _prep_time_data(ds):
     """
     ds = times.ensure_time_as_dim(ds)
     ds, min_year, max_year = times.numpy_datetime_workaround_encode_cf(ds)
-    if internal_names.TIME_BOUNDS_STR in ds:
+    if TIME_BOUNDS_STR in ds:
         ds = times.ensure_time_avg_has_cf_metadata(ds)
+        ds[TIME_STR] = times.average_time_bounds(ds)
     else:
         logging.warning("dt array not found.  Assuming equally spaced "
                         "values in time, even though this may not be "
                         "the case")
         ds = times.add_uniform_time_weights(ds)
-    ds = xr.decode_cf(
-        ds, decode_times=True, decode_coords=False, mask_and_scale=True
-    )
+    ds = xr.decode_cf(ds, decode_times=True, decode_coords=False,
+                      mask_and_scale=True)
     return ds, min_year, max_year
 
 
@@ -175,7 +176,7 @@ def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds, **kwargs):
     file_set : list or str
         List of paths to files or glob-string
     preprocess_func : function (optional)
-        Custom function to call before applying any aospy logic 
+        Custom function to call before applying any aospy logic
         to the loaded dataset
 
     Returns
@@ -184,8 +185,7 @@ def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds, **kwargs):
     """
     apply_preload_user_commands(file_set)
     func = _preprocess_and_rename_grid_attrs(preprocess_func, **kwargs)
-    return xr.open_mfdataset(file_set, preprocess=func,
-                             concat_dim=internal_names.TIME_STR,
+    return xr.open_mfdataset(file_set, preprocess=func, concat_dim=TIME_STR,
                              decode_times=False, decode_coords=False,
                              mask_and_scale=True)
 
@@ -248,9 +248,8 @@ class DataLoader(object):
     def _maybe_apply_time_shift(da, time_offset=None, **DataAttrs):
         """Apply specified time shift to DataArray"""
         if time_offset is not None:
-            time = times.apply_time_offset(da[internal_names.TIME_STR],
-                                           **time_offset)
-            da[internal_names.TIME_STR] = time
+            time = times.apply_time_offset(da[TIME_STR], **time_offset)
+            da[TIME_STR] = time
         return da
 
     def _generate_file_set(self, var=None, start_date=None, end_date=None,
@@ -287,9 +286,9 @@ class DictDataLoader(DataLoader):
     ...             '3hr': '000[4-6]0101.atmos_8xday.nc'}
     >>> data_loader = DictDataLoader(file_map)
 
-    If one wanted to correct a CF-incompliant units attribute on each Dataset 
-    read in, which depended on the ``intvl_in`` of the fileset one could 
-    define a ``preprocess_func`` which took into account the ``intvl_in`` 
+    If one wanted to correct a CF-incompliant units attribute on each Dataset
+    read in, which depended on the ``intvl_in`` of the fileset one could
+    define a ``preprocess_func`` which took into account the ``intvl_in``
     keyword argument.
 
     >>> def preprocess(ds, **kwargs):
@@ -452,18 +451,16 @@ class GFDLDataLoader(DataLoader):
         last time value be in February.
         """
         if time_offset is not None:
-            time = times.apply_time_offset(da[internal_names.TIME_STR],
-                                           **time_offset)
-            da[internal_names.TIME_STR] = time
+            time = times.apply_time_offset(da[TIME_STR], **time_offset)
+            da[TIME_STR] = time
         else:
             if DataAttrs['dtype_in_time'] == 'inst':
                 if DataAttrs['intvl_in'].endswith('hr'):
                     offset = -1 * int(DataAttrs['intvl_in'][0])
                 else:
                     offset = 0
-                time = times.apply_time_offset(da[internal_names.TIME_STR],
-                                               hours=offset)
-                da[internal_names.TIME_STR] = time
+                time = times.apply_time_offset(da[TIME_STR], hours=offset)
+                da[TIME_STR] = time
         return da
 
     def _generate_file_set(self, var=None, start_date=None, end_date=None,
@@ -484,7 +481,7 @@ class GFDLDataLoader(DataLoader):
         dtype_lbl = dtype_in_time
         if intvl_in == 'daily':
             domain += '_daily'
-        if dtype_in_vert == internal_names.ETA_STR and name != 'ps':
+        if dtype_in_vert == ETA_STR and name != 'ps':
             domain += '_level'
         if dtype_in_time == 'inst':
             domain += '_inst'

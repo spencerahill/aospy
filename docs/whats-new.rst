@@ -78,6 +78,12 @@ Bug Fixes
 - Always write output to a tar file in serial to prevent empty header file
   errors (fixes :issue:`75` via :pull:`197`).  By `Spencer Clark
   <https://github.com/spencerkclark>`_
+- When input data for a calculation has a time bounds array, overwrite
+  its time array with the average of the start and end times for each
+  timestep.  Prevents bug wherein time arrays equal to either the
+  start or end bounds get mistakenly grouped into the wrong time
+  interval, i.e. the wrong month or year (fixes :issue `185` via
+  :pull:`200`).  By `Spencer Hill <https://github.com/spencerahill>`_.
 
 .. _whats-new.0.1.2:
 

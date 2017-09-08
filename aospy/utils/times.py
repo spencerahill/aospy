@@ -5,7 +5,11 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .. import internal_names
+from ..internal_names import (
+    BOUNDS_STR, GRID_ATTRS_NO_TIMES, RAW_END_DATE_STR, RAW_START_DATE_STR,
+    SUBSET_END_DATE_STR, SUBSET_START_DATE_STR, TIME_BOUNDS_STR, TIME_STR,
+    TIME_VAR_STRS, TIME_WEIGHTS_STR
+)
 
 
 def apply_time_offset(time, years=0, months=0, days=0, hours=0):
@@ -51,6 +55,43 @@ def apply_time_offset(time, years=0, months=0, days=0, hours=0):
                                           days=days, hours=hours))
 
 
+def average_time_bounds(ds):
+    """Return the average of each set of time bounds in the Dataset.
+
+    Useful for creating a new time array to replace the Dataset's native time
+    array, in the case that the latter matches either the start or end bounds.
+    This can cause errors in grouping (akin to an off-by-one error) if the
+    timesteps span e.g. one full month each.  Note that the Dataset's times
+    must not have already undergone "CF decoding", wherein they are converted
+    from floats using the 'units' attribute into datetime objects.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        A Dataset containing a time bounds array with name matching
+        internal_names.TIME_BOUNDS_STR.  This time bounds array must have two
+        dimensions, one of which's coordinates is the Dataset's time array, and
+        the other is length-2.
+
+    Returns
+    -------
+    xarray.DataArray
+        The mean of the start and end times of each timestep in the original
+        Dataset.
+
+    Raises
+    ------
+    ValueError
+        If the time bounds array doesn't match the shape specified above.
+
+    """
+    bounds = ds[TIME_BOUNDS_STR]
+    new_times = bounds.mean(dim=BOUNDS_STR, keep_attrs=True)
+    new_times = new_times.drop(TIME_STR).rename(TIME_STR)
+    new_times[TIME_STR] = new_times
+    return new_times
+
+
 def monthly_mean_ts(arr):
     """Convert a sub-monthly time-series into one of monthly means.
 
@@ -70,9 +111,7 @@ def monthly_mean_ts(arr):
     --------
     monthly_mean_at_each_ind : Copy monthly means to each submonthly time
     """
-    return arr.resample(
-        '1M', internal_names.TIME_STR,
-        how='mean').dropna(internal_names.TIME_STR)
+    return arr.resample('1M', TIME_STR, how='mean').dropna(TIME_STR)
 
 
 def monthly_mean_at_each_ind(monthly_means, sub_monthly_timeseries):
@@ -94,9 +133,9 @@ def monthly_mean_at_each_ind(monthly_means, sub_monthly_timeseries):
     --------
     monthly_mean_ts : Create timeseries of monthly mean values
     """
-    time = monthly_means[internal_names.TIME_STR]
-    start = time.indexes[internal_names.TIME_STR][0].replace(day=1, hour=0)
-    end = time.indexes[internal_names.TIME_STR][-1]
+    time = monthly_means[TIME_STR]
+    start = time.indexes[TIME_STR][0].replace(day=1, hour=0)
+    end = time.indexes[TIME_STR][-1]
     new_indices = pd.DatetimeIndex(start=start, end=end, freq='MS')
     arr_new = monthly_means.reindex(time=new_indices, method='backfill')
     return arr_new.reindex_like(sub_monthly_timeseries, method='pad')
@@ -125,11 +164,11 @@ def yearly_average(arr, dt):
 
     """
     assert_matching_time_coord(arr, dt)
-    yr_str = internal_names.TIME_STR + '.year'
+    yr_str = TIME_STR + '.year'
     # Retain original data's mask.
     dt = dt.where(np.isfinite(arr))
-    return ((arr*dt).groupby(yr_str).sum(internal_names.TIME_STR) /
-            dt.groupby(yr_str).sum(internal_names.TIME_STR))
+    return ((arr*dt).groupby(yr_str).sum(TIME_STR) /
+            dt.groupby(yr_str).sum(TIME_STR))
 
 
 def ensure_datetime(obj):
@@ -229,12 +268,12 @@ def numpy_datetime_workaround_encode_cf(ds):
         Dataset with time units adjusted as needed, minimum year
         in loaded data, and maximum year in loaded data.
     """
-    time = ds[internal_names.TIME_STR]
+    time = ds[TIME_STR]
     units = time.attrs['units']
     units_yr = units.split(' since ')[1].split('-')[0]
     min_yr_decoded = xr.decode_cf(time.to_dataset(name='dummy'))
-    min_date = min_yr_decoded[internal_names.TIME_STR].values[0]
-    max_date = min_yr_decoded[internal_names.TIME_STR].values[-1]
+    min_date = min_yr_decoded[TIME_STR].values[0]
+    max_date = min_yr_decoded[TIME_STR].values[-1]
     if all(isinstance(date, np.datetime64) for date in [min_date, max_date]):
         return ds, pd.Timestamp(min_date).year, pd.Timestamp(max_date).year
     else:
@@ -244,7 +283,7 @@ def numpy_datetime_workaround_encode_cf(ds):
         new_units_yr = pd.Timestamp.min.year + offset
         new_units = units.replace(units_yr, str(new_units_yr))
 
-        for VAR_STR in internal_names.TIME_VAR_STRS:
+        for VAR_STR in TIME_VAR_STRS:
             if VAR_STR in ds:
                 var = ds[VAR_STR]
                 var.attrs['units'] = new_units
@@ -318,7 +357,7 @@ def _month_conditional(time, months):
         months_array = months
     cond = False
     for month in months_array:
-        cond |= (time['{}.month'.format(internal_names.TIME_STR)] == month)
+        cond |= (time['{}.month'.format(TIME_STR)] == month)
     return cond
 
 
@@ -368,13 +407,6 @@ def ensure_time_avg_has_cf_metadata(ds):
     Dataset or DataArray
         Time average metadata attributes added if needed.
     """
-    RAW_START_DATE_STR = internal_names.RAW_START_DATE_STR
-    RAW_END_DATE_STR = internal_names.RAW_END_DATE_STR
-    TIME_BOUNDS_STR = internal_names.TIME_BOUNDS_STR
-    TIME_STR = internal_names.TIME_STR
-    BOUNDS_STR = internal_names.BOUNDS_STR
-    TIME_WEIGHTS_STR = internal_names.TIME_WEIGHTS_STR
-
     if TIME_WEIGHTS_STR not in ds:
         time_weights = ds[TIME_BOUNDS_STR].diff(BOUNDS_STR)
         time_weights = time_weights.rename(TIME_WEIGHTS_STR).squeeze()
@@ -412,12 +444,12 @@ def add_uniform_time_weights(ds):
     -------
     Dataset
     """
-    time = ds[internal_names.TIME_STR]
+    time = ds[TIME_STR]
     unit_interval = time.attrs['units'].split('since')[0].strip()
     time_weights = xr.ones_like(time)
     time_weights.attrs['units'] = unit_interval
     del time_weights.attrs['calendar']
-    ds[internal_names.TIME_WEIGHTS_STR] = time_weights
+    ds[TIME_WEIGHTS_STR] = time_weights
     return ds
 
 
@@ -438,11 +470,11 @@ def _assert_has_data_for_time(da, start_date, end_date):
     AssertionError
          if the time range is not within the time range of the DataArray
     """
-    if internal_names.RAW_START_DATE_STR in da:
-        da_start = da[internal_names.RAW_START_DATE_STR].values
-        da_end = da[internal_names.RAW_END_DATE_STR].values
+    if RAW_START_DATE_STR in da:
+        da_start = da[RAW_START_DATE_STR].values
+        da_end = da[RAW_END_DATE_STR].values
     else:
-        times = da.time.isel(**{internal_names.TIME_STR: [0, -1]})
+        times = da.time.isel(**{TIME_STR: [0, -1]})
         da_start, da_end = times.values
     message = ('Data does not exist for requested time range: {0} to {1};'
                ' found data from time range: {2} to {3}.')
@@ -478,9 +510,9 @@ def sel_time(da, start_date, end_date):
         requested range
     """
     _assert_has_data_for_time(da, start_date, end_date)
-    da[internal_names.SUBSET_START_DATE_STR] = xr.DataArray(start_date)
-    da[internal_names.SUBSET_END_DATE_STR] = xr.DataArray(end_date)
-    return da.sel(**{internal_names.TIME_STR: slice(start_date, end_date)})
+    da[SUBSET_START_DATE_STR] = xr.DataArray(start_date)
+    da[SUBSET_END_DATE_STR] = xr.DataArray(end_date)
+    return da.sel(**{TIME_STR: slice(start_date, end_date)})
 
 
 def assert_matching_time_coord(arr1, arr2):
@@ -498,7 +530,6 @@ def assert_matching_time_coord(arr1, arr2):
     ValueError
         If the time coordinates are not identical between the two Datasets
     """
-    TIME_STR = internal_names.TIME_STR
     message = ('Time weights not indexed by the same time coordinate as'
                ' computed data.  This will lead to an improperly computed'
                ' time weighted average.  Exiting.\n'
@@ -527,12 +558,11 @@ def ensure_time_as_dim(ds):
     -------
     Dataset
     """
-    TIME_STR = internal_names.TIME_STR
     if TIME_STR not in ds.dims:
         time = convert_scalar_to_indexable_coord(ds[TIME_STR])
         ds = ds.set_coords(TIME_STR)
         for name in ds.variables:
-            if ((name not in internal_names.GRID_ATTRS_NO_TIMES) and
+            if ((name not in GRID_ATTRS_NO_TIMES) and
                (name != TIME_STR)):
                 da = ds[name]
                 da, _ = xr.broadcast(da, time)
