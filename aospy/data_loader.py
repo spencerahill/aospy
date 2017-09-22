@@ -5,7 +5,8 @@ import os
 import numpy as np
 import xarray as xr
 
-from .internal_names import ETA_STR, GRID_ATTRS, TIME_STR, TIME_BOUNDS_STR
+from .internal_names import (ETA_STR, GRID_ATTRS, TIME_STR, TIME_BOUNDS_STR,
+                             TIME_VAR_STRS)
 from .utils import times, io
 
 
@@ -71,10 +72,10 @@ def grid_attrs_to_aospy_names(data):
             # Prevents headaches when subsequently sub-setting.
             if name_int in data.dims and not data[name_int].coords:
                 data = data.assign_coords(**{name_int: data[name_int]})
-    return data
+    return set_grid_attrs_as_coords(data, set_time_vars=False)
 
 
-def set_grid_attrs_as_coords(ds):
+def set_grid_attrs_as_coords(ds, set_time_vars=True):
     """Set available grid attributes as coordinates in a given Dataset.
 
     Grid attributes are assumed to have their internal aospy names. Grid
@@ -91,7 +92,11 @@ def set_grid_attrs_as_coords(ds):
     Dataset
         Dataset with grid attributes set as coordinates
     """
-    int_names = GRID_ATTRS.keys()
+    if set_time_vars:
+        int_names = GRID_ATTRS.keys()
+    else:
+        int_names = (set(GRID_ATTRS.keys()) -
+                     set(TIME_VAR_STRS))
     grid_attrs_in_ds = set(int_names).intersection(set(ds.coords) |
                                                    set(ds.data_vars))
     ds.set_coords(grid_attrs_in_ds, inplace=True)

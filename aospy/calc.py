@@ -275,7 +275,7 @@ class Calc(object):
             ds_coord_name = set(names_ext).intersection(set(ds.coords) |
                                                         set(ds.data_vars))
             model_attr = getattr(self.model, name_int, None)
-            if ds_coord_name:
+            if ds_coord_name and (model_attr is not None):
                 # Force coords to have desired name.
                 ds = ds.rename({list(ds_coord_name)[0]: name_int})
                 ds = ds.set_coords(name_int)

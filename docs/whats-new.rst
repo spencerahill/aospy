@@ -77,7 +77,12 @@ Bug Fixes
   Hill <https://github.com/spencerahill>`_.
 - Always write output to a tar file in serial to prevent empty header file
   errors (fixes :issue:`75` via :pull:`197`).  By `Spencer Clark
-  <https://github.com/spencerkclark>`_
+  <https://github.com/spencerkclark>`_.
+- Allow ``aospy`` to use grid attributes that are only defined in ``Run``
+  objects. Previously if a grid attribute were defined only in a ``Run``
+  object and not also in the Run's corresponding ``Model``, an error would
+  be raised (fixes :issue:`187` via :pull:`199`).  By `Spencer Clark
+  <https://github.com/spencerkclark>`_.
 - When input data for a calculation has a time bounds array, overwrite
   its time array with the average of the start and end times for each
   timestep.  Prevents bug wherein time arrays equal to either the

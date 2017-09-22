@@ -98,15 +98,27 @@ class TestDataLoader(AospyDataLoaderTestCase):
         ds = grid_attrs_to_aospy_names(ds_orig)
         self.assertEqual(ds[LAT_STR].attrs, orig_attrs)
 
-    def test_set_grid_attrs_as_coords(self):
+    def test_set_grid_attrs_as_coords_all(self):
         ds = grid_attrs_to_aospy_names(self.ds)
         sfc_area = ds[self.var_name].isel(**{TIME_STR: 0}).drop(TIME_STR)
         ds[SFC_AREA_STR] = sfc_area
 
-        assert SFC_AREA_STR not in ds[self.var_name]
+        assert SFC_AREA_STR not in ds.coords
 
         ds = set_grid_attrs_as_coords(ds)
-        assert SFC_AREA_STR in ds[self.var_name]
+        assert SFC_AREA_STR in ds.coords
+        assert TIME_BOUNDS_STR in ds.coords
+
+    def test_set_grid_attrs_as_coords_no_times(self):
+        ds = grid_attrs_to_aospy_names(self.ds)
+        sfc_area = ds[self.var_name].isel(**{TIME_STR: 0}).drop(TIME_STR)
+        ds[SFC_AREA_STR] = sfc_area
+
+        assert SFC_AREA_STR not in ds.coords
+
+        ds = set_grid_attrs_as_coords(ds, set_time_vars=False)
+        assert SFC_AREA_STR in ds.coords
+        assert TIME_BOUNDS_STR not in ds.coords
 
     def test_sel_var(self):
         time = np.array([0, 31, 59]) + 15
