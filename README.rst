@@ -13,6 +13,9 @@ aospy: automated climate data analysis and management
 .. image:: https://coveralls.io/repos/github/spencerahill/aospy/badge.svg?branch=develop
    :target: https://coveralls.io/github/spencerahill/aospy?branch=develop
    :alt: Coveralls Status
+.. image:: https://zenodo.org/badge/37231620.svg
+   :target: https://zenodo.org/badge/latestdoi/37231620
+   :alt: Zenodo DOI
 
 aospy is a Python-based tool for automating computations involving
 gridded climate data and the management of the results of those
