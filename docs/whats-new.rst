@@ -3,10 +3,20 @@
 What's New
 ==========
 
-.. _whats-new.0.1.3:
+.. _whats-new.0.2:
 
-v0.1.3 (unreleased)
--------------------
+v0.2 (26 September 2017)
+------------------------
+
+This release includes some new features plus several bugfixes.  The
+bugfixes include some that previously made using aospy on
+pressure-interpolated data very problematic.  We have also improved
+support for reading in data from the WRF and CAM atmospheric models.
+
+As of this release, aospy has at least 2(!) confirmed regular users
+that aren't the original aospy developers, bringing the worldwide
+total of users up to at least 4.  The first user-generated Github
+Issues have now also been created.  We're a real thing!
 
 Enhancements
 ~~~~~~~~~~~~
