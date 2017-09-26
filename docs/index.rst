@@ -16,10 +16,10 @@
 aospy: automated climate data analysis and management
 #####################################################
 
-**aospy** is an open source Python package for automating your
-computations that use gridded climate and weather data (namely data
-stored as netCDF files) and the management of the results of those
-computations.
+**aospy** (pronounced A - O - S - py) is an open source Python package
+for automating your computations that use gridded climate and weather
+data (namely data stored as netCDF files) and the management of the
+results of those computations.
 
 aospy enables firing off multiple calculations in parallel using the
 permutation of an arbitrary number of climate models, simulations,
@@ -58,10 +58,18 @@ See also
   Seventh Symposium on Advances in Modeling and Analysis Using Python,
   recorded 2017 January 24 as part of the 2017 American Meteorological
   Society Annual Meeting.
+- Our `guest post`_, "What's needed for the future of AOS python?
+  Tools for automating AOS data analysis and management" on the
+  `PyAOS`_ blog.
+- Our shout-out in Katy Huff's PyCon 2017 `keynote talk`_ (scroll to
+  23:35 for the bit about us)
 - The `xarray`_ package, upon which aospy relies heavily.
 
 .. _slides: https://ams.confex.com/ams/97Annual/webprogram/Handout/Paper310912/2017-01-24ams-aospy.pdf
 .. _recorded talk: https://ams.confex.com/ams/97Annual/recordingredirect.cgi/id/37391?entry_password=660615&uniqueid=Paper310912
+.. _guest post: http://pyaos.johnny-lin.com/?p=1546
+.. _PyAOS: http://pyaos.johnny-lin.com/
+.. _keynote talk: https://www.youtube.com/watch?v=kaGS4YXwciQ
 .. _xarray:  http://xarray.pydata.org
 
 Get in touch
