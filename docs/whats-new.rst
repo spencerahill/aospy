@@ -3,6 +3,17 @@
 What's New
 ==========
 
+.. _whats-new.0.2.1:
+
+v0.2.1 (unreleased)
+-------------------
+
+Dependencies
+~~~~~~~~~~~~
+
+- ``aospy`` now requires a minimum version of ``distributed`` of
+  1.17.1 (fixes :issue:`210` via :pull:`211`).
+
 .. _whats-new.0.2:
 
 v0.2 (26 September 2017)

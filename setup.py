@@ -32,7 +32,7 @@ setuptools.setup(
                       'netCDF4 >= 1.2',
                       'toolz >= 0.7.2',
                       'dask >= 0.14',
-                      'distributed >= 1.16.1',
+                      'distributed >= 1.17.1',
                       'xarray >= 0.9.1',
                       'cloudpickle >= 0.2.1'],
     tests_require=['pytest >= 2.7.1',
