@@ -8,6 +8,13 @@ What's New
 v0.2.1 (unreleased)
 -------------------
 
+Enhancements
+~~~~~~~~~~~~
+
+- Remove potentially confusing attributes from example netcdf files.
+  (closes :issue:`214` via :pull:`216`). By `Micah Kim
+  <https://github.com/micahkim23>`_.
+
 Dependencies
 ~~~~~~~~~~~~
 
