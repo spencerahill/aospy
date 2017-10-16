@@ -1,9 +1,9 @@
 aospy: automated climate data analysis and management
 =====================================================
 
-.. image:: https://readthedocs.org/projects/pip/badge/?version=stable
-   :target: http://pip.pypa.io/en/stable/?badge=stable
-   :alt: ReadTheDocs Status
+.. image:: https://readthedocs.org/projects/aospy/badge/?version=latest
+   :target: http://aospy.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
 .. image:: https://travis-ci.org/spencerahill/aospy.svg?branch=develop
    :target: https://travis-ci.org/spencerahill/aospy
    :alt: Travis CI Status

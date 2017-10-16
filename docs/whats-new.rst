@@ -8,6 +8,12 @@ What's New
 v0.2.1 (unreleased)
 -------------------
 
+Documentation
+~~~~~~~~~~~~~
+
+Corrected link to documentation badge on repository main page (:pull:213). By DaCoEx <https://github.com/dacoex>_.
+
+=======
 Enhancements
 ~~~~~~~~~~~~
 
