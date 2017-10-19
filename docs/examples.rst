@@ -105,6 +105,18 @@ a name for the run and an optional description.
    See the :ref:`API reference <api-ref>` for other optional arguments
    for this and the other core aospy objects used in this tutorial.
 
+.. note::
+
+   An important consideration can be the datatype used to store values in
+   your datasets.  In particular, if the float32 datatype is used in
+   storage, it can lead to undesired inaccuracies in the computation of
+   reduction operations (like means) due to upstream issues (see
+   `pydata/xarray#1346 <https://github.com/pydata/xarray/issues/1346>`_ for
+   more information).  To address this it is recommended to always upcast
+   float32 data to float64.  This behavior is turned on by default.  If you
+   would like to disable this behavior you can set the ``upcast_float32``
+   argument in your ``DataLoader`` constructors to ``False``.
+   
 Models
 ======
 

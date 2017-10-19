@@ -64,6 +64,18 @@ Currently supported data loader types are :py:class:`DictDataLoader`,
 :py:class:`NestedDictDataLoader`, and :py:class:`GFDLDataLoader` Each of these inherit
 from the abstract base :py:class:`DataLoader` class.
 
+.. note::
+
+   An important consideration can be the datatype used to store values in
+   your datasets.  In particular, if the float32 datatype is used in
+   storage, it can lead to undesired inaccuracies in the computation of
+   reduction operations (like means) due to upstream issues (see
+   `pydata/xarray#1346 <https://github.com/pydata/xarray/issues/1346>`_ for
+   more information).  To address this it is recommended to always upcast
+   float32 data to float64.  This behavior is turned on by default.  If you
+   would like to disable this behavior you can set the ``upcast_float32``
+   argument in your ``DataLoader`` constructors to ``False``.
+
 .. autoclass:: aospy.data_loader.DataLoader
     :members:
     :undoc-members:

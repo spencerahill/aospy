@@ -103,7 +103,30 @@ def set_grid_attrs_as_coords(ds, set_time_vars=True):
     return ds
 
 
-def _sel_var(ds, var):
+def _maybe_cast_to_float64(da):
+    """Cast DataArrays to np.float64 if they are of type np.float32
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input DataArray
+
+    Returns
+    -------
+    DataArray
+    """
+    if da.dtype == np.float32:
+        logging.warning('Datapoints were stored using the np.float32 datatype.'
+                        'For accurate reduction operations using bottleneck, '
+                        'datapoints are being cast to the np.float64 datatype.'
+                        ' For more information see: https://github.com/pydata/'
+                        'xarray/issues/1346')
+        return da.astype(np.float64)
+    else:
+        return da
+
+
+def _sel_var(ds, var, upcast_float32=True):
     """Select the specified variable by trying all possible alternative names.
 
     Parameters
@@ -112,6 +135,8 @@ def _sel_var(ds, var):
         Dataset possibly containing var
     var : aospy.Var
         Variable to find data for
+    upcast_float32 : bool (default True)
+        Whether to cast a float32 DataArray up to float64
 
     Returns
     -------
@@ -124,8 +149,11 @@ def _sel_var(ds, var):
     """
     for name in var.names:
         try:
-            da = ds[name]
-            return da.rename(var.name)
+            da = ds[name].rename(var.name)
+            if upcast_float32:
+                return _maybe_cast_to_float64(da)
+            else:
+                return da
         except KeyError:
             pass
     msg = '{0} not found among names: {1} in\n{2}'.format(var, var.names, ds)
@@ -240,7 +268,7 @@ class DataLoader(object):
                                   time_offset=time_offset, **DataAttrs)
         ds, min_year, max_year = _prep_time_data(ds)
         ds = set_grid_attrs_as_coords(ds)
-        da = _sel_var(ds, var)
+        da = _sel_var(ds, var, self.upcast_float32)
         da = self._maybe_apply_time_shift(da, time_offset, **DataAttrs)
 
         start_date_xarray = times.numpy_datetime_range_workaround(
@@ -278,6 +306,9 @@ class DictDataLoader(DataLoader):
     ----------
     file_map : dict
         A dict mapping an input interval to a list of files
+    upcast_float32 : bool (default True)
+        Whether to cast loaded DataArrays with the float32 datatype to float64
+        before doing calculations
     preprocess_func : function (optional)
         A function to apply to every Dataset before processing in aospy.  Must
         take a Dataset and ``**kwargs`` as its two arguments.
@@ -304,9 +335,11 @@ class DictDataLoader(DataLoader):
     ...     return ds
     >>> data_loader = DictDataLoader(file_map, preprocess)
     """
-    def __init__(self, file_map=None, preprocess_func=lambda ds, **kwargs: ds):
+    def __init__(self, file_map=None, upcast_float32=True,
+                 preprocess_func=lambda ds, **kwargs: ds):
         """Create a new DictDataLoader"""
         self.file_map = file_map
+        self.upcast_float32 = upcast_float32
         self.preprocess_func = preprocess_func
 
     def _generate_file_set(self, var=None, start_date=None, end_date=None,
@@ -336,6 +369,9 @@ class NestedDictDataLoader(DataLoader):
     file_map : dict
         A dict mapping intvl_in to dictionaries mapping Var
         objects to lists of files
+    upcast_float32 : bool (default True)
+        Whether to cast loaded DataArrays with the float32 datatype to float64
+        before doing calculations
     preprocess_func : function (optional)
         A function to apply to every Dataset before processing in aospy.  Must
         take a Dataset and ``**kwargs`` as its two arguments.
@@ -352,9 +388,11 @@ class NestedDictDataLoader(DataLoader):
     See :py:class:`aospy.data_loader.DictDataLoader` for an example of a
     possible function to pass as a ``preprocess_func``.
     """
-    def __init__(self, file_map=None, preprocess_func=lambda ds, **kwargs: ds):
+    def __init__(self, file_map=None, upcast_float32=True,
+                 preprocess_func=lambda ds, **kwargs: ds):
         """Create a new NestedDictDataLoader"""
         self.file_map = file_map
+        self.upcast_float32 = upcast_float32
         self.preprocess_func = preprocess_func
 
     def _generate_file_set(self, var=None, start_date=None, end_date=None,
@@ -390,6 +428,9 @@ class GFDLDataLoader(DataLoader):
         Start date of data files
     data_end_date : datetime.datetime
         End date of data files
+    upcast_float32 : bool (default True)
+        Whether to cast loaded DataArrays with the float32 datatype to float64
+        before doing calculations
     preprocess_func : function (optional)
         A function to apply to every Dataset before processing in aospy.  Must
         take a Dataset and ``**kwargs`` as its two arguments.
@@ -411,6 +452,7 @@ class GFDLDataLoader(DataLoader):
     """
     def __init__(self, template=None, data_direc=None, data_dur=None,
                  data_start_date=None, data_end_date=None,
+                 upcast_float32=None,
                  preprocess_func=lambda ds, **kwargs: ds):
         """Create a new GFDLDataLoader"""
         attrs = ['data_direc', 'data_dur', 'data_start_date', 'data_end_date',
@@ -439,12 +481,20 @@ class GFDLDataLoader(DataLoader):
                 self.preprocess_func = preprocess_func
             else:
                 self.preprocess_func = template.preprocess_func
+            if upcast_float32 is not None:
+                self.upcast_float32 = upcast_float32
+            else:
+                self.upcast_float32 = template.upcast_float32
         else:
             self.data_direc = data_direc
             self.data_dur = data_dur
             self.data_start_date = data_start_date
             self.data_end_date = data_end_date
             self.preprocess_func = preprocess_func
+            if upcast_float32 is None:
+                self.upcast_float32 = True
+            else:
+                self.upcast_float32 = upcast_float32
 
     @staticmethod
     def _maybe_apply_time_shift(da, time_offset=None, **DataAttrs):

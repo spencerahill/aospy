@@ -21,6 +21,19 @@ Enhancements
   (closes :issue:`214` via :pull:`216`). By `Micah Kim
   <https://github.com/micahkim23>`_.
 
+Bug Fixes
+~~~~~~~~~
+
+- Cast input DataArrays with datatype ``np.float32`` to ``np.float64``
+  as a workaround for incorrectly computed means on float32 arrays in
+  bottleneck (see 
+  `pydata/xarray#1346 <https://github.com/pydata/xarray/issues/1346>`_).
+  If one would like to disable this behavior (i.e. restore the original
+  behavior before this fix), one can set the ``upcast_float32`` keyword
+  argument in their DataLoaders to ``False``.
+  Fixes :issue:`217` via :pull:`218`.  By `Spencer Clark
+  <https://github.com/spencerkclark>`_. 
+
 Dependencies
 ~~~~~~~~~~~~
 

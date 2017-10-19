@@ -5,19 +5,31 @@ import os
 import unittest
 
 import numpy as np
+import pytest
 import xarray as xr
 
 from aospy.data_loader import (DataLoader, DictDataLoader, GFDLDataLoader,
                                NestedDictDataLoader, grid_attrs_to_aospy_names,
                                set_grid_attrs_as_coords, _sel_var,
                                _prep_time_data,
-                               _preprocess_and_rename_grid_attrs)
+                               _preprocess_and_rename_grid_attrs,
+                               _maybe_cast_to_float64)
 from aospy.internal_names import (LAT_STR, LON_STR, TIME_STR, TIME_BOUNDS_STR,
                                   BOUNDS_STR, SFC_AREA_STR, ETA_STR, PHALF_STR,
                                   TIME_WEIGHTS_STR, GRID_ATTRS)
 from aospy.utils import io
 from .data.objects.examples import (condensation_rain, convection_rain, precip,
                                     example_run, ROOT_PATH)
+
+
+@pytest.mark.parametrize(
+    ('input_dtype', 'expected_dtype'),
+    [(np.float32, np.float64),
+     (np.int, np.int)])
+def test_maybe_cast_to_float64(input_dtype, expected_dtype):
+    da = xr.DataArray(np.ones(3, dtype=input_dtype))
+    result = _maybe_cast_to_float64(da).dtype
+    assert result == expected_dtype
 
 
 class AospyDataLoaderTestCase(unittest.TestCase):
@@ -228,7 +240,8 @@ class TestGFDLDataLoader(TestDataLoader):
             data_direc=os.path.join('.', 'test'),
             data_dur=6,
             data_start_date=datetime(2000, 1, 1),
-            data_end_date=datetime(2012, 12, 31)
+            data_end_date=datetime(2012, 12, 31),
+            upcast_float32=False
         )
 
     def test_overriding_constructor(self):
@@ -240,6 +253,7 @@ class TestGFDLDataLoader(TestDataLoader):
         self.assertEqual(new.data_end_date, self.DataLoader.data_end_date)
         self.assertEqual(new.preprocess_func,
                          self.DataLoader.preprocess_func)
+        self.assertEqual(new.upcast_float32, self.DataLoader.upcast_float32)
 
         new = GFDLDataLoader(self.DataLoader, data_dur=8)
         self.assertEqual(new.data_dur, 8)
@@ -255,6 +269,9 @@ class TestGFDLDataLoader(TestDataLoader):
         new = GFDLDataLoader(self.DataLoader,
                              preprocess_func=lambda ds: ds)
         xr.testing.assert_identical(new.preprocess_func(self.ds), self.ds)
+
+        new = GFDLDataLoader(self.DataLoader, upcast_float32=True)
+        self.assertEqual(new.upcast_float32, True)
 
     def test_maybe_apply_time_offset_inst(self):
         inst_ds = xr.decode_cf(self.inst_ds)
@@ -454,6 +471,29 @@ class LoadVariableTestCase(unittest.TestCase):
                                 '00050101.precip_monthly.nc')
         expected = xr.open_dataset(filepath)['condensation_rain']
         np.testing.assert_array_equal(result.values, expected.values)
+
+    def test_load_variable_float32_to_float64(self):
+        def preprocess(ds, **kwargs):
+            # This function converts testing data to the float32 datatype
+            return ds.astype(np.float32)
+        self.data_loader.preprocess_func = preprocess
+        result = self.data_loader.load_variable(
+            condensation_rain, datetime(4, 1, 1), datetime(4, 12, 31),
+            intvl_in='monthly').dtype
+        expected = np.float64
+        self.assertEqual(result, expected)
+
+    def test_load_variable_maintain_float32(self):
+        def preprocess(ds, **kwargs):
+            # This function converts testing data to the float32 datatype
+            return ds.astype(np.float32)
+        self.data_loader.preprocess_func = preprocess
+        self.data_loader.upcast_float32 = False
+        result = self.data_loader.load_variable(
+            condensation_rain, datetime(4, 1, 1), datetime(4, 12, 31),
+            intvl_in='monthly').dtype
+        expected = np.float32
+        self.assertEqual(result, expected)
 
     def test_load_variable_non_0001_refdate(self):
         def preprocess(ds, **kwargs):
