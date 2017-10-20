@@ -213,7 +213,9 @@ def test_compute_or_skip_on_error(calc, caplog):
 
 @pytest.fixture
 def external_client():
-    cluster = distributed.LocalCluster()
+    # Explicitly specify we want only 4 workers so that when running on
+    # Travis we don't request too many.
+    cluster = distributed.LocalCluster(n_workers=4)
     client = distributed.Client(cluster)
     yield client
     client.shutdown()
