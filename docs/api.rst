@@ -122,6 +122,17 @@ Var
 
     .. automethod:: aospy.var.Var.__init__
 
+.. note::
+    While for the sake of tracking metadata we encourage users to add a ``units``
+    attribute to each of their :py:class:`Var` objects, these ``units`` attributes provide
+    nothing more than descriptive value.  One day we hope DataArrays
+    produced by loading or computing variables will be truly units-aware
+    (e.g. adding or subtracting two DataArrays with different units will lead to
+    an error, or multiplying two DataArrays will result in a DataArray with new units),
+    but we will leave that to upstream libraries to implement
+    (see `pydata/xarray#525 <https://github.com/pydata/xarray/issues/525>`_
+    for more discussion).
+
 Region
 ------
 
@@ -178,28 +189,16 @@ automate
     :members:
     :undoc-members:
 
-Units and Constants
-===================
+Constants
+=========
 
-aospy provides the classes :py:class:`Constant` and :py:class:`Units`
+aospy provides the classes :py:class:`Constant`
 for representing, respectively, physical constants (e.g. Earth's
-gravitational acceleration at the surface = 9.81 m/s^2) and physical
-units (e.g. meters per second squared in that example).
+gravitational acceleration at the surface = 9.81 m/s^2).
 
 aospy comes with several commonly used constants saved within the
 :py:class:`constants` module in which the :py:class:`Constant` class
-is also defined.  In contrast, there are no pre-defined
-:py:class:`Units` objects; the user must define any :py:class:`Units`
-objects they wish to use (e.g. to populate the :py:class:`units`
-attribute of their :py:class:`Var` objects).
-
-.. warning::
-
-   Whereas these baked-in :py:class:`Constant` objects are used by
-   aospy in various places, aospy currently does not actually use the
-   ``Var.units`` attribute during calculations or the
-   :py:class:`Units` class more generally; they are solely for the
-   user's own informational purposes.
+is also defined.
 
 constants
 ---------
@@ -207,21 +206,6 @@ constants
 .. automodule:: aospy.constants
     :members:
     :undoc-members:
-
-units
------
-
-.. automodule:: aospy.units
-    :members:
-    :undoc-members:
-
-.. note::
-
-   There has been discussion of implementing units-handling upstream
-   within xarray (see `here
-   <https://github.com/pydata/xarray/issues/525>`_).  If that happens,
-   the :py:class:`Units` class will likely be deprecated and replaced
-   with the upstream version.
 
 Utilities
 =========

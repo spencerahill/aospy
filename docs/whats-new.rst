@@ -3,10 +3,17 @@
 What's New
 ==========
 
-.. _whats-new.0.2.1:
+.. _whats-new.0.3:
 
-v0.2.1 (unreleased)
--------------------
+v0.3 (unreleased)
+-----------------
+
+Breaking Changes
+~~~~~~~~~~~~~~~~
+
+- Deprecate ``Units`` class, so now the ``units`` attribute of the
+  ``Var`` class is a string. (fixes :issue:`50` via :pull:`222`).
+  By `Micah Kim <https://github.com/micahkim23>`_.
 
 Documentation
 ~~~~~~~~~~~~~

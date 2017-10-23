@@ -1,8 +1,6 @@
 """Funcionality for representing a physical variable in aospy."""
 import numpy as np
 
-from .units import Units
-
 
 class Var(object):
     """An object representing a physical quantity to be computed.
@@ -23,7 +21,7 @@ class Var(object):
         The variables passed to `func` to compute it
     func_input_dtype : {'DataArray', 'Dataset', 'numpy'}
         The datatype expected by `func` of its arguments
-    units : aospy.units.Units object
+    units : str
         The variable's physical units
     domain : str
         The physical domain of the variable, e.g. 'atmos', 'ocean', or 'land'
@@ -65,7 +63,7 @@ class Var(object):
             will be passed to `self.function` in the same order.
         func_input_dtype : {None, 'DataArray', 'Dataset', 'numpy'}
             The datatype expected by `func` of its arguments
-        units : aospy.units.Units object
+        units : str
             The variable's physical units
         domain : str
             The physical domain of the variable, e.g. 'atmos', 'ocean', or
@@ -102,10 +100,7 @@ class Var(object):
         assert func_input_dtype in (None, 'DataArray', 'Dataset', 'numpy')
         self.func_input_dtype = func_input_dtype
 
-        if not isinstance(units, Units):
-            self.units = Units(units=units)
-        else:
-            self.units = units
+        self.units = units
 
         if not description:
             if self.func.__doc__ is None:

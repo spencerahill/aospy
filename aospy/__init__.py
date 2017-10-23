@@ -3,8 +3,6 @@ from .__config__ import user_path
 from . import constants
 from .constants import Constant
 from . import utils
-from . import units
-from .units import Units
 from . import var
 from .var import Var
 from . import region
@@ -20,5 +18,5 @@ from .calc import CalcInterface, Calc
 from .automate import submit_mult_calcs
 from . import examples
 
-__all__ = ['Proj', 'Model', 'Run', 'Var', 'Units', 'Constant', 'Region',
-           'units', 'calc', 'constants', 'utils']
+__all__ = ['Proj', 'Model', 'Run', 'Var', 'Constant', 'Region',
+           'calc', 'constants', 'utils']
