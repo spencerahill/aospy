@@ -4,7 +4,7 @@ import logging
 import numpy as np
 import xarray as xr
 
-from .constants import r_e
+from ._constants import RADIUS_EARTH
 from . import internal_names
 from . import utils
 
@@ -82,7 +82,7 @@ def _grid_sfc_area(lon, lat, lon_bounds=None, lat_bounds=None):
     sinlat_bounds = np.sin(utils.vertcoord.to_radians(lat_bounds,
                                                       is_delta=True))
     dsinlat = np.abs(_diff_bounds(sinlat_bounds, lat))
-    sfc_area = dlon*dsinlat*(r_e**2)
+    sfc_area = dlon*dsinlat*(RADIUS_EARTH**2)
     # Rename the coordinates such that they match the actual lat / lon.
     try:
         sfc_area = sfc_area.rename(

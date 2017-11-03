@@ -1,7 +1,6 @@
 """aospy: management, and analysis of gridded climate data."""
 from .__config__ import user_path
-from . import constants
-from .constants import Constant
+from . import _constants
 from . import utils
 from . import var
 from .var import Var
@@ -18,5 +17,5 @@ from .calc import CalcInterface, Calc
 from .automate import submit_mult_calcs
 from . import examples
 
-__all__ = ['Proj', 'Model', 'Run', 'Var', 'Constant', 'Region',
-           'calc', 'constants', 'utils']
+__all__ = ['Proj', 'Model', 'Run', 'Var', 'Region', 'calc',
+           '_constants', 'utils']

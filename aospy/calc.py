@@ -10,7 +10,7 @@ from time import ctime
 import numpy as np
 import xarray as xr
 
-from .constants import Constant, grav
+from ._constants import GRAV_EARTH
 from . import internal_names
 from . import utils
 from .var import Var
@@ -357,8 +357,6 @@ class Calc(object):
         # Pass numerical constants as is.
         if isinstance(var, (float, int)):
             return var
-        elif isinstance(var, Constant):
-            return var.value
         # aospy.Var objects remain.
         # Pressure handled specially due to complications from sigma vs. p.
         elif var.name in ('p', 'dp'):
@@ -470,7 +468,7 @@ class Calc(object):
                                                  self.end_date)
             )
             if self.dtype_out_vert == 'vert_av':
-                full_ts *= (grav.value / self._to_desired_dates(self._ps_data))
+                full_ts *= (GRAV_EARTH / self._to_desired_dates(self._ps_data))
         return full_ts, dt
 
     def _full_to_yearly_ts(self, arr, dt):
