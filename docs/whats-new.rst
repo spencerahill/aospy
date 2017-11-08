@@ -43,7 +43,14 @@ Bug Fixes
   behavior before this fix), one can set the ``upcast_float32`` keyword
   argument in their DataLoaders to ``False``.
   Fixes :issue:`217` via :pull:`218`.  By `Spencer Clark
-  <https://github.com/spencerkclark>`_. 
+  <https://github.com/spencerkclark>`_.
+
+Testing
+~~~~~~~
+
+- Create Travis CI environment that tests against the xarray
+  development branch. (closes :issue:`224` via :pull: `226`).
+  By `Micah Kim <https://github.com/micahkim23>`_.
 
 Dependencies
 ~~~~~~~~~~~~

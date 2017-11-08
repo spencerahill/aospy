@@ -1,0 +1,19 @@
+name: test_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - scipy
+  - netCDF4
+  - dask
+  - distributed
+  - pytest
+  - future
+  - matplotlib
+  - ipython
+  - pip:
+    - coveralls
+    - pytest-cov
+    - pytest-catchlog
+    - runipy
+    - git+https://github.com/pydata/xarray.git
