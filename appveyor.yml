@@ -38,7 +38,7 @@ install:
   - "python --version"
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
 
-  # install xarray and depenencies
+  # install aospy and dependencies
   - "conda env create --file ./ci/environment-%CONDA_ENV%.yml"
   - "activate test_env"
   - "pip install -e ."
