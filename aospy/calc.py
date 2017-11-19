@@ -609,7 +609,7 @@ class Calc(object):
             data_out = data
         if isinstance(data_out, xr.DataArray):
             data_out = xr.Dataset({self.name: data_out})
-        data_out.to_netcdf(path, engine='scipy')
+        data_out.to_netcdf(path, engine='netcdf4', format='NETCDF3_64BIT')
 
     def _write_to_tar(self, dtype_out_time):
         """Add the data to the tar file in tar_out_direc."""

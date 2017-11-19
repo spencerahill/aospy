@@ -22,9 +22,9 @@ Breaking Changes
 Documentation
 ~~~~~~~~~~~~~
 
-Corrected link to documentation badge on repository main page (:pull:213). By DaCoEx <https://github.com/dacoex>_.
+Corrected link to documentation badge on repository main page
+(:pull:213). By DaCoEx <https://github.com/dacoex>_.
 
-=======
 Enhancements
 ~~~~~~~~~~~~
 
@@ -37,13 +37,18 @@ Bug Fixes
 
 - Cast input DataArrays with datatype ``np.float32`` to ``np.float64``
   as a workaround for incorrectly computed means on float32 arrays in
-  bottleneck (see 
-  `pydata/xarray#1346 <https://github.com/pydata/xarray/issues/1346>`_).
-  If one would like to disable this behavior (i.e. restore the original
-  behavior before this fix), one can set the ``upcast_float32`` keyword
-  argument in their DataLoaders to ``False``.
-  Fixes :issue:`217` via :pull:`218`.  By `Spencer Clark
+  bottleneck (see `pydata/xarray#1346
+  <https://github.com/pydata/xarray/issues/1346>`_).  If one would
+  like to disable this behavior (i.e. restore the original behavior
+  before this fix), one can set the ``upcast_float32`` keyword
+  argument in their DataLoaders to ``False``.  Fixes :issue:`217` via
+  :pull:`218`.  By `Spencer Clark
   <https://github.com/spencerkclark>`_.
+- Switch from using ``scipy`` to ``netcdf4`` as the engine when
+  writing to netCDF files to avoid bugs when using ``libnetcdf``
+  version 4.5.0 (:pull:`235`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
+
 
 Testing
 ~~~~~~~
@@ -101,8 +106,9 @@ Enhancements
 Dependencies
 ~~~~~~~~~~~~
 
-- ``multiprocess`` is no longer required for submitting ``aospy`` calculations
-  in parallel (see discussion in :issue:`169` and pull request :pull:`172`).
+- ``multiprocess`` is no longer required for submitting ``aospy``
+  calculations in parallel (see discussion in :issue:`169` and pull
+  request :pull:`172`).
 - ``aospy`` now requires an installation of ``dask`` with version
   greater than or equal to 0.14 (see discussion in pull request
   :pull:`172`).
@@ -129,13 +135,13 @@ Bug Fixes
   included data from outside the Timestamp-valid range (fixed in
   :pull:`189`). By
   `Spencer Clark <https://github.com/spencerkclark>`_.
-- Toggle the ``mask_and_scale`` option to ``True`` when reading in netCDF files
-  to enable missing values encoded as floats to be converted to NaN's
-  (fixes :issue:`190` via :pull:`192`).  By
+- Toggle the ``mask_and_scale`` option to ``True`` when reading in
+  netCDF files to enable missing values encoded as floats to be
+  converted to NaN's (fixes :issue:`190` via :pull:`192`).  By
   `Spencer Clark <https://github.com/spencerkclark>`_.
-- Force regional calculations to mask gridcell weights where the loaded
-  datapoints were invalid instead of just masking points outside the desired
-  region (fixes :issue:`190` via :pull:`192`).  By
+- Force regional calculations to mask gridcell weights where the
+  loaded datapoints were invalid instead of just masking points
+  outside the desired region (fixes :issue:`190` via :pull:`192`).  By
   `Spencer Clark <https://github.com/spencerkclark>`_.
 - Retain original input data's mask during gridpoint-by-gridpoint
   temporal averages (fixes :issue:`193` via :pull:`196`).  By `Spencer
