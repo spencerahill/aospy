@@ -524,7 +524,7 @@ class Calc(object):
                         **{reg.name + '_pressure': coord}
                     )
             reg_dat.update(**{reg.name: data_out})
-        return OrderedDict(sorted(reg_dat.items(), key=lambda t: t[0]))
+        return xr.Dataset(reg_dat)
 
     def _apply_all_time_reductions(self, full_ts, monthly_ts, eddy_ts):
         """Apply all requested time reductions to the data."""
@@ -587,6 +587,9 @@ class Calc(object):
         reduced = self._apply_all_time_reductions(full, monthly, eddy)
         logging.info("Writing desired gridded outputs to disk.")
         for dtype_time, data in reduced.items():
+            data = _add_metadata_as_attrs(data, self.var.units,
+                                          self.var.description,
+                                          self.dtype_out_vert)
             self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
                       save_files=True, write_to_tar=write_to_tar)
         return self
@@ -601,8 +604,6 @@ class Calc(object):
                 reg_data = xr.open_dataset(path)
             except (EOFError, RuntimeError, IOError):
                 reg_data = xr.Dataset()
-            # Add the new data to the dictionary or Dataset.
-            # Same method works for both.
             reg_data.update(data)
             data_out = reg_data
         else:
@@ -767,3 +768,25 @@ class Calc(object):
         if plot_units:
             data = self.var.to_plot_units(data, dtype_vert=dtype_out_vert)
         return data
+
+def _add_metadata_as_attrs(data, units, description, dtype_out_vert):
+    """Add metadata attributes to Dataset or DataArray"""
+    if isinstance(data, xr.DataArray):
+        return _add_metadata_as_attrs_da(data, units, description,
+                                         dtype_out_vert)
+    else:
+        for name, arr in data.data_vars.items():
+            _add_metadata_as_attrs_da(arr, units, description,
+                                      dtype_out_vert)
+        return data
+
+def _add_metadata_as_attrs_da(data, units, description, dtype_out_vert):
+    """Add metadata attributes to DataArray"""
+    if dtype_out_vert == 'vert_int':
+        if units != '':
+            units = '(vertical integral of {0}): {0} kg m^-2)'.format(units)
+        else:
+            units = '(vertical integral of quantity with unspecified units)'
+    data.attrs['units'] = units
+    data.attrs['description'] = description
+    return data

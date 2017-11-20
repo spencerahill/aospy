@@ -28,6 +28,9 @@ Corrected link to documentation badge on repository main page
 Enhancements
 ~~~~~~~~~~~~
 
+- Add units and description from ``Var`` objects to output netcdf
+  files (closes :issue:`201` via :pull:`232`). By `Micah Kim
+  <https://github.com/micahkim23>`_.
 - Remove potentially confusing attributes from example netcdf files.
   (closes :issue:`214` via :pull:`216`). By `Micah Kim
   <https://github.com/micahkim23>`_.
