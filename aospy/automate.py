@@ -249,7 +249,7 @@ def _compute_or_skip_on_error(calc, compute_kwargs):
     """
     try:
         return calc.compute(**compute_kwargs)
-    except Exception as e:
+    except Exception:
         msg = ("Skipping aospy calculation `{0}` due to error with the "
                "following traceback: \n{1}")
         logging.warn(msg.format(calc, traceback.format_exc()))
@@ -436,10 +436,11 @@ def submit_mult_calcs(calc_suite_specs, exec_options=None):
               dask.distributed Client used to schedule computations.  If None
               and parallelize is True, a LocalCluster will be started.
         - write_to_tar : (default True) If True, write results of calculations
-              to .tar files, one for each :py:class:`aospy.Run` object.  These tar files have an
-              identical directory structures the standard output relative to
-              their root directory, which is specified via the `tar_direc_out`
-              argument of each Proj object's instantiation.
+              to .tar files, one for each :py:class:`aospy.Run` object.
+              These tar files have an identical directory structures the
+              standard output relative to their root directory, which is
+              specified via the `tar_direc_out` argument of each Proj
+              object's instantiation.
 
     Returns
     -------

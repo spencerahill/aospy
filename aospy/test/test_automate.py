@@ -132,7 +132,7 @@ def test_input_func_py2_py3():
         import builtins
         assert result is builtins.input
     elif sys.version.startswith('2'):
-        assert result is raw_input
+        assert result is raw_input  # flake8: noqa
 
 
 def test_user_verify():

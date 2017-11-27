@@ -150,8 +150,11 @@ class Model(object):
         grid_file_paths : {None, sequence of strings}, optional
             The paths to netCDF files stored on disk from which the model's
             coordinate data can be taken.
-        default_start_date, default_end_date : {None, `datetime.datetime`}, optional
-            Default start and end dates of calculations to be performed using
+        default_start_date : {None, `datetime.datetime`}, optional
+            Default start date of calculations to be performed using
+            this Model.
+        default_end_date : {None, `datetime.datetime`}, optional
+            Default end date of calculations to be performed using
             this Model.
         runs : {None, sequence of aospy.Run objects}, optional
             The child run objects of this Model

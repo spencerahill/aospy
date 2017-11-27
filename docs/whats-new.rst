@@ -59,6 +59,11 @@ Testing
 - Create Travis CI environment that tests against the xarray
   development branch. (closes :issue:`224` via :pull: `226`).
   By `Micah Kim <https://github.com/micahkim23>`_.
+- Add flake8 to Travis CI environment to check that new code
+  adheres to pep8 style. Add verbose flag to pytest test suite.
+  (closes :issue:`234` via :pull:`237`). By `Micah Kim
+  <https://github.com/micahkim23>`_.
+
 
 Dependencies
 ~~~~~~~~~~~~

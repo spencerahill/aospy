@@ -301,7 +301,7 @@ class Calc(object):
                     ds[name_int] = model_attr
                     ds = ds.set_coords(name_int)
             if (self.dtype_in_vert == 'pressure' and
-                internal_names.PLEVEL_STR in ds.coords):
+                    internal_names.PLEVEL_STR in ds.coords):
                 self.pressure = ds.level
         return ds
 
@@ -683,7 +683,7 @@ class Calc(object):
             arr = ds[region.name]
             # Use region-specific pressure values if available.
             if (self.dtype_in_vert == internal_names.ETA_STR
-                and not dtype_out_vert):
+                    and not dtype_out_vert):
                 reg_pfull_str = region.name + '_pressure'
                 arr = arr.drop([r for r in arr.coords.iterkeys()
                                 if r not in (internal_names.PFULL_STR,
@@ -720,7 +720,7 @@ class Calc(object):
                 data = np.mean(data, axis=0)[np.newaxis, :]
         if np.any(vert):
             if self.dtype_in_vert == internal_names.ETA_STR:
-                data = data[{PFULL_STR: vert}]
+                data = data[{PFULL_STR: vert}]  # flake8: noqa
             else:
                 if np.max(self.model.level) > 1e4:
                     # Convert from Pa to hPa.
@@ -769,6 +769,7 @@ class Calc(object):
             data = self.var.to_plot_units(data, dtype_vert=dtype_out_vert)
         return data
 
+
 def _add_metadata_as_attrs(data, units, description, dtype_out_vert):
     """Add metadata attributes to Dataset or DataArray"""
     if isinstance(data, xr.DataArray):
@@ -779,6 +780,7 @@ def _add_metadata_as_attrs(data, units, description, dtype_out_vert):
             _add_metadata_as_attrs_da(arr, units, description,
                                       dtype_out_vert)
         return data
+
 
 def _add_metadata_as_attrs_da(data, units, description, dtype_out_vert):
     """Add metadata attributes to DataArray"""

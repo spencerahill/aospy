@@ -406,7 +406,7 @@ def ensure_time_avg_has_cf_metadata(ds):
     -------
     Dataset or DataArray
         Time average metadata attributes added if needed.
-    """
+    """  # flake8: noqa
     if TIME_WEIGHTS_STR not in ds:
         time_weights = ds[TIME_BOUNDS_STR].diff(BOUNDS_STR)
         time_weights = time_weights.rename(TIME_WEIGHTS_STR).squeeze()

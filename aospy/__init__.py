@@ -17,5 +17,6 @@ from .calc import CalcInterface, Calc
 from .automate import submit_mult_calcs
 from . import examples
 
-__all__ = ['Proj', 'Model', 'Run', 'Var', 'Region', 'calc',
-           '_constants', 'utils']
+__all__ = ['user_path', '_constants', 'utils', 'var', 'Var', 'region',
+           'Region', 'run', 'Run', 'model', 'Model', 'proj', 'Proj',
+           'calc', 'CalcInterface', 'Calc', 'submit_mult_calcs', 'examples']

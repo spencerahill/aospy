@@ -11,6 +11,7 @@ dependencies:
   - future
   - matplotlib
   - ipython
+  - flake8
   - pip:
     - coveralls
     - pytest-cov

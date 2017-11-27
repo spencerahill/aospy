@@ -41,6 +41,7 @@ install:
   - pip install -e .
 
 script:
-  - py.test aospy --cov=aospy --cov-report term-missing
+  - py.test aospy --cov=aospy --cov-report term-missing --verbose
+  - flake8 -j auto aospy
 after_success:
   - coveralls

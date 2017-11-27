@@ -2,8 +2,6 @@
 import logging
 import time
 
-from . import utils
-
 
 class Proj(object):
     """An object that describes a single project that will use aospy.
