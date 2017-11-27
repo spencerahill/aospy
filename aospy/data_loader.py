@@ -1,6 +1,7 @@
 """aospy DataLoader objects"""
 import logging
 import os
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -189,8 +190,9 @@ def _prep_time_data(ds):
                         "values in time, even though this may not be "
                         "the case")
         ds = times.add_uniform_time_weights(ds)
-    ds = xr.decode_cf(ds, decode_times=True, decode_coords=False,
-                      mask_and_scale=True)
+    with warnings.catch_warnings(record=True):
+        ds = xr.decode_cf(ds, decode_times=True, decode_coords=False,
+                          mask_and_scale=True)
     return ds, min_year, max_year
 
 

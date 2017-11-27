@@ -11,10 +11,9 @@ dependencies:
   - pytest
   - future
   - matplotlib
-  - ipython
+  - jupyter
   - flake8
   - pip:
     - coveralls
     - pytest-cov
     - pytest-catchlog
-    - runipy

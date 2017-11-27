@@ -23,11 +23,15 @@ Documentation
 ~~~~~~~~~~~~~
 
 Corrected link to documentation badge on repository main page
-(:pull:213). By DaCoEx <https://github.com/dacoex>_.
+(:pull:213).  By DaCoEx <https://github.com/dacoex>_.
 
 Enhancements
 ~~~~~~~~~~~~
 
+- Suppress warnings from xarray when loading data whose dates extend
+  outside the range supported by the numpy.datetime64 datatype.  aospy
+  has its own logic to deal with these cases (closes :issue:`221` via
+  :pull:`239`).  By `Spencer Hill <https://github.com/spencerahill>`_.
 - Add units and description from ``Var`` objects to output netcdf
   files (closes :issue:`201` via :pull:`232`). By `Micah Kim
   <https://github.com/micahkim23>`_.
@@ -62,11 +66,15 @@ Testing
 - Create Travis CI environment that tests against the xarray
   development branch. (closes :issue:`224` via :pull: `226`).
   By `Micah Kim <https://github.com/micahkim23>`_.
+- Use ``nbconvert`` and ``nbformat`` rather than ``runipy`` to test
+  the tutorial Jupyter notebook, as ``runipy`` `is deprecated
+  <https://github.com/paulgb/runipy/blob/master/README.rst>`_
+  (:pull:`239`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
 - Add flake8 to Travis CI environment to check that new code
   adheres to pep8 style. Add verbose flag to pytest test suite.
   (closes :issue:`234` via :pull:`237`). By `Micah Kim
   <https://github.com/micahkim23>`_.
-
 
 Dependencies
 ~~~~~~~~~~~~

@@ -235,7 +235,7 @@ class Model(object):
                     TIME_STR = internal_names.TIME_STR
                     renamed_attr = _rename_coords(grid_attr)
                     if ((TIME_STR not in renamed_attr.dims) and
-                       (TIME_STR in renamed_attr)):
+                       (TIME_STR in renamed_attr.coords)):
                         renamed_attr = renamed_attr.drop(TIME_STR)
                     setattr(self, name_int, renamed_attr)
                     break

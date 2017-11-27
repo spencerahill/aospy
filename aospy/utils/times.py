@@ -1,5 +1,6 @@
 """Utility functions for handling times, dates, etc."""
 import datetime
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -271,7 +272,8 @@ def numpy_datetime_workaround_encode_cf(ds):
     time = ds[TIME_STR]
     units = time.attrs['units']
     units_yr = units.split(' since ')[1].split('-')[0]
-    min_yr_decoded = xr.decode_cf(time.to_dataset(name='dummy'))
+    with warnings.catch_warnings(record=True):
+        min_yr_decoded = xr.decode_cf(time.to_dataset(name='dummy'))
     min_date = min_yr_decoded[TIME_STR].values[0]
     max_date = min_yr_decoded[TIME_STR].values[-1]
     if all(isinstance(date, np.datetime64) for date in [min_date, max_date]):
@@ -472,7 +474,7 @@ def _assert_has_data_for_time(da, start_date, end_date):
     AssertionError
          if the time range is not within the time range of the DataArray
     """
-    if RAW_START_DATE_STR in da:
+    if RAW_START_DATE_STR in da.coords:
         da_start = da[RAW_START_DATE_STR].values
         da_end = da[RAW_END_DATE_STR].values
     else:

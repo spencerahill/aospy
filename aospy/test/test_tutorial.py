@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pytest
 
@@ -6,16 +7,16 @@ import aospy
 
 
 def test_tutorial_notebook():
-    pytest.importorskip('IPython')
+    pytest.importorskip('nbformat')
+    pytest.importorskip('nbconvert')
     pytest.importorskip('matplotlib')
-    pytest.importorskip('runipy')
 
-    from IPython.nbformat.current import read
-    from runipy.notebook_runner import NotebookRunner
+    import nbformat
+    from nbconvert.preprocessors import ExecutePreprocessor
 
     rootdir = os.path.join(aospy.__path__[0], 'examples')
-    with open(os.path.join(rootdir, 'tutorial.ipynb')) as nb:
-        notebook = read(nb, 'json')
-    r = NotebookRunner(notebook)
-    r.run_notebook()
-    r.shutdown_kernel()
+    with open(os.path.join(rootdir, 'tutorial.ipynb')) as nb_file:
+        notebook = nbformat.read(nb_file, as_version=nbformat.NO_CONVERT)
+    kernel_name = 'python' + str(sys.version[0])
+    ep = ExecutePreprocessor(kernel_name=kernel_name)
+    ep.preprocess(notebook, {})

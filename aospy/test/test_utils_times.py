@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Test suite for aospy.timedate module."""
 import datetime
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -160,87 +161,80 @@ def test_numpy_datetime_range_workaround():
         datetime.datetime(pd.Timestamp.min.year + 4, 1, 1))
 
 
-def test_numpy_datetime_workaround_encode_cf():
-    def create_test_data(days, ref_units, expected_units):
-        # 1095 days corresponds to three years in a noleap calendar
-        # This allows us to generate ranges which straddle the
-        # Timestamp-valid range
-        three_yrs = 1095.
-        time = xr.DataArray([days, days + three_yrs], dims=[TIME_STR])
-        ds = xr.Dataset(coords={TIME_STR: time})
-        ds[TIME_STR].attrs['units'] = ref_units
-        ds[TIME_STR].attrs['calendar'] = 'noleap'
-        actual, min_yr, max_yr = numpy_datetime_workaround_encode_cf(ds)
+def _create_datetime_workaround_test_data(days, ref_units, expected_units):
+    # 1095 days corresponds to three years in a noleap calendar
+    # This allows us to generate ranges which straddle the
+    # Timestamp-valid range
+    three_yrs = 1095.
+    time = xr.DataArray([days, days + three_yrs], dims=[TIME_STR])
+    ds = xr.Dataset(coords={TIME_STR: time})
+    ds[TIME_STR].attrs['units'] = ref_units
+    ds[TIME_STR].attrs['calendar'] = 'noleap'
+    actual, min_yr, max_yr = numpy_datetime_workaround_encode_cf(ds)
 
-        time_desired = xr.DataArray([days, days + three_yrs],
-                                    dims=[TIME_STR])
-        desired = xr.Dataset(coords={TIME_STR: time_desired})
-        desired[TIME_STR].attrs['units'] = expected_units
-        desired[TIME_STR].attrs['calendar'] = 'noleap'
-        return actual, min_yr, max_yr, desired
+    time_desired = xr.DataArray([days, days + three_yrs],
+                                dims=[TIME_STR])
+    desired = xr.Dataset(coords={TIME_STR: time_desired})
+    desired[TIME_STR].attrs['units'] = expected_units
+    desired[TIME_STR].attrs['calendar'] = 'noleap'
+    return actual, min_yr, max_yr, desired
 
-    # 255169 days from 0001-01-01 corresponds to date 700-02-04.
-    actual, min_yr, max_yr, desired = create_test_data(
-        255169., 'days since 0001-01-01 00:00:00',
-        'days since 979-01-01 00:00:00')
+
+def _numpy_datetime_workaround_encode_cf_tests(days, ref_units, expected_units,
+                                               expected_time0, expected_min_yr,
+                                               expected_max_yr):
+    with warnings.catch_warnings(record=True) as warnlog:
+        actual, minyr, maxyr, desired = _create_datetime_workaround_test_data(
+            days, ref_units, expected_units)
+    assert len(warnlog) == 0
     xr.testing.assert_identical(actual, desired)
-    assert xr.decode_cf(actual).time.values[0] == np.datetime64('1678-02-04')
-    assert min_yr == 700
-    assert max_yr == 703
+    assert xr.decode_cf(actual).time.values[0] == expected_time0
+    assert minyr == expected_min_yr
+    assert maxyr == expected_max_yr
+
+
+def test_numpy_datetime_workaround_encode_cf():
+    # 255169 days from 0001-01-01 corresponds to date 700-02-04.
+    _numpy_datetime_workaround_encode_cf_tests(
+        255169., 'days since 0001-01-01 00:00:00',
+        'days since 979-01-01 00:00:00', np.datetime64('1678-02-04'),
+        700, 703)
 
     # Test a case where times are in the Timestamp-valid range
-    actual, min_yr, max_yr, desired = create_test_data(
+    _numpy_datetime_workaround_encode_cf_tests(
         10., 'days since 2000-01-01 00:00:00',
-        'days since 2000-01-01 00:00:00')
-    xr.testing.assert_identical(actual, desired)
-    assert xr.decode_cf(actual).time.values[0] == np.datetime64('2000-01-11')
-    assert min_yr == 2000
-    assert max_yr == 2003
+        'days since 2000-01-01 00:00:00', np.datetime64('2000-01-11'),
+        2000, 2003)
 
     # Regression tests for GH188
-    actual, min_yr, max_yr, desired = create_test_data(
+    _numpy_datetime_workaround_encode_cf_tests(
         732., 'days since 0700-01-01 00:00:00',
-        'days since 1676-01-01 00:00:00')
-    xr.testing.assert_identical(actual, desired)
-    assert xr.decode_cf(actual).time.values[0], np.datetime64('1678-01-03')
-    assert min_yr == 702
-    assert max_yr == 705
+        'days since 1676-01-01 00:00:00', np.datetime64('1678-01-03'),
+        702, 705)
 
     # Non-January 1st reference date
-    actual, min_yr, max_yr, desired = create_test_data(
+    _numpy_datetime_workaround_encode_cf_tests(
         732., 'days since 0700-05-03 00:00:00',
-        'days since 1676-05-03 00:00:00')
-    xr.testing.assert_identical(actual, desired)
-    assert xr.decode_cf(actual).time.values[0], np.datetime64('1678-05-05')
-    assert min_yr == 702
-    assert max_yr == 705
+        'days since 1676-05-03 00:00:00', np.datetime64('1678-05-05'),
+        702, 705)
 
     # Above Timestamp.max
-    actual, min_yr, max_yr, desired = create_test_data(
+    _numpy_datetime_workaround_encode_cf_tests(
         732., 'days since 2300-01-01 00:00:00',
-        'days since 1676-01-01 00:00:00')
-    xr.testing.assert_identical(actual, desired)
-    assert xr.decode_cf(actual).time.values[0], np.datetime64('1678-01-03')
-    assert min_yr == 2302
-    assert max_yr == 2305
+        'days since 1676-01-01 00:00:00', np.datetime64('1678-01-03'),
+        2302, 2305)
 
     # Straddle lower bound
-    actual, min_yr, max_yr, desired = create_test_data(
+    _numpy_datetime_workaround_encode_cf_tests(
         2., 'days since 1677-01-01 00:00:00',
-        'days since 1678-01-01 00:00:00')
-    xr.testing.assert_identical(actual, desired)
-    assert xr.decode_cf(actual).time.values[0], np.datetime64('1678-01-03')
-    assert min_yr == 1677
-    assert max_yr == 1680
+        'days since 1678-01-01 00:00:00', np.datetime64('1678-01-03'),
+        1677, 1680)
 
     # Straddle upper bound
-    actual, min_yr, max_yr, desired = create_test_data(
+    _numpy_datetime_workaround_encode_cf_tests(
         2., 'days since 2262-01-01 00:00:00',
-        'days since 1678-01-01 00:00:00')
-    xr.testing.assert_identical(actual, desired)
-    assert xr.decode_cf(actual).time.values[0], np.datetime64('1678-01-03')
-    assert min_yr == 2262
-    assert max_yr == 2265
+        'days since 1678-01-01 00:00:00', np.datetime64('1678-01-03'),
+        2262, 2265)
 
 
 def test_month_indices():

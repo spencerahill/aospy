@@ -10,11 +10,10 @@ dependencies:
   - pytest
   - future
   - matplotlib
-  - ipython
+  - jupyter
   - flake8
   - pip:
     - coveralls
     - pytest-cov
     - pytest-catchlog
-    - runipy
     - git+https://github.com/pydata/xarray.git

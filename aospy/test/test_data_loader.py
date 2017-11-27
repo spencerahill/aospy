@@ -3,6 +3,7 @@
 from datetime import datetime
 import os
 import unittest
+import warnings
 
 import numpy as np
 import pytest
@@ -20,6 +21,11 @@ from aospy.internal_names import (LAT_STR, LON_STR, TIME_STR, TIME_BOUNDS_STR,
 from aospy.utils import io
 from .data.objects.examples import (condensation_rain, convection_rain, precip,
                                     example_run, ROOT_PATH)
+
+
+def _open_ds_catch_warnings(path):
+    with warnings.catch_warnings(record=True):
+        return xr.open_dataset(path)
 
 
 @pytest.mark.parametrize(
@@ -469,8 +475,16 @@ class LoadVariableTestCase(unittest.TestCase):
             intvl_in='monthly')
         filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                                 '00050101.precip_monthly.nc')
-        expected = xr.open_dataset(filepath)['condensation_rain']
+        expected = _open_ds_catch_warnings(filepath)['condensation_rain']
         np.testing.assert_array_equal(result.values, expected.values)
+
+    def test_load_variable_does_not_warn(self):
+        with warnings.catch_warnings(record=True) as warnlog:
+            self.data_loader.load_variable(condensation_rain,
+                                           datetime(5, 1, 1),
+                                           datetime(5, 12, 31),
+                                           intvl_in='monthly')
+        assert len(warnlog) == 0
 
     def test_load_variable_float32_to_float64(self):
         def preprocess(ds, **kwargs):
@@ -517,7 +531,7 @@ class LoadVariableTestCase(unittest.TestCase):
                 intvl_in='monthly')
             filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                                     '000{}0101.precip_monthly.nc'.format(year))
-            expected = xr.open_dataset(filepath)['condensation_rain']
+            expected = _open_ds_catch_warnings(filepath)['condensation_rain']
             np.testing.assert_allclose(result.values, expected.values)
 
     def test_load_variable_preprocess(self):
@@ -533,7 +547,7 @@ class LoadVariableTestCase(unittest.TestCase):
             intvl_in='monthly')
         filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                                 '00050101.precip_monthly.nc')
-        expected = 10. * xr.open_dataset(filepath)['condensation_rain']
+        expected = 10. * _open_ds_catch_warnings(filepath)['condensation_rain']
         np.testing.assert_allclose(result.values, expected.values)
 
         result = self.data_loader.load_variable(
@@ -541,7 +555,7 @@ class LoadVariableTestCase(unittest.TestCase):
             intvl_in='monthly')
         filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                                 '00040101.precip_monthly.nc')
-        expected = xr.open_dataset(filepath)['condensation_rain']
+        expected = _open_ds_catch_warnings(filepath)['condensation_rain']
         np.testing.assert_allclose(result.values, expected.values)
 
     def test_load_variable_mask_and_scale(self):
