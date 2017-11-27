@@ -91,7 +91,7 @@ class TestDataLoader(AospyDataLoaderTestCase):
         ds = arr.rename({'dim_0': bounds_dim}).to_dataset()
         assert not ds[bounds_dim].coords
         result = grid_attrs_to_aospy_names(ds)
-        assert result[BOUNDS_STR].coords
+        assert not result[BOUNDS_STR].coords
 
     def test_rename_grid_attrs_skip_scalar_dim(self):
         phalf_dim = 'phalf'

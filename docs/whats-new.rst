@@ -34,6 +34,9 @@ Enhancements
 - Remove potentially confusing attributes from example netcdf files.
   (closes :issue:`214` via :pull:`216`). By `Micah Kim
   <https://github.com/micahkim23>`_.
+- Cleanup logic for Dataset drop on dimensions with and without
+  coords. Use Dataset isel instead. (closes :issue:`142` via
+  :pull:`241`). By `Micah Kim <https://github.com/micahkim23>`_.
 
 Bug Fixes
 ~~~~~~~~~

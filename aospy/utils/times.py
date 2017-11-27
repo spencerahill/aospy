@@ -412,10 +412,12 @@ def ensure_time_avg_has_cf_metadata(ds):
         time_weights = time_weights.rename(TIME_WEIGHTS_STR).squeeze()
         ds[TIME_WEIGHTS_STR] = time_weights.drop(BOUNDS_STR)
 
-    avg_start_date = ds[TIME_BOUNDS_STR].isel(**{TIME_STR: 0, BOUNDS_STR: 0})
-    ds[RAW_START_DATE_STR] = avg_start_date.drop([TIME_STR, BOUNDS_STR])
-    avg_end_date = ds[TIME_BOUNDS_STR].isel(**{TIME_STR: -1, BOUNDS_STR: 1})
-    ds[RAW_END_DATE_STR] = avg_end_date.drop([TIME_STR, BOUNDS_STR])
+    ds[RAW_START_DATE_STR] = ds[TIME_BOUNDS_STR].isel(drop=True,
+                                                      **{TIME_STR: 0,
+                                                         BOUNDS_STR: 0})
+    ds[RAW_END_DATE_STR] = ds[TIME_BOUNDS_STR].isel(drop=True,
+                                                    **{TIME_STR: -1,
+                                                       BOUNDS_STR: 1})
 
     for coord in [TIME_BOUNDS_STR, RAW_START_DATE_STR, RAW_END_DATE_STR]:
         ds[coord].attrs['units'] = ds[TIME_STR].attrs['units']

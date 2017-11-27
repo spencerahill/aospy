@@ -68,10 +68,6 @@ def grid_attrs_to_aospy_names(data):
         data_coord_name = set(names_ext).intersection(dims_and_vars)
         if data_coord_name:
             data = data.rename({data_coord_name.pop(): name_int})
-            # Unless a dim is scalar, force it to have a coord.
-            # Prevents headaches when subsequently sub-setting.
-            if name_int in data.dims and not data[name_int].coords:
-                data = data.assign_coords(**{name_int: data[name_int]})
     return set_grid_attrs_as_coords(data, set_time_vars=False)
 
 
