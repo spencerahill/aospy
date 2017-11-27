@@ -23,7 +23,7 @@ Documentation
 ~~~~~~~~~~~~~
 
 - Corrected link to documentation badge on repository main page
-  (:pull:`213`).  By DaCoEx <https://github.com/dacoex>_.
+  (:pull:`213`).  `By DaCoEx <https://github.com/dacoex>`_.
 
 Enhancements
 ~~~~~~~~~~~~
