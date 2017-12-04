@@ -6,8 +6,7 @@ import warnings
 import numpy as np
 import xarray as xr
 
-from .internal_names import (ETA_STR, GRID_ATTRS, TIME_STR, TIME_BOUNDS_STR,
-                             TIME_VAR_STRS)
+from .internal_names import ETA_STR, GRID_ATTRS, TIME_STR, TIME_BOUNDS_STR
 from .utils import times, io
 
 
@@ -69,10 +68,10 @@ def grid_attrs_to_aospy_names(data):
         data_coord_name = set(names_ext).intersection(dims_and_vars)
         if data_coord_name:
             data = data.rename({data_coord_name.pop(): name_int})
-    return set_grid_attrs_as_coords(data, set_time_vars=False)
+    return set_grid_attrs_as_coords(data)
 
 
-def set_grid_attrs_as_coords(ds, set_time_vars=True):
+def set_grid_attrs_as_coords(ds):
     """Set available grid attributes as coordinates in a given Dataset.
 
     Grid attributes are assumed to have their internal aospy names. Grid
@@ -89,14 +88,9 @@ def set_grid_attrs_as_coords(ds, set_time_vars=True):
     Dataset
         Dataset with grid attributes set as coordinates
     """
-    if set_time_vars:
-        int_names = GRID_ATTRS.keys()
-    else:
-        int_names = (set(GRID_ATTRS.keys()) -
-                     set(TIME_VAR_STRS))
-    grid_attrs_in_ds = set(int_names).intersection(set(ds.coords) |
-                                                   set(ds.data_vars))
-    ds.set_coords(grid_attrs_in_ds, inplace=True)
+    grid_attrs_in_ds = set(GRID_ATTRS.keys()).intersection(
+        set(ds.coords) | set(ds.data_vars))
+    ds = ds.set_coords(grid_attrs_in_ds)
     return ds
 
 
@@ -196,7 +190,8 @@ def _prep_time_data(ds):
     return ds, min_year, max_year
 
 
-def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds, **kwargs):
+def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds,
+                         data_vars='minimal', coords='minimal', **kwargs):
     """Load a Dataset from a list or glob-string of files.
 
     Datasets from files are concatenated along time,
@@ -209,6 +204,11 @@ def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds, **kwargs):
     preprocess_func : function (optional)
         Custom function to call before applying any aospy logic
         to the loaded dataset
+    data_vars : str (default 'minimal')
+        Mode for concatenating data variables in call to ``xr.open_mfdataset``
+    coords : str (default 'minimal')
+        Mode for concatenating coordinate variables in call to
+        ``xr.open_mfdataset``.
 
     Returns
     -------
@@ -218,7 +218,8 @@ def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds, **kwargs):
     func = _preprocess_and_rename_grid_attrs(preprocess_func, **kwargs)
     return xr.open_mfdataset(file_set, preprocess=func, concat_dim=TIME_STR,
                              decode_times=False, decode_coords=False,
-                             mask_and_scale=True)
+                             mask_and_scale=True, data_vars=data_vars,
+                             coords=coords)
 
 
 def apply_preload_user_commands(file_set, cmd=io.dmget):
@@ -230,6 +231,14 @@ def apply_preload_user_commands(file_set, cmd=io.dmget):
     """
     if cmd is not None:
         cmd(file_set)
+
+
+def _setattr_default(obj, attr, value, default):
+    """Set an attribute of an object to a value or default value"""
+    if value is None:
+        setattr(obj, attr, default)
+    else:
+        setattr(obj, attr, value)
 
 
 class DataLoader(object):
@@ -261,9 +270,11 @@ class DataLoader(object):
         """
         file_set = self._generate_file_set(var=var, start_date=start_date,
                                            end_date=end_date, **DataAttrs)
-        ds = _load_data_from_disk(file_set, self.preprocess_func,
-                                  start_date=start_date, end_date=end_date,
-                                  time_offset=time_offset, **DataAttrs)
+        ds = _load_data_from_disk(
+            file_set, self.preprocess_func, data_vars=self.data_vars,
+            coords=self.coords, start_date=start_date, end_date=end_date,
+            time_offset=time_offset, **DataAttrs
+        )
         ds, min_year, max_year = _prep_time_data(ds)
         ds = set_grid_attrs_as_coords(ds)
         da = _sel_var(ds, var, self.upcast_float32)
@@ -307,6 +318,11 @@ class DictDataLoader(DataLoader):
     upcast_float32 : bool (default True)
         Whether to cast loaded DataArrays with the float32 datatype to float64
         before doing calculations
+    data_vars : str (default 'minimal')
+        Mode for concatenating data variables in call to ``xr.open_mfdataset``
+    coords : str (default 'minimal')
+        Mode for concatenating coordinate variables in call to
+        ``xr.open_mfdataset``.
     preprocess_func : function (optional)
         A function to apply to every Dataset before processing in aospy.  Must
         take a Dataset and ``**kwargs`` as its two arguments.
@@ -333,11 +349,13 @@ class DictDataLoader(DataLoader):
     ...     return ds
     >>> data_loader = DictDataLoader(file_map, preprocess)
     """
-    def __init__(self, file_map=None, upcast_float32=True,
-                 preprocess_func=lambda ds, **kwargs: ds):
+    def __init__(self, file_map=None, upcast_float32=True, data_vars='minimal',
+                 coords='minimal', preprocess_func=lambda ds, **kwargs: ds):
         """Create a new DictDataLoader"""
         self.file_map = file_map
         self.upcast_float32 = upcast_float32
+        self.data_vars = data_vars
+        self.coords = coords
         self.preprocess_func = preprocess_func
 
     def _generate_file_set(self, var=None, start_date=None, end_date=None,
@@ -370,6 +388,11 @@ class NestedDictDataLoader(DataLoader):
     upcast_float32 : bool (default True)
         Whether to cast loaded DataArrays with the float32 datatype to float64
         before doing calculations
+    data_vars : str (default 'minimal')
+        Mode for concatenating data variables in call to ``xr.open_mfdataset``
+    coords : str (default 'minimal')
+        Mode for concatenating coordinate variables in call to
+        ``xr.open_mfdataset``.
     preprocess_func : function (optional)
         A function to apply to every Dataset before processing in aospy.  Must
         take a Dataset and ``**kwargs`` as its two arguments.
@@ -386,11 +409,13 @@ class NestedDictDataLoader(DataLoader):
     See :py:class:`aospy.data_loader.DictDataLoader` for an example of a
     possible function to pass as a ``preprocess_func``.
     """
-    def __init__(self, file_map=None, upcast_float32=True,
-                 preprocess_func=lambda ds, **kwargs: ds):
+    def __init__(self, file_map=None, upcast_float32=True, data_vars='minimal',
+                 coords='minimal', preprocess_func=lambda ds, **kwargs: ds):
         """Create a new NestedDictDataLoader"""
         self.file_map = file_map
         self.upcast_float32 = upcast_float32
+        self.data_vars = data_vars
+        self.coords = coords
         self.preprocess_func = preprocess_func
 
     def _generate_file_set(self, var=None, start_date=None, end_date=None,
@@ -429,6 +454,11 @@ class GFDLDataLoader(DataLoader):
     upcast_float32 : bool (default True)
         Whether to cast loaded DataArrays with the float32 datatype to float64
         before doing calculations
+    data_vars : str (default 'minimal')
+        Mode for concatenating data variables in call to ``xr.open_mfdataset``
+    coords : str (default 'minimal')
+        Mode for concatenating coordinate variables in call to
+        ``xr.open_mfdataset``.
     preprocess_func : function (optional)
         A function to apply to every Dataset before processing in aospy.  Must
         take a Dataset and ``**kwargs`` as its two arguments.
@@ -450,49 +480,36 @@ class GFDLDataLoader(DataLoader):
     """
     def __init__(self, template=None, data_direc=None, data_dur=None,
                  data_start_date=None, data_end_date=None,
-                 upcast_float32=None,
-                 preprocess_func=lambda ds, **kwargs: ds):
+                 upcast_float32=None, data_vars=None, coords=None,
+                 preprocess_func=None):
         """Create a new GFDLDataLoader"""
-        attrs = ['data_direc', 'data_dur', 'data_start_date', 'data_end_date',
-                 'preprocess_func']
         if template:
-            for attr in attrs:
-                setattr(self, attr, getattr(template, attr))
-
-            if data_direc is not None:
-                self.data_direc = data_direc
-            else:
-                self.data_direc = template.data_direc
-            if data_dur is not None:
-                self.data_dur = data_dur
-            else:
-                self.data_dur = template.data_dur
-            if data_start_date is not None:
-                self.data_start_date = data_start_date
-            else:
-                self.data_start_date = template.data_start_date
-            if data_end_date is not None:
-                self.data_end_date = data_end_date
-            else:
-                self.data_end_date = template.data_end_date
-            if preprocess_func is not None:
-                self.preprocess_func = preprocess_func
-            else:
-                self.preprocess_func = template.preprocess_func
-            if upcast_float32 is not None:
-                self.upcast_float32 = upcast_float32
-            else:
-                self.upcast_float32 = template.upcast_float32
+            _setattr_default(self, 'data_direc', data_direc,
+                             getattr(template, 'data_direc'))
+            _setattr_default(self, 'data_dur', data_dur,
+                             getattr(template, 'data_dur'))
+            _setattr_default(self, 'data_start_date', data_start_date,
+                             getattr(template, 'data_start_date'))
+            _setattr_default(self, 'data_end_date', data_end_date,
+                             getattr(template, 'data_end_date'))
+            _setattr_default(self, 'upcast_float32', upcast_float32,
+                             getattr(template, 'upcast_float32'))
+            _setattr_default(self, 'data_vars', data_vars,
+                             getattr(template, 'data_vars'))
+            _setattr_default(self, 'coords', coords,
+                             getattr(template, 'coords'))
+            _setattr_default(self, 'preprocess_func', preprocess_func,
+                             getattr(template, 'preprocess_func'))
         else:
             self.data_direc = data_direc
             self.data_dur = data_dur
             self.data_start_date = data_start_date
             self.data_end_date = data_end_date
-            self.preprocess_func = preprocess_func
-            if upcast_float32 is None:
-                self.upcast_float32 = True
-            else:
-                self.upcast_float32 = upcast_float32
+            _setattr_default(self, 'upcast_float32', upcast_float32, True)
+            _setattr_default(self, 'data_vars', data_vars, 'minimal')
+            _setattr_default(self, 'coords', coords, 'minimal')
+            _setattr_default(self, 'preprocess_func', preprocess_func,
+                             lambda ds, **kwargs: ds)
 
     @staticmethod
     def _maybe_apply_time_shift(da, time_offset=None, **DataAttrs):

@@ -33,7 +33,7 @@ setuptools.setup(
                       'toolz >= 0.7.2',
                       'dask >= 0.14',
                       'distributed >= 1.17.1',
-                      'xarray >= 0.9.1',
+                      'xarray >= 0.10.0',
                       'cloudpickle >= 0.2.1'],
     tests_require=['pytest >= 2.7.1',
                    'pytest-catchlog >= 1.0'],

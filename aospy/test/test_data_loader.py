@@ -17,7 +17,7 @@ from aospy.data_loader import (DataLoader, DictDataLoader, GFDLDataLoader,
                                _maybe_cast_to_float64)
 from aospy.internal_names import (LAT_STR, LON_STR, TIME_STR, TIME_BOUNDS_STR,
                                   BOUNDS_STR, SFC_AREA_STR, ETA_STR, PHALF_STR,
-                                  TIME_WEIGHTS_STR, GRID_ATTRS)
+                                  TIME_WEIGHTS_STR, GRID_ATTRS, ZSURF_STR)
 from aospy.utils import io
 from .data.objects.examples import (condensation_rain, convection_rain, precip,
                                     example_run, ROOT_PATH)
@@ -116,7 +116,7 @@ class TestDataLoader(AospyDataLoaderTestCase):
         ds = grid_attrs_to_aospy_names(ds_orig)
         self.assertEqual(ds[LAT_STR].attrs, orig_attrs)
 
-    def test_set_grid_attrs_as_coords_all(self):
+    def test_set_grid_attrs_as_coords(self):
         ds = grid_attrs_to_aospy_names(self.ds)
         sfc_area = ds[self.var_name].isel(**{TIME_STR: 0}).drop(TIME_STR)
         ds[SFC_AREA_STR] = sfc_area
@@ -126,17 +126,6 @@ class TestDataLoader(AospyDataLoaderTestCase):
         ds = set_grid_attrs_as_coords(ds)
         assert SFC_AREA_STR in ds.coords
         assert TIME_BOUNDS_STR in ds.coords
-
-    def test_set_grid_attrs_as_coords_no_times(self):
-        ds = grid_attrs_to_aospy_names(self.ds)
-        sfc_area = ds[self.var_name].isel(**{TIME_STR: 0}).drop(TIME_STR)
-        ds[SFC_AREA_STR] = sfc_area
-
-        assert SFC_AREA_STR not in ds.coords
-
-        ds = set_grid_attrs_as_coords(ds, set_time_vars=False)
-        assert SFC_AREA_STR in ds.coords
-        assert TIME_BOUNDS_STR not in ds.coords
 
     def test_sel_var(self):
         time = np.array([0, 31, 59]) + 15
@@ -198,6 +187,7 @@ class TestDataLoader(AospyDataLoaderTestCase):
         assert LON_STR in self.ds
 
         expected = self.ds.rename({self.ALT_LAT_STR: LAT_STR})
+        expected = expected.set_coords(TIME_BOUNDS_STR)
         expected.attrs['a'] = 'b'
         result = _preprocess_and_rename_grid_attrs(preprocess_func)(self.ds)
         xr.testing.assert_identical(result, expected)
@@ -247,7 +237,9 @@ class TestGFDLDataLoader(TestDataLoader):
             data_dur=6,
             data_start_date=datetime(2000, 1, 1),
             data_end_date=datetime(2012, 12, 31),
-            upcast_float32=False
+            upcast_float32=False,
+            data_vars='minimal',
+            coords='minimal'
         )
 
     def test_overriding_constructor(self):
@@ -278,6 +270,12 @@ class TestGFDLDataLoader(TestDataLoader):
 
         new = GFDLDataLoader(self.DataLoader, upcast_float32=True)
         self.assertEqual(new.upcast_float32, True)
+
+        new = GFDLDataLoader(self.DataLoader, data_vars='all')
+        self.assertEqual(new.data_vars, 'all')
+
+        new = GFDLDataLoader(self.DataLoader, coords='all')
+        self.assertEqual(new.coords, 'all')
 
     def test_maybe_apply_time_offset_inst(self):
         inst_ds = xr.decode_cf(self.inst_ds)
@@ -467,7 +465,10 @@ class LoadVariableTestCase(unittest.TestCase):
         self.data_loader = example_run.data_loader
 
     def tearDown(self):
-        pass
+        # Restore default values of data_vars and coords
+        self.data_loader.data_vars = 'minimal'
+        self.data_loader.coords = 'minimal'
+        self.data_loader.preprocess_func = lambda ds, **kwargs: ds
 
     def test_load_variable(self):
         result = self.data_loader.load_variable(
@@ -508,6 +509,39 @@ class LoadVariableTestCase(unittest.TestCase):
             intvl_in='monthly').dtype
         expected = np.float32
         self.assertEqual(result, expected)
+
+    def test_load_variable_data_vars_all(self):
+        def preprocess(ds, **kwargs):
+            # This function drops the time coordinate from condensation_rain
+            temp = ds[condensation_rain.name]
+            temp = temp.isel(time=0, drop=True)
+            ds = ds.drop(condensation_rain.name)
+            ds[condensation_rain.name] = temp
+            assert TIME_STR not in ds[condensation_rain.name].coords
+            return ds
+
+        self.data_loader.data_vars = 'all'
+        self.data_loader.preprocess_func = preprocess
+        data = self.data_loader.load_variable(
+            condensation_rain, datetime(4, 1, 1), datetime(5, 12, 31),
+            intvl_in='monthly')
+        result = TIME_STR in data.coords
+        self.assertEqual(result, True)
+
+    def test_load_variable_data_vars_default(self):
+        data = self.data_loader.load_variable(
+            condensation_rain, datetime(4, 1, 1), datetime(5, 12, 31),
+            intvl_in='monthly')
+        result = TIME_STR in data.coords
+        self.assertEqual(result, True)
+
+    def test_load_variable_coords_all(self):
+        self.data_loader.coords = 'all'
+        data = self.data_loader.load_variable(
+            condensation_rain, datetime(4, 1, 1), datetime(5, 12, 31),
+            intvl_in='monthly')
+        result = TIME_STR in data[ZSURF_STR].coords
+        self.assertEqual(result, True)
 
     def test_load_variable_non_0001_refdate(self):
         def preprocess(ds, **kwargs):

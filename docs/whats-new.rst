@@ -41,6 +41,14 @@ Enhancements
 - Cleanup logic for Dataset drop on dimensions with and without
   coords. Use Dataset isel instead. (closes :issue:`142` via
   :pull:`241`). By `Micah Kim <https://github.com/micahkim23>`_.
+- Expose ``data_vars`` and ``coords`` options to ``xr.open_mfdataset``
+  in DataLoaders.  These options control how variables and coordinates are
+  concatenated when loaded in from multiple files; by default ``aospy``
+  uses ``data_vars='minimal'`` and ``coords='minimal'``, but there could
+  be use cases where other options are desired.  See `the xarray documentation
+  <http://xarray.pydata.org/en/stable/generated/xarray.open_mfdataset.html>`_
+  for more information (closes :issue:`236` via :pull:`240`).  By `Spencer
+  Clark <https://github.com/spencerkclark>`_.
 
 Bug Fixes
 ~~~~~~~~~
@@ -81,6 +89,8 @@ Dependencies
 
 - ``aospy`` now requires a minimum version of ``distributed`` of
   1.17.1 (fixes :issue:`210` via :pull:`211`).
+- ``aospy`` now requires a minimum version of ``xarray`` of 0.10.0.
+  See discussion in :issue:`199` and :pull:`240` for more details.
 
 .. _whats-new.0.2:
 
