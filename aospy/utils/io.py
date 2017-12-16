@@ -56,16 +56,6 @@ def data_out_label(time_intvl, dtype_time, dtype_vert=False):
     return lbl
 
 
-def ens_label(ens_mem):
-    """Create label of the ensemble member for aospy data I/O."""
-    if ens_mem in (None, False):
-        return ''
-    elif ens_mem == 'avg':
-        return 'ens_mean'
-    else:
-        return 'mem' + str(ens_mem + 1)
-
-
 def yr_label(yr_range):
     """Create label of start and end years for aospy data I/O."""
     assert yr_range is not None, "yr_range is None"
