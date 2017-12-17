@@ -45,7 +45,7 @@ _TIME_DEFINED_REDUCTIONS = ['av', 'std', 'ts', 'reg.av', 'reg.std', 'reg.ts']
 class CalcInterface(object):
     """Interface to the Calc class."""
 
-    def __init__(self, proj=None, model=None, run=None, ens_mem=None, var=None,
+    def __init__(self, proj=None, model=None, run=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
                  dtype_out_vert=None, level=None, time_offset=None):
@@ -61,9 +61,6 @@ class CalcInterface(object):
             The run for this calculation.
         var : aospy.Var object
             The variable for this calculation.
-        ens_mem : Currently not supported.
-            This will eventually be used to specify particular ensemble members
-            of multi-member ensemble simulations.
         region : sequence of aospy.Region objects
             The region(s) over which any regional reductions will be performed.
         date_range : tuple of datetime.datetime objects
@@ -144,7 +141,6 @@ class CalcInterface(object):
         else:
             self.variables = (self.var,)
 
-        self.ens_mem = ens_mem
         self.level = level
         self.intvl_in = intvl_in
         self.intvl_out = intvl_out
@@ -212,17 +208,13 @@ class Calc(object):
 
     def _dir_out(self):
         """Create string of the data directory to save individual .nc files."""
-        ens_label = utils.io.ens_label(self.ens_mem)
         return os.path.join(self.proj.direc_out, self.proj.name,
-                            self.model.name, self.run.name,
-                            ens_label, self.name)
+                            self.model.name, self.run.name, self.name)
 
     def _dir_tar_out(self):
         """Create string of the data directory to store a tar file."""
-        ens_label = utils.io.ens_label(self.ens_mem)
         return os.path.join(self.proj.tar_direc_out, self.proj.name,
-                            self.model.name, self.run.name,
-                            ens_label)
+                            self.model.name, self.run.name)
 
     def _file_name(self, dtype_out_time, extension='nc'):
         """Create the name of the aospy file."""
@@ -230,11 +222,10 @@ class Calc(object):
                                           dtype_vert=self.dtype_out_vert)
         in_lbl = utils.io.data_in_label(self.intvl_in, self.dtype_in_time,
                                         self.dtype_in_vert)
-        ens_lbl = utils.io.ens_label(self.ens_mem)
         yr_lbl = utils.io.yr_label((self.start_date.year, self.end_date.year))
         return '.'.join(
             [self.name, out_lbl, in_lbl, self.model.name,
-             self.run.name, ens_lbl, yr_lbl, extension]
+             self.run.name, yr_lbl, extension]
         ).replace('..', '.')
 
     def _path_out(self, dtype_out_time):
@@ -258,9 +249,6 @@ class Calc(object):
         ))
 
         self.model.set_grid_data()
-
-        if isinstance(calc_interface.ens_mem, int):
-            self.data_direc = self.data_direc[calc_interface.ens_mem]
 
         self.dir_out = self._dir_out()
         self.dir_tar_out = self._dir_tar_out()
