@@ -2,6 +2,7 @@ from multiprocessing import cpu_count
 from os.path import isfile
 import shutil
 import sys
+import itertools
 
 import distributed
 import pytest
@@ -13,12 +14,13 @@ from aospy.automate import (_get_attr_by_tag, _permuted_dicts_of_specs,
                             _user_verify, CalcSuite, _MODELS_STR, _RUNS_STR,
                             _VARIABLES_STR, _REGIONS_STR,
                             _compute_or_skip_on_error, submit_mult_calcs,
-                            _n_workers_for_local_cluster)
+                            _n_workers_for_local_cluster,
+                            _prune_invalid_time_reductions)
 from . import requires_pytest_catchlog
 from .data.objects import examples as lib
 from .data.objects.examples import (
-    example_proj, example_model, example_run, condensation_rain,
-    convection_rain, precip, ps, sphum, globe, sahel
+    example_proj, example_model, example_run, var_not_time_defined,
+    condensation_rain, convection_rain, precip, ps, sphum, globe, sahel
 )
 
 
@@ -143,7 +145,8 @@ def test_user_verify():
 
 @pytest.mark.parametrize(
     ('type_', 'expected'),
-    [(Var, [condensation_rain, convection_rain, precip, ps, sphum]),
+    [(Var, [var_not_time_defined, condensation_rain, convection_rain,
+            precip, ps, sphum]),
      (Proj, [example_proj])])
 def test_get_all_objs_of_type(obj_lib, type_, expected):
     actual = _get_all_objs_of_type(type_, obj_lib)
@@ -351,3 +354,20 @@ class TestCalcSuite(object):
         assert len(actual) == len(expected)
         for act in actual:
             assert act in expected
+
+
+@pytest.mark.parametrize('var', [var_not_time_defined, condensation_rain])
+def test_prune_invalid_time_reductions(var):
+    time_options = ['av', 'std', 'ts', 'reg.av', 'reg.std', 'reg.ts']
+    spec = {
+        'var': var,
+        'dtype_out_time': None
+    }
+    assert _prune_invalid_time_reductions(spec) == None
+    for i in range(1, len(time_options) + 1):
+        for time_option in list(itertools.permutations(time_options, i)):
+            spec['dtype_out_time'] = time_option
+            if spec['var'].def_time:
+                assert _prune_invalid_time_reductions(spec) == time_option
+            else:
+                assert _prune_invalid_time_reductions(spec) == []

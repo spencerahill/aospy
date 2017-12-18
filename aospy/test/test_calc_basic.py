@@ -5,13 +5,14 @@ from os.path import isfile
 import shutil
 import unittest
 import pytest
+import itertools
 
 import xarray as xr
 
 from aospy.calc import Calc, CalcInterface, _add_metadata_as_attrs
 from .data.objects.examples import (
-    example_proj, example_model, example_run, condensation_rain,
-    precip, sphum, globe, sahel
+    example_proj, example_model, example_run, var_not_time_defined,
+    condensation_rain, precip, sphum, globe, sahel
 )
 
 
@@ -160,6 +161,45 @@ class TestCalc3D(TestCalcBasic):
         }
 
 
+test_params = {
+    'proj': example_proj,
+    'model': example_model,
+    'run': example_run,
+    'var': var_not_time_defined,
+    'date_range': 'default',
+    'intvl_out': 1,
+}
+
+
+@pytest.mark.parametrize('dtype_out_time', [None, []])
+def test_calc_object_no_time_options(dtype_out_time):
+    test_params['dtype_out_time'] = dtype_out_time
+    calc = CalcInterface(**test_params)
+    if isinstance(dtype_out_time, list):
+        assert calc.dtype_out_time == tuple(dtype_out_time)
+    else:
+        assert calc.dtype_out_time == tuple([dtype_out_time])
+
+
+@pytest.mark.parametrize(
+    'dtype_out_time',
+    ['av', 'std', 'ts', 'reg.av', 'reg.std', 'reg.ts'])
+def test_calc_object_string_time_options(dtype_out_time):
+    test_params['dtype_out_time'] = dtype_out_time
+    with pytest.raises(ValueError):
+        CalcInterface(**test_params)
+
+
+def test_calc_object_time_options():
+    time_options = ['av', 'std', 'ts', 'reg.av', 'reg.std', 'reg.ts']
+    for i in range(1, len(time_options) + 1):
+        for time_option in list(itertools.permutations(time_options, i)):
+            if time_option != ('None',):
+                test_params['dtype_out_time'] = time_option
+                with pytest.raises(ValueError):
+                    CalcInterface(**test_params)
+
+
 @pytest.mark.parametrize(
     ('units', 'description', 'dtype_out_vert', 'expected_units',
      'expected_description'),
@@ -178,8 +218,7 @@ class TestCalc3D(TestCalcBasic):
      ('', 'rain', 'vert_int',
       '(vertical integral of quantity with unspecified units)', 'rain'),
      ('m', 'rain', 'vert_int',
-      '(vertical integral of m): m kg m^-2)', 'rain')]
-)
+      '(vertical integral of m): m kg m^-2)', 'rain')])
 def test_attrs(units, description, dtype_out_vert, expected_units,
                expected_description):
     da = xr.DataArray(None)

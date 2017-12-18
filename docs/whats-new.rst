@@ -66,6 +66,12 @@ Bug Fixes
   writing to netCDF files to avoid bugs when using ``libnetcdf``
   version 4.5.0 (:pull:`235`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
+- ``CalcSuite`` (and thus ``submit_mult_calc``) now skips calculations
+  that involve time reductions of non-time-defined variables. ``Calc``
+  now raises a ValueError when instantiated with a non-time-defined
+  variable but has one or more time-defined reductions. (closes
+  :issue:`202` via :pull:`242`). By `Micah Kim
+  <https://github.com/micahkim23>`_.
 
 
 Testing

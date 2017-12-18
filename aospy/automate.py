@@ -10,7 +10,7 @@ import logging
 import pprint
 import traceback
 
-from .calc import Calc, CalcInterface
+from .calc import Calc, CalcInterface, _TIME_DEFINED_REDUCTIONS
 from .region import Region
 from .var import Var
 
@@ -237,8 +237,30 @@ class CalcSuite(object):
 
     def create_calcs(self):
         """Generate a Calc object for each requested parameter combination."""
-        return [Calc(CalcInterface(**sp)) for sp in
-                self._combine_core_aux_specs()]
+        specs = self._combine_core_aux_specs()
+
+        for spec in specs:
+            spec['dtype_out_time'] = _prune_invalid_time_reductions(spec)
+
+        return [Calc(CalcInterface(**sp)) for sp in specs]
+
+
+def _prune_invalid_time_reductions(spec):
+    """Prune time reductions of spec with no time dimension."""
+    valid_reductions = []
+    if not spec['var'].def_time and spec['dtype_out_time'] is not None:
+        for reduction in spec['dtype_out_time']:
+            if reduction not in _TIME_DEFINED_REDUCTIONS:
+                valid_reductions.append(reduction)
+            else:
+                msg = ("Var {0} has no time dimension "
+                       "for the given time reduction "
+                       "{1} so this calculation will "
+                       "be skipped".format(spec['var'].name, reduction))
+                logging.info(msg)
+    else:
+        valid_reductions = spec['dtype_out_time']
+    return valid_reductions
 
 
 def _compute_or_skip_on_error(calc, compute_kwargs):

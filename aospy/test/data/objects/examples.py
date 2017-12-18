@@ -47,6 +47,11 @@ example_proj = Proj(
     models=[example_model]
 )
 
+var_not_time_defined = Var(
+    name='var_no_time_def',
+    def_time=False,
+)
+
 condensation_rain = Var(
     name='condensation_rain',
     alt_names=('prec_ls',),
