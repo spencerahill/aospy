@@ -18,6 +18,10 @@ Breaking Changes
 - Deprecate ``Units`` class, so now the ``units`` attribute of the
   ``Var`` class is a string. (fixes :issue:`50` via :pull:`222`).
   By `Micah Kim <https://github.com/micahkim23>`_.
+- Deprecate ``CalcInterface`` class.  Now, to instantiate a ``Calc``
+  object, pass it directly the parameters that previously would have
+  been passed to ``CalcInterface`` (fixes :issue:`249` via
+  :pull:`250`).  By `Spencer Hill <https://github.com/spencerahill>`_.
 
 Documentation
 ~~~~~~~~~~~~~

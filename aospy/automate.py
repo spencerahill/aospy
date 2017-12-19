@@ -10,7 +10,7 @@ import logging
 import pprint
 import traceback
 
-from .calc import Calc, CalcInterface, _TIME_DEFINED_REDUCTIONS
+from .calc import Calc, _TIME_DEFINED_REDUCTIONS
 from .region import Region
 from .var import Var
 
@@ -50,8 +50,7 @@ def _permuted_dicts_of_specs(specs):
 
     Each permutation becomes a dictionary, with the keys being the attr names
     and the values being the corresponding value for that permutation.  These
-    dicts can then be directly passed to the CalcInterface class to make the
-    Calc objects.
+    dicts can then be directly passed to the Calc constructor.
 
     """
     permuter = itertools.product(*specs.values())
@@ -238,11 +237,9 @@ class CalcSuite(object):
     def create_calcs(self):
         """Generate a Calc object for each requested parameter combination."""
         specs = self._combine_core_aux_specs()
-
         for spec in specs:
             spec['dtype_out_time'] = _prune_invalid_time_reductions(spec)
-
-        return [Calc(CalcInterface(**sp)) for sp in specs]
+        return [Calc(**sp) for sp in specs]
 
 
 def _prune_invalid_time_reductions(spec):
