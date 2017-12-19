@@ -218,8 +218,8 @@ and in the directory structure within which they are saved.
 - File name :
   ``varname.intvl_out.dtype_out_time.'from_'intvl_in'_'dtype_in_time.model.run.date_range.nc``
 
-See the :ref:`api-ref` on :py:class:`aospy.CalcInterface` for
-explanation of each of these components of the path and file name.
+See the :ref:`api-ref` on :py:class:`aospy.Calc` for explanation of
+each of these components of the path and file name.
 
 Under the hood
 ==============
@@ -227,21 +227,9 @@ Under the hood
 :py:func:`aospy.submit_mult_calcs` creates a :py:class:`aospy.CalcSuite`
 object that permutes over the provided lists of calculation
 specifications, encoding each permutation into a
-:py:class:`aospy.CalcInterface` object.
+:py:class:`aospy.Calc` object.
 
-.. note::
-
-   Actually, when multiple regions and/or output time/regional
-   reductions are specified, these all get passed to each
-   :py:class:`aospy.CalcInterface` object rather than being permuted
-   over.  They are then looped over during the subsequent
-   calculations.  This is to prevent unnecessary re-loading and
-   re-computing, because, for a given simulation/variable/etc., all
-   regions and reduction methods use the same data.
-
-Each :py:class:`aospy.CalcInterface` object, in turn, is used to
-instantiate a :py:class:`aospy.Calc` object.  The
-:py:class:`aospy.Calc` object, in turn:
+The :py:class:`aospy.Calc` object, in turn:
 
 - loads the required netCDF data given its simulation, variable, and date range
 - (if necessary) further truncates the data in time (i.e. to the given
@@ -254,6 +242,16 @@ instantiate a :py:class:`aospy.Calc` object.  The
 - applies all specified temporal and regional time reductions
 - writes the results (plus additional metadata) to disk as netCDF
   files and appends it to its own ``data_out`` attribute
+
+.. note::
+
+   Actually, when multiple regions and/or output time/regional
+   reductions are specified, these all get passed to each
+   :py:class:`aospy.Calc` object rather than being permuted
+   over.  They are then looped over during the subsequent
+   calculations.  This is to prevent unnecessary re-loading and
+   re-computing, because, for a given simulation/variable/etc., all
+   regions and reduction methods use the same data.
 
 .. note::
 

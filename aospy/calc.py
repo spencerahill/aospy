@@ -42,14 +42,71 @@ ps = Var(
 _TIME_DEFINED_REDUCTIONS = ['av', 'std', 'ts', 'reg.av', 'reg.std', 'reg.ts']
 
 
-class CalcInterface(object):
-    """Interface to the Calc class."""
+class Calc(object):
+    """Class for executing, saving, and loading a single computation."""
+
+    ARR_XARRAY_NAME = 'aospy_result'
+
+    _grid_coords = [internal_names.LAT_STR, internal_names.LAT_BOUNDS_STR,
+                    internal_names.LON_STR, internal_names.LON_BOUNDS_STR,
+                    internal_names.ZSURF_STR, internal_names.SFC_AREA_STR,
+                    internal_names.LAND_MASK_STR, internal_names.PK_STR,
+                    internal_names.BK_STR, internal_names.PHALF_STR,
+                    internal_names.PFULL_STR, internal_names.PLEVEL_STR]
+    _grid_attrs = OrderedDict([(key, internal_names.GRID_ATTRS[key])
+                               for key in _grid_coords])
+
+    def __str__(self):
+        """String representation of the object."""
+        return "<aospy.Calc instance: " + ', '.join(
+            (self.name, self.proj.name, self.model.name, self.run.name)
+        ) + ">"
+
+    __repr__ = __str__
+
+    def _dir_out(self):
+        """Create string of the data directory to save individual .nc files."""
+        return os.path.join(self.proj.direc_out, self.proj.name,
+                            self.model.name, self.run.name, self.name)
+
+    def _dir_tar_out(self):
+        """Create string of the data directory to store a tar file."""
+        return os.path.join(self.proj.tar_direc_out, self.proj.name,
+                            self.model.name, self.run.name)
+
+    def _file_name(self, dtype_out_time, extension='nc'):
+        """Create the name of the aospy file."""
+        if dtype_out_time is None:
+            dtype_out_time = ''
+        out_lbl = utils.io.data_out_label(self.intvl_out, dtype_out_time,
+                                          dtype_vert=self.dtype_out_vert)
+        in_lbl = utils.io.data_in_label(self.intvl_in, self.dtype_in_time,
+                                        self.dtype_in_vert)
+        yr_lbl = utils.io.yr_label((self.start_date.year, self.end_date.year))
+        return '.'.join(
+            [self.name, out_lbl, in_lbl, self.model.name,
+             self.run.name, yr_lbl, extension]
+        ).replace('..', '.')
+
+    def _path_out(self, dtype_out_time):
+        return os.path.join(self.dir_out, self.file_name[dtype_out_time])
+
+    def _path_tar_out(self):
+        return os.path.join(self.dir_tar_out, 'data.tar')
+
+    @staticmethod
+    def _print_verbose(*args):
+        """Print diagnostic message."""
+        try:
+            return '{0} {1} ({2})'.format(args[0], args[1], ctime())
+        except IndexError:
+            return '{0} ({1})'.format(args[0], ctime())
 
     def __init__(self, proj=None, model=None, run=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
                  dtype_out_vert=None, level=None, time_offset=None):
-        """Instantiate a CalcInterface object.
+        """Instantiate a Calc object.
 
         Parameters
         ----------
@@ -132,6 +189,9 @@ class CalcInterface(object):
         self.def_time = self.var.def_time
         self.def_vert = self.var.def_vert
 
+        logging.debug(self._print_verbose('Initializing Calc '
+                                          'instance:', self.__str__()))
+
         try:
             self.function = self.var.func
         except AttributeError:
@@ -141,16 +201,25 @@ class CalcInterface(object):
         else:
             self.variables = (self.var,)
 
-        self.level = level
         self.intvl_in = intvl_in
         self.intvl_out = intvl_out
         self.dtype_in_time = dtype_in_time
         self.dtype_in_vert = dtype_in_vert
-        self.ps = ps
+
         if isinstance(dtype_out_time, (list, tuple)):
             self.dtype_out_time = tuple(dtype_out_time)
         else:
             self.dtype_out_time = tuple([dtype_out_time])
+        if not self.def_time:
+            for reduction in self.dtype_out_time:
+                if reduction in _TIME_DEFINED_REDUCTIONS:
+                    msg = ("Var {0} has no time dimension "
+                           "for the given time reduction "
+                           "{1}".format(self.name, reduction))
+                    raise ValueError(msg)
+
+        self.ps = ps
+        self.level = level
         self.dtype_out_vert = dtype_out_vert
         self.region = region
 
@@ -169,84 +238,6 @@ class CalcInterface(object):
             domain=self.domain, intvl_in=self.intvl_in,
             dtype_in_vert=self.dtype_in_vert,
             dtype_in_time=self.dtype_in_time, intvl_out=self.intvl_out)
-
-        if not self.def_time:
-            for reduction in self.dtype_out_time:
-                if reduction in _TIME_DEFINED_REDUCTIONS:
-                    msg = ("Var {0} has no time dimension "
-                           "for the given time reduction "
-                           "{1}".format(self.name, reduction))
-                    raise ValueError(msg)
-
-
-class Calc(object):
-    """Class for executing, saving, and loading a single computation.
-
-    Calc objects are instantiated with a single argument: a `CalcInterface`
-    object that includes all of the parameters necessary to determine what
-    calculations to perform.
-    """
-
-    ARR_XARRAY_NAME = 'aospy_result'
-
-    _grid_coords = [internal_names.LAT_STR, internal_names.LAT_BOUNDS_STR,
-                    internal_names.LON_STR, internal_names.LON_BOUNDS_STR,
-                    internal_names.ZSURF_STR, internal_names.SFC_AREA_STR,
-                    internal_names.LAND_MASK_STR, internal_names.PK_STR,
-                    internal_names.BK_STR, internal_names.PHALF_STR,
-                    internal_names.PFULL_STR, internal_names.PLEVEL_STR]
-    _grid_attrs = OrderedDict([(key, internal_names.GRID_ATTRS[key])
-                               for key in _grid_coords])
-
-    def __str__(self):
-        """String representation of the object."""
-        return "<aospy.Calc instance: " + ', '.join(
-            (self.name, self.proj.name, self.model.name, self.run.name)
-        ) + ">"
-
-    __repr__ = __str__
-
-    def _dir_out(self):
-        """Create string of the data directory to save individual .nc files."""
-        return os.path.join(self.proj.direc_out, self.proj.name,
-                            self.model.name, self.run.name, self.name)
-
-    def _dir_tar_out(self):
-        """Create string of the data directory to store a tar file."""
-        return os.path.join(self.proj.tar_direc_out, self.proj.name,
-                            self.model.name, self.run.name)
-
-    def _file_name(self, dtype_out_time, extension='nc'):
-        """Create the name of the aospy file."""
-        out_lbl = utils.io.data_out_label(self.intvl_out, dtype_out_time,
-                                          dtype_vert=self.dtype_out_vert)
-        in_lbl = utils.io.data_in_label(self.intvl_in, self.dtype_in_time,
-                                        self.dtype_in_vert)
-        yr_lbl = utils.io.yr_label((self.start_date.year, self.end_date.year))
-        return '.'.join(
-            [self.name, out_lbl, in_lbl, self.model.name,
-             self.run.name, yr_lbl, extension]
-        ).replace('..', '.')
-
-    def _path_out(self, dtype_out_time):
-        return os.path.join(self.dir_out, self.file_name[dtype_out_time])
-
-    def _path_tar_out(self):
-        return os.path.join(self.dir_tar_out, 'data.tar')
-
-    @staticmethod
-    def _print_verbose(*args):
-        """Print diagnostic message."""
-        try:
-            return '{0} {1} ({2})'.format(args[0], args[1], ctime())
-        except IndexError:
-            return '{0} ({1})'.format(args[0], ctime())
-
-    def __init__(self, calc_interface):
-        self.__dict__ = vars(calc_interface)
-        logging.debug(self._print_verbose(
-            'Initializing Calc instance:', self.__str__()
-        ))
 
         self.model.set_grid_data()
 
@@ -477,7 +468,7 @@ class Calc(object):
 
     def _time_reduce(self, arr, reduction):
         """Perform the specified time reduction on a local time-series."""
-        if self.dtype_in_time == 'av':
+        if self.dtype_in_time == 'av' or not self.def_time:
             return arr
         reductions = {
             'ts': lambda xarr: xarr,

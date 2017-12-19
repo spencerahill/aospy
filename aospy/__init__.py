@@ -13,10 +13,10 @@ from .model import Model
 from . import proj
 from .proj import Proj
 from . import calc
-from .calc import CalcInterface, Calc
+from .calc import Calc
 from .automate import submit_mult_calcs
 from . import examples
 
 __all__ = ['user_path', '_constants', 'utils', 'var', 'Var', 'region',
            'Region', 'run', 'Run', 'model', 'Model', 'proj', 'Proj',
-           'calc', 'CalcInterface', 'Calc', 'submit_mult_calcs', 'examples']
+           'calc', 'Calc', 'submit_mult_calcs', 'examples']

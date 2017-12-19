@@ -158,23 +158,16 @@ retained after they have written their outputs to disk following the
 user's specifications.
 
 Moreover, if the ``main.py`` script is used to execute calculations,
-no direct interfacing with :py:class:`Calc` or it's helper class,
-:py:class:`CalcInterface` is required by the user, in which case this section
-should be skipped entirely.
+no direct interfacing with :py:class:`Calc` is required by the user,
+in which case this section should be skipped entirely.
 
 Also included is the :py:class:`automate` module, which enables aospy e.g. in
 the main script to find objects in the user's object library that the
 user specifies via their string names rather than having to import the
 objects themselves.
 
-CalcInterface and Calc
-----------------------
-
-.. autoclass:: aospy.calc.CalcInterface
-    :members:
-    :undoc-members:
-
-    .. automethod:: aospy.calc.CalcInterface.__init__
+Calc
+----
 
 .. autoclass:: aospy.calc.Calc
     :members:

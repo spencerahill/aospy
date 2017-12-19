@@ -57,8 +57,8 @@ import example_obj_lib as lib
 # This dictionary contains all of the specifications of calculations that you
 # wish to permute over.
 calc_suite_specs = dict(
-    # Consult `CalcInterface` API reference for further explanation
-    # of each option and accepted values.
+    # Consult `Calc` API reference for further explanation of each option and
+    # accepted values.
 
     # The desired library of aospy objects.
     library=lib,

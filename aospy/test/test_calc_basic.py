@@ -9,7 +9,7 @@ import itertools
 
 import xarray as xr
 
-from aospy.calc import Calc, CalcInterface, _add_metadata_as_attrs
+from aospy.calc import Calc, _add_metadata_as_attrs
 from .data.objects.examples import (
     example_proj, example_model, example_run, var_not_time_defined,
     condensation_rain, precip, sphum, globe, sahel
@@ -56,77 +56,50 @@ class TestCalcBasic(unittest.TestCase):
             shutil.rmtree(direc)
 
     def test_annual_mean(self):
-        calc_int = CalcInterface(intvl_out='ann',
-                                 dtype_out_time='av',
-                                 **self.test_params)
-        calc = Calc(calc_int)
+        calc = Calc(intvl_out='ann', dtype_out_time='av', **self.test_params)
         calc.compute()
         _test_files_and_attrs(calc, 'av')
 
     def test_annual_ts(self):
-        calc_int = CalcInterface(intvl_out='ann',
-                                 dtype_out_time='ts',
-                                 **self.test_params)
-        calc = Calc(calc_int)
+        calc = Calc(intvl_out='ann', dtype_out_time='ts', **self.test_params)
         calc.compute()
         _test_files_and_attrs(calc, 'ts')
 
     def test_seasonal_mean(self):
-        calc_int = CalcInterface(intvl_out='djf',
-                                 dtype_out_time='av',
-                                 **self.test_params)
-        calc = Calc(calc_int)
+        calc = Calc(intvl_out='djf', dtype_out_time='av', **self.test_params)
         calc.compute()
         _test_files_and_attrs(calc, 'av')
 
     def test_seasonal_ts(self):
-        calc_int = CalcInterface(intvl_out='djf',
-                                 dtype_out_time='ts',
-                                 **self.test_params)
-        calc = Calc(calc_int)
+        calc = Calc(intvl_out='djf', dtype_out_time='ts', **self.test_params)
         calc.compute()
         _test_files_and_attrs(calc, 'ts')
 
     def test_monthly_mean(self):
-        calc_int = CalcInterface(intvl_out=1,
-                                 dtype_out_time='av',
-                                 **self.test_params)
-        calc = Calc(calc_int)
+        calc = Calc(intvl_out=1, dtype_out_time='av', **self.test_params)
         calc.compute()
         _test_files_and_attrs(calc, 'av')
 
     def test_monthly_ts(self):
-        calc_int = CalcInterface(intvl_out=1,
-                                 dtype_out_time='ts',
-                                 **self.test_params)
-        calc = Calc(calc_int)
+        calc = Calc(intvl_out=1, dtype_out_time='ts', **self.test_params)
         calc.compute()
         _test_files_and_attrs(calc, 'ts')
 
     def test_simple_reg_av(self):
-        calc_int = CalcInterface(intvl_out='ann',
-                                 dtype_out_time='reg.av',
-                                 region=[globe],
-                                 **self.test_params)
-        calc = Calc(calc_int)
+        calc = Calc(intvl_out='ann', dtype_out_time='reg.av', region=[globe],
+                    **self.test_params)
         calc.compute()
         _test_files_and_attrs(calc, 'reg.av')
 
     def test_simple_reg_ts(self):
-        calc_int = CalcInterface(intvl_out='ann',
-                                 dtype_out_time='reg.ts',
-                                 region=[globe],
-                                 **self.test_params)
-        calc = Calc(calc_int)
+        calc = Calc(intvl_out='ann', dtype_out_time='reg.ts', region=[globe],
+                    **self.test_params)
         calc.compute()
         _test_files_and_attrs(calc, 'reg.ts')
 
     def test_complex_reg_av(self):
-        calc_int = CalcInterface(intvl_out='ann',
-                                 dtype_out_time='reg.av',
-                                 region=[sahel],
-                                 **self.test_params)
-        calc = Calc(calc_int)
+        calc = Calc(intvl_out='ann', dtype_out_time='reg.av', region=[sahel],
+                    **self.test_params)
         calc.compute()
         _test_files_and_attrs(calc, 'reg.av')
 
@@ -167,6 +140,8 @@ test_params = {
     'run': example_run,
     'var': var_not_time_defined,
     'date_range': 'default',
+    'intvl_in': 'monthly',
+    'dtype_in_time': 'av',
     'intvl_out': 1,
 }
 
@@ -174,7 +149,7 @@ test_params = {
 @pytest.mark.parametrize('dtype_out_time', [None, []])
 def test_calc_object_no_time_options(dtype_out_time):
     test_params['dtype_out_time'] = dtype_out_time
-    calc = CalcInterface(**test_params)
+    calc = Calc(**test_params)
     if isinstance(dtype_out_time, list):
         assert calc.dtype_out_time == tuple(dtype_out_time)
     else:
@@ -187,7 +162,7 @@ def test_calc_object_no_time_options(dtype_out_time):
 def test_calc_object_string_time_options(dtype_out_time):
     test_params['dtype_out_time'] = dtype_out_time
     with pytest.raises(ValueError):
-        CalcInterface(**test_params)
+        Calc(**test_params)
 
 
 def test_calc_object_time_options():
@@ -197,7 +172,7 @@ def test_calc_object_time_options():
             if time_option != ('None',):
                 test_params['dtype_out_time'] = time_option
                 with pytest.raises(ValueError):
-                    CalcInterface(**test_params)
+                    Calc(**test_params)
 
 
 @pytest.mark.parametrize(
