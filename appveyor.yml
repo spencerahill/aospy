@@ -10,11 +10,6 @@ environment:
       PYTHON_ARCH: "32"
       CONDA_ENV: "py27"
 
-    - PYTHON: "C:\\Python34-conda64"
-      PYTHON_VERSION: "3.4"
-      PYTHON_ARCH: "64"
-      CONDA_ENV: "py34"
-
     - PYTHON: "C:\\Python35-conda64"
       PYTHON_VERSION: "3.5"
       PYTHON_ARCH: "64"

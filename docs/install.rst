@@ -7,7 +7,7 @@ Supported platforms
 -------------------
 
 - Operating system: Windows, MacOS/Mac OS X, and Linux
-- Python: 2.7, 3.4, 3.5, and 3.6
+- Python: 2.7, 3.5, and 3.6
 
 .. note::
 
@@ -29,11 +29,6 @@ The recommended installation method is via `conda
 <http://conda.pydata.org/docs/>`_ ::
 
   conda install -c conda-forge aospy
-
-.. note:: Python 3.4 users: `conda-forge
-          <https://conda-forge.github.io/>`_ no longer supports builds
-          of packages on Python 3.4.  Please use one of the
-          alternative installation methods described below.
 
 Alternative method #1: pip
 --------------------------

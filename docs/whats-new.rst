@@ -11,6 +11,9 @@ v0.3 (unreleased)
 Breaking Changes
 ~~~~~~~~~~~~~~~~
 
+- Drop support for Python 3.4, since our core upstream dependency
+  xarray is also dropping it as of their 0.11 release (:pull:`255`).
+  By `Spencer Hill <https://github.com/spencerahill>`_.
 - Deprecate ``Constant`` class and ``constants.py`` module.
   Physical constants used internally by aospy are now stored
   in ``_constants.py`` (fixes :issue:`50` via :pull:`223`).
