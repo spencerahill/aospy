@@ -24,6 +24,11 @@ _VARIABLES_STR = 'variables'
 _TAG_ATTR_MODIFIERS = dict(all='', default='default_')
 
 
+class AospyException(Exception):
+    """Base exception class for the aospy package."""
+    pass
+
+
 def _get_attr_by_tag(obj, tag, attr_name):
     """Get attribute from an object via a string tag.
 
@@ -82,11 +87,6 @@ def _input_func_py2_py3():
         import builtins
         input = builtins.input
     return input
-
-
-class AospyException(Exception):
-    """Base exception class for the aospy package."""
-    pass
 
 
 def _user_verify(input_func=_input_func_py2_py3(),
@@ -487,4 +487,10 @@ def submit_mult_calcs(calc_suite_specs, exec_options=None):
         _user_verify()
     calc_suite = CalcSuite(calc_suite_specs)
     calcs = calc_suite.create_calcs()
+    if not calcs:
+        raise AospyException(
+            "The specified combination of parameters yielded zero "
+            "calculations.  Most likely, one of the parameters is "
+            "inadvertently empty."
+        )
     return _exec_calcs(calcs, **exec_options)

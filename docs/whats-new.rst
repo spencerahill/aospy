@@ -35,6 +35,11 @@ Documentation
 Enhancements
 ~~~~~~~~~~~~
 
+- Raise an exception with an informative message if
+  ``submit_mult_calcs`` (and thus the main script) generates zero
+  calculations, which can happen if one of the parameters is
+  accidentally set to an empty list (closes :issue:`253` via
+  :pull:`254`).  By `Spencer Hill <https://github.com/spencerahill>`_.
 - Suppress warnings from xarray when loading data whose dates extend
   outside the range supported by the numpy.datetime64 datatype.  aospy
   has its own logic to deal with these cases (closes :issue:`221` via

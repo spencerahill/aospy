@@ -268,6 +268,13 @@ def test_submit_mult_calcs(calcsuite_init_specs_single_calc, exec_options):
         calcsuite_init_specs_single_calc['output_time_regional_reductions'])
 
 
+def test_submit_mult_calcs_no_calcs(calcsuite_init_specs):
+    specs = calcsuite_init_specs.copy()
+    specs['input_vertical_datatypes'] = []
+    with pytest.raises(AospyException):
+        submit_mult_calcs(specs)
+
+
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=True, write_to_tar=False),
