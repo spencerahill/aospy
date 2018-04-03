@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from aospy import Var
 from aospy.data_loader import (DataLoader, DictDataLoader, GFDLDataLoader,
                                NestedDictDataLoader, grid_attrs_to_aospy_names,
                                set_grid_attrs_as_coords, _sel_var,
@@ -608,6 +609,42 @@ class LoadVariableTestCase(unittest.TestCase):
         num_non_missing = np.isfinite(data).sum().item()
         expected_num_non_missing = 0
         self.assertEqual(num_non_missing, expected_num_non_missing)
+
+    def test_recursively_compute_variable_native(self):
+        result = self.data_loader.recursively_compute_variable(
+            condensation_rain, datetime(5, 1, 1), datetime(5, 12, 31),
+            intvl_in='monthly')
+        filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                                '00050101.precip_monthly.nc')
+        expected = _open_ds_catch_warnings(filepath)['condensation_rain']
+        np.testing.assert_array_equal(result.values, expected.values)
+
+    def test_recursively_compute_variable_one_level(self):
+        one_level = Var(
+            name='one_level', variables=(condensation_rain, condensation_rain),
+            func=lambda x, y: x + y)
+        result = self.data_loader.recursively_compute_variable(
+            one_level, datetime(5, 1, 1), datetime(5, 12, 31),
+            intvl_in='monthly')
+        filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                                '00050101.precip_monthly.nc')
+        expected = 2. * _open_ds_catch_warnings(filepath)['condensation_rain']
+        np.testing.assert_array_equal(result.values, expected.values)
+
+    def test_recursively_compute_variable_multi_level(self):
+        one_level = Var(
+            name='one_level', variables=(condensation_rain, condensation_rain),
+            func=lambda x, y: x + y)
+        multi_level = Var(
+            name='multi_level', variables=(one_level, condensation_rain),
+            func=lambda x, y: x + y)
+        result = self.data_loader.recursively_compute_variable(
+            multi_level, datetime(5, 1, 1), datetime(5, 12, 31),
+            intvl_in='monthly')
+        filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                                '00050101.precip_monthly.nc')
+        expected = 3. * _open_ds_catch_warnings(filepath)['condensation_rain']
+        np.testing.assert_array_equal(result.values, expected.values)
 
 
 if __name__ == '__main__':

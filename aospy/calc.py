@@ -323,7 +323,7 @@ class Calc(object):
         try:
             ps = self._ps_data
         except AttributeError:
-            self._ps_data = self.data_loader.load_variable(
+            self._ps_data = self.data_loader.recursively_compute_variable(
                 self.ps, start_date, end_date, self.time_offset,
                 **self.data_loader_attrs)
             name = self._ps_data.name
@@ -362,9 +362,9 @@ class Calc(object):
             cond_pfull = ((not hasattr(self, internal_names.PFULL_STR))
                           and var.def_vert and
                           self.dtype_in_vert == internal_names.ETA_STR)
-            data = self.data_loader.load_variable(var, start_date, end_date,
-                                                  self.time_offset,
-                                                  **self.data_loader_attrs)
+            data = self.data_loader.recursively_compute_variable(
+                var, start_date, end_date, self.time_offset,
+                **self.data_loader_attrs)
             name = data.name
             data = self._add_grid_attributes(data.to_dataset(name=data.name))
             data = data[name]

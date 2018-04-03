@@ -9,10 +9,11 @@ import itertools
 
 import xarray as xr
 
+from aospy import Var
 from aospy.calc import Calc, _add_metadata_as_attrs
 from .data.objects.examples import (
     example_proj, example_model, example_run, var_not_time_defined,
-    condensation_rain, precip, sphum, globe, sahel
+    condensation_rain, convection_rain, precip, sphum, globe, sahel
 )
 
 
@@ -38,18 +39,21 @@ def _test_files_and_attrs(calc, dtype_out):
     _test_output_attrs(calc, dtype_out)
 
 
+_BASIC_TEST_PARAMS = {
+    'proj': example_proj,
+    'model': example_model,
+    'run': example_run,
+    'var': condensation_rain,
+    'date_range': (datetime.datetime(4, 1, 1),
+                   datetime.datetime(6, 12, 31)),
+    'intvl_in': 'monthly',
+    'dtype_in_time': 'ts'
+}
+
+
 class TestCalcBasic(unittest.TestCase):
     def setUp(self):
-        self.test_params = {
-            'proj': example_proj,
-            'model': example_model,
-            'run': example_run,
-            'var': condensation_rain,
-            'date_range': (datetime.datetime(4, 1, 1),
-                           datetime.datetime(6, 12, 31)),
-            'intvl_in': 'monthly',
-            'dtype_in_time': 'ts'
-        }
+        self.test_params = _BASIC_TEST_PARAMS.copy()
 
     def tearDown(self):
         for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
@@ -205,6 +209,41 @@ def test_attrs(units, description, dtype_out_vert, expected_units,
     for name, arr in ds.data_vars.items():
         assert expected_units == arr.attrs['units']
         assert expected_description == arr.attrs['description']
+
+
+@pytest.fixture()
+def recursive_test_params():
+    basic_params = _BASIC_TEST_PARAMS.copy()
+    recursive_params = basic_params.copy()
+
+    recursive_condensation_rain = Var(
+        name='recursive_condensation_rain',
+        variables=(precip, convection_rain), func=lambda x, y: x - y,
+        def_time=True)
+    recursive_params['var'] = recursive_condensation_rain
+
+    yield (basic_params, recursive_params)
+
+    for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
+        shutil.rmtree(direc)
+
+
+def test_recursive_calculation(recursive_test_params):
+    basic_params, recursive_params = recursive_test_params
+
+    calc = Calc(intvl_out='ann', dtype_out_time='av', **basic_params)
+    calc = calc.compute()
+    expected = xr.open_dataset(
+        calc.path_out['av'], autoclose=True)['condensation_rain']
+    _test_files_and_attrs(calc, 'av')
+
+    calc = Calc(intvl_out='ann', dtype_out_time='av', **recursive_params)
+    calc = calc.compute()
+    result = xr.open_dataset(
+        calc.path_out['av'], autoclose=True)['recursive_condensation_rain']
+    _test_files_and_attrs(calc, 'av')
+
+    xr.testing.assert_equal(expected, result)
 
 
 if __name__ == '__main__':

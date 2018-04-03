@@ -286,6 +286,42 @@ class DataLoader(object):
         return times.sel_time(da, np.datetime64(start_date_xarray),
                               np.datetime64(end_date_xarray)).load()
 
+    def recursively_compute_variable(self, var, start_date=None, end_date=None,
+                                     time_offset=None, **DataAttrs):
+        """Compute a variable recursively, loading data where needed
+
+        An obvious requirement here is that the variable must eventually be
+        able to be expressed in terms of model-native quantities; otherwise the
+        recursion will never stop.
+
+        Parameters
+        ----------
+        var : Var
+            aospy Var object
+        start_date : datetime.datetime
+            start date for interval
+        end_date : datetime.datetime
+            end date for interval
+        time_offset : dict
+            Option to add a time offset to the time coordinate to correct for
+            incorrect metadata.
+        **DataAttrs
+            Attributes needed to identify a unique set of files to load from
+
+        Returns
+        -------
+        da : DataArray
+             DataArray for the specified variable, date range, and interval in
+        """
+        if var.variables is None:
+            return self.load_variable(var, start_date, end_date, time_offset,
+                                      **DataAttrs)
+        else:
+            data = [self.recursively_compute_variable(
+                v, start_date, end_date, time_offset, **DataAttrs)
+                    for v in var.variables]
+            return var.func(*data).rename(var.name)
+
     @staticmethod
     def _maybe_apply_time_shift(da, time_offset=None, **DataAttrs):
         """Apply specified time shift to DataArray"""

@@ -253,6 +253,27 @@ prior ``Var`` constuctors.  These signify the function to use and the
 physical quantities to pass to that function in order to compute the
 quantity.
 
+As of aospy version 0.3, ``Var`` objects are computed
+recursively; this means that as long as things eventually lead back to
+model-native quantities, you can express a computed variable (i.e. one
+with ``func`` and ``variables`` attributes) in terms of other computed
+variables.  For example we could equivalently express the
+``precip_conv_frac`` more simply as the following:
+
+.. ipython::
+
+   precip_conv_frac = Var(
+       name='precip_conv_frac',
+       def_time=True,
+       variables=(precip_convective, precip_total),
+       func=lambda conv, total: conv / total,
+   )
+
+In this case, aospy will automatically know to load in
+``precip_largescale`` and ``precip_convective`` in order to compute
+``precip_total`` before passing it along to the function specified
+in ``precip_conv_frac``.  Any depth of recursion is supported.
+   
 .. note::
 
    Although ``variables`` is passed a tuple of ``Var`` objects

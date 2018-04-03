@@ -61,6 +61,9 @@ Enhancements
   <http://xarray.pydata.org/en/stable/generated/xarray.open_mfdataset.html>`_
   for more information (closes :issue:`236` via :pull:`240`).  By `Spencer
   Clark <https://github.com/spencerkclark>`_.
+- Allow for variables to be functions of other computed variables (closes
+  :issue:`3` via :pull:`263`).  By `Spencer
+  Clark <https://github.com/spencerkclark>`_.
 
 Bug Fixes
 ~~~~~~~~~

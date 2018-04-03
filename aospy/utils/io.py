@@ -154,9 +154,14 @@ def data_name_gfdl(name, domain, data_type, intvl_type, data_yr,
 
 def dmget(files_list):
     """Call GFDL command 'dmget' to access archived files."""
+    if isinstance(files_list, str):
+        files_list = [files_list]
+
+    archive_files = []
+    for f in files_list:
+        if f.startswith('/archive'):
+            archive_files.append(f)
     try:
-        if isinstance(files_list, str):
-            files_list = [files_list]
-        subprocess.call(['dmget'] + files_list)
+        subprocess.call(['dmget'] + archive_files)
     except OSError:
         logging.debug('dmget command not found in this machine')
