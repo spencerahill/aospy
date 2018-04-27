@@ -236,6 +236,8 @@ def assert_calc_files_exist(calcs, write_to_tar, dtypes_out_time):
                 assert not isfile(calc.path_tar_out)
 
 
+@pytest.mark.skipif(sys.version.startswith('2'),
+                    reason='https://github.com/spencerahill/aospy/issues/259')
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=True, write_to_tar=False),
@@ -250,6 +252,8 @@ def test_submit_mult_calcs_external_client(calcsuite_init_specs_single_calc,
         calcsuite_init_specs_single_calc['output_time_regional_reductions'])
 
 
+@pytest.mark.skipif(sys.version.startswith('2'),
+                    reason='https://github.com/spencerahill/aospy/issues/259')
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=False, write_to_tar=False),
@@ -275,6 +279,8 @@ def test_submit_mult_calcs_no_calcs(calcsuite_init_specs):
         submit_mult_calcs(specs)
 
 
+@pytest.mark.skipif(sys.version.startswith('2'),
+                    reason='https://github.com/spencerahill/aospy/issues/259')
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=True, write_to_tar=False),
@@ -289,6 +295,8 @@ def test_submit_two_calcs_external_client(calcsuite_init_specs_two_calcs,
         calcsuite_init_specs_two_calcs['output_time_regional_reductions'])
 
 
+@pytest.mark.skipif(sys.version.startswith('2'),
+                    reason='https://github.com/spencerahill/aospy/issues/259')
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=False, write_to_tar=False),
