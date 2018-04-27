@@ -25,6 +25,10 @@ Breaking Changes
   object, pass it directly the parameters that previously would have
   been passed to ``CalcInterface`` (fixes :issue:`249` via
   :pull:`250`).  By `Spencer Hill <https://github.com/spencerahill>`_.
+- Deprecate ``utils.times.convert_scalar_to_indexable_coord``, since
+  as of xarray version 0.10.3 release, the functionality is no longer
+  necessary (fixes :issue:`268` via :pull:`269`.  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
 
 Documentation
 ~~~~~~~~~~~~~
@@ -110,8 +114,9 @@ Dependencies
 
 - ``aospy`` now requires a minimum version of ``distributed`` of
   1.17.1 (fixes :issue:`210` via :pull:`211`).
-- ``aospy`` now requires a minimum version of ``xarray`` of 0.10.0.
-  See discussion in :issue:`199` and :pull:`240` for more details.
+- ``aospy`` now requires a minimum version of ``xarray`` of 0.10.3.
+  See discussion in :issue:`199`, :pull:`240`, :issue:`268`, and
+  :pull:`269` for more details.
 
 .. _whats-new.0.2:
 

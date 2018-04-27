@@ -540,13 +540,14 @@ def assert_matching_time_coord(arr1, arr2):
         raise ValueError(message.format(arr1[TIME_STR], arr2[TIME_STR]))
 
 
-def ensure_time_as_dim(ds):
-    """Ensures that time is an indexable dimension on relevant quantites
+def ensure_time_as_index(ds):
+    """Ensures that time is an indexed coordinate on relevant quantites.
 
-    In xarray, scalar coordinates cannot be indexed.  We rely
-    on indexing in the time dimension throughout the code; therefore
-    we need this helper method to (if needed) convert a scalar time coordinate
-    to a dimension.
+    Sometimes when the data we load from disk has only one timestep, the
+    indexing of time-defined quantities in the resulting xarray.Dataset gets
+    messed up, in that the time bounds array and data variables don't get
+    indexed by time, even though they should.  Therefore, we need this helper
+    function to (possibly) correct this.
 
     Note that this must be applied before CF-conventions are decoded; otherwise
     it casts ``np.datetime64[ns]`` as ``int`` values.
@@ -559,38 +560,14 @@ def ensure_time_as_dim(ds):
     Returns
     -------
     Dataset
+
     """
-    if TIME_STR not in ds.dims:
-        time = convert_scalar_to_indexable_coord(ds[TIME_STR])
-        ds = ds.set_coords(TIME_STR)
-        for name in ds.variables:
-            if ((name not in GRID_ATTRS_NO_TIMES) and
-               (name != TIME_STR)):
-                da = ds[name]
-                da, _ = xr.broadcast(da, time)
-                da[TIME_STR] = time
-                ds[name] = da
+    time_indexed_coords = {TIME_WEIGHTS_STR, TIME_BOUNDS_STR}
+    time_indexed_vars = set(ds.data_vars).union(time_indexed_coords)
+    time_indexed_vars = time_indexed_vars.intersection(ds.variables)
+    for name in time_indexed_vars:
+        if TIME_STR not in ds[name].indexes:
+            da = ds[name].expand_dims(TIME_STR)
+            da[TIME_STR] = ds[TIME_STR]
+            ds[name] = da
     return ds
-
-
-def convert_scalar_to_indexable_coord(scalar_da):
-    """Convert a scalar coordinate to an indexable one.
-
-    In xarray, scalar coordinates cannot be indexed. This converts
-    a scalar coordinate-containing ``DataArray`` to one that can
-    be indexed using ``da.sel`` and ``da.isel``.
-
-    Parameters
-    ----------
-    scalar_da : DataArray
-        Must contain a scalar coordinate
-
-    Returns
-    -------
-    DataArray
-    """
-    data = [scalar_da.values.item()]
-    da = xr.DataArray(data, coords=[data], dims=[scalar_da.name],
-                      name=scalar_da.name)
-    da.attrs = scalar_da.attrs
-    return da

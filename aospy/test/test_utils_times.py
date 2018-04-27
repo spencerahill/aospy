@@ -30,8 +30,7 @@ from aospy.utils.times import (
     _assert_has_data_for_time,
     add_uniform_time_weights,
     assert_matching_time_coord,
-    ensure_time_as_dim,
-    convert_scalar_to_indexable_coord,
+    ensure_time_as_index,
     sel_time,
     yearly_average
 )
@@ -433,37 +432,46 @@ def test_assert_matching_time_coord():
         assert_matching_time_coord(arr1, arr2)
 
 
-def test_ensure_time_as_dim():
-    arr = xr.DataArray([3, 4], coords=[[1, 2]], dims=[TIME_STR])
+def test_ensure_time_as_index_no_change():
+    # Already properly indexed, so shouldn't be modified.
+    arr = xr.DataArray([-23, 42.4], coords=[[1, 2]], dims=[TIME_STR])
     arr[TIME_STR].attrs['units'] = 'days since 2000-01-01 00:00:00'
     arr[TIME_STR].attrs['calendar'] = 'standard'
     ds = arr.to_dataset(name='a')
-    assert TIME_STR in ds.dims
-    assert ds.identical(ensure_time_as_dim(ds))
+    ds.coords[TIME_WEIGHTS_STR] = xr.DataArray(
+        [1, 1], dims=[TIME_STR], coords={TIME_STR: arr[TIME_STR]}
+    )
+    ds.coords[TIME_BOUNDS_STR] = xr.DataArray(
+        [[0.5, 1.5], [1.5, 2.5]], dims=[TIME_STR, BOUNDS_STR],
+        coords={TIME_STR: arr[TIME_STR]}
+    )
+    xr.testing.assert_identical(ds, ensure_time_as_index(ds))
 
-    scalar_time_in_ds = ds.isel(**{TIME_STR: 0})
-    assert TIME_STR not in scalar_time_in_ds.dims
-    result = ensure_time_as_dim(scalar_time_in_ds)
 
-    arr = xr.DataArray([3], coords=[[1]], dims=[TIME_STR])
+def test_ensure_time_as_index_with_change():
+    # Time bounds array doesn't index time initially, which gets fixed.
+    arr = xr.DataArray([-93], dims=[TIME_STR], coords={TIME_STR: [3]})
     arr[TIME_STR].attrs['units'] = 'days since 2000-01-01 00:00:00'
     arr[TIME_STR].attrs['calendar'] = 'standard'
+    ds = arr.to_dataset(name='a')
+    ds.coords[TIME_WEIGHTS_STR] = xr.DataArray(
+        [1], dims=[TIME_STR], coords={TIME_STR: arr[TIME_STR]}
+    )
+    ds.coords[TIME_BOUNDS_STR] = xr.DataArray(
+        [[3.5, 4.5]], dims=[TIME_STR, BOUNDS_STR],
+        coords={TIME_STR: arr[TIME_STR]}
+    )
+    ds = ds.isel(**{TIME_STR: 0}).expand_dims(TIME_STR)
+    actual = ensure_time_as_index(ds)
     expected = arr.to_dataset(name='a')
-    xr.testing.assert_identical(result, expected)
-
-
-def test_convert_scalar_to_indexable_coord():
-    da = xr.DataArray([3, 4], coords=[[1, 2]], dims=['a'], name='b')
-    da['a'].attrs['test'] = 'c'
-    scalar_coord = da.isel(a=0)['a']
-    assert 'a' not in scalar_coord.dims
-
-    indexable_coord = convert_scalar_to_indexable_coord(scalar_coord)
-    assert 'a' in indexable_coord.dims
-
-    expected = xr.DataArray([1], coords=[[1]], dims=['a'], name='a')
-    expected.attrs['test'] = 'c'
-    xr.testing.assert_identical(indexable_coord, expected)
+    expected.coords[TIME_WEIGHTS_STR] = xr.DataArray(
+        [1], dims=[TIME_STR], coords={TIME_STR: arr[TIME_STR]}
+    )
+    expected.coords[TIME_BOUNDS_STR] = xr.DataArray(
+        [[3.5, 4.5]], dims=[TIME_STR, BOUNDS_STR],
+        coords={TIME_STR: arr[TIME_STR]}
+        )
+    xr.testing.assert_identical(actual, expected)
 
 
 def test_sel_time():

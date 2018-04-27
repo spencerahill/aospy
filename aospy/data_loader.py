@@ -6,7 +6,12 @@ import warnings
 import numpy as np
 import xarray as xr
 
-from .internal_names import ETA_STR, GRID_ATTRS, TIME_STR, TIME_BOUNDS_STR
+from .internal_names import (
+    ETA_STR,
+    GRID_ATTRS,
+    TIME_STR,
+    TIME_BOUNDS_STR,
+)
 from .utils import times, io
 
 
@@ -63,8 +68,8 @@ def grid_attrs_to_aospy_names(data):
         Data returned with coordinates consistent with aospy
         conventions
     """
+    dims_and_vars = set(data.variables).union(set(data.dims))
     for name_int, names_ext in GRID_ATTRS.items():
-        dims_and_vars = set(data.variables).union(set(data.dims))
         data_coord_name = set(names_ext).intersection(dims_and_vars)
         if data_coord_name:
             data = data.rename({data_coord_name.pop(): name_int})
@@ -174,7 +179,7 @@ def _prep_time_data(ds):
     Dataset, int, int
         The processed Dataset and minimum and maximum years in the loaded data
     """
-    ds = times.ensure_time_as_dim(ds)
+    ds = times.ensure_time_as_index(ds)
     ds, min_year, max_year = times.numpy_datetime_workaround_encode_cf(ds)
     if TIME_BOUNDS_STR in ds:
         ds = times.ensure_time_avg_has_cf_metadata(ds)
@@ -275,6 +280,7 @@ class DataLoader(object):
             coords=self.coords, start_date=start_date, end_date=end_date,
             time_offset=time_offset, **DataAttrs
         )
+
         ds, min_year, max_year = _prep_time_data(ds)
         ds = set_grid_attrs_as_coords(ds)
         da = _sel_var(ds, var, self.upcast_float32)
