@@ -11,6 +11,11 @@ v0.3 (unreleased)
 Breaking Changes
 ~~~~~~~~~~~~~~~~
 
+- ``aospy.Region`` no longer can be instantiated using ``lat_bounds``
+  and ``lon_bounds`` keywords.  These have been replaced with the more
+  explicit ``east_bound``, ``west_bound``, ``south_bound``, and
+  ``north_bound`` (:pull:`266`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
 - Drop support for Python 3.4, since our core upstream dependency
   xarray is also dropping it as of their 0.11 release (:pull:`255`).
   By `Spencer Hill <https://github.com/spencerahill>`_.
@@ -39,6 +44,17 @@ Documentation
 Enhancements
 ~~~~~~~~~~~~
 
+- Create ``utils.longitude`` module and ``Longitude`` class for
+  representing and comparing longitudes.  Used internally by
+  ``aospy.Region`` to construct masks, but could also be useful for
+  users outside the standard aospy workflow (:pull:`266`).  By
+  `Spencer Hill <https://github.com/spencerahill>`_.
+- Add support for ``Region`` methods ``mask_var``, ``ts``, ``av``, and
+  ``std`` for data that doesn't conform to aospy naming conventions,
+  making these methods now useful in more interactive contexts in
+  addition to within the standard main script-based work flow
+  (:pull:`266`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
 - Raise an exception with an informative message if
   ``submit_mult_calcs`` (and thus the main script) generates zero
   calculations, which can happen if one of the parameters is
@@ -72,6 +88,13 @@ Enhancements
 Bug Fixes
 ~~~~~~~~~
 
+- Use the new ``Longitude`` class to support any longitude numbering
+  convention (e.g. -180 to 180, 0 to 360, or any other) for both
+  defining ``Region`` objects and for input data to be masked.  Fixes
+  bug wherein a region could be silently partially clipped off when
+  masking input data with longitudes of a different numbering
+  convention.  Fixes :issue:`229` via :pull:`266`.  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
 - Cast input DataArrays with datatype ``np.float32`` to ``np.float64``
   as a workaround for incorrectly computed means on float32 arrays in
   bottleneck (see `pydata/xarray#1346

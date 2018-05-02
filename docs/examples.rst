@@ -116,7 +116,7 @@ a name for the run and an optional description.
    float32 data to float64.  This behavior is turned on by default.  If you
    would like to disable this behavior you can set the ``upcast_float32``
    argument in your ``DataLoader`` constructors to ``False``.
-   
+
 Models
 ======
 
@@ -311,16 +311,20 @@ whole globe and at the Tropics:
     globe = Region(
         name='globe',
         description='Entire globe',
-        lat_bounds=(-90, 90),
-        lon_bounds=(0, 360),
+        west_bound=0,
+        east_bound=360,
+        south_bound=-90,
+        north_bound=90,
         do_land_mask=False
     )
 
     tropics = Region(
 	name='tropics',
 	description='Global tropics, defined as 30S-30N',
-	lat_bounds=(-30, 30),
-	lon_bounds=(0, 360),
+        west_bound=0,
+        east_bound=360,
+        south_bound=-30,
+        north_bound=30,
 	do_land_mask=False
     )
     example_proj.regions = [globe, tropics]

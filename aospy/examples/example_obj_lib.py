@@ -100,8 +100,10 @@ precip_conv_frac = Var(
 globe = Region(
     name='globe',
     description='Entire globe',
-    lat_bounds=(-90, 90),
-    lon_bounds=(0, 360),
+    west_bound=0,
+    east_bound=360,
+    south_bound=-90,
+    north_bound=90,
     do_land_mask=False
 )
 
@@ -109,8 +111,10 @@ globe = Region(
 tropics = Region(
     name='tropics',
     description='Tropics, defined as 30S-30N',
-    lat_bounds=(-30, 30),
-    lon_bounds=(0, 360),
+    west_bound=0,
+    east_bound=360,
+    south_bound=-30,
+    north_bound=30,
     do_land_mask=False
 )
 

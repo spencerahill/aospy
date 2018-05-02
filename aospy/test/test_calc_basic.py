@@ -57,7 +57,10 @@ class TestCalcBasic(unittest.TestCase):
 
     def tearDown(self):
         for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
-            shutil.rmtree(direc)
+            try:
+                shutil.rmtree(direc)
+            except OSError:
+                pass
 
     def test_annual_mean(self):
         calc = Calc(intvl_out='ann', dtype_out_time='av', **self.test_params)

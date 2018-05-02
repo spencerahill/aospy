@@ -91,14 +91,17 @@ sphum = Var(
 globe = Region(
     name='globe',
     description='Entire globe',
-    lat_bounds=(-90, 90),
-    lon_bounds=(0, 360),
+    west_bound=0,
+    east_bound=360,
+    south_bound=-90,
+    north_bound=90,
     do_land_mask=False
 )
 
 sahel = Region(
     name='sahel',
     description='African Sahel',
-    mask_bounds=[((10, 20), (0, 40)), ((10, 20), (342, 360))],
+    mask_bounds=[(0, 40, 10, 20),
+                 (342, 360, 10, 20)],
     do_land_mask=True
 )

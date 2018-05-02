@@ -187,13 +187,20 @@ Utilities
 
 aospy includes a number of utility functions that are used internally
 and may also be useful to users for their own purposes.  These include
-functions pertaining to input/output (IO), time arrays, andvertical
-coordinates.
+functions pertaining to input/output (IO), longitudes, time arrays,
+and vertical coordinates.
 
 utils.io
 --------
 
 .. automodule:: aospy.utils.io
+    :members:
+    :undoc-members:
+
+utils.longitude
+---------------
+
+.. automodule:: aospy.utils.longitude
     :members:
     :undoc-members:
 
