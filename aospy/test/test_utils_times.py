@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 """Test suite for aospy.timedate module."""
 import datetime
-import warnings
 
+import cftime
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+
+from itertools import product
 
 from aospy.data_loader import set_grid_attrs_as_coords
 from aospy.internal_names import (
@@ -14,6 +16,7 @@ from aospy.internal_names import (
     RAW_START_DATE_STR, RAW_END_DATE_STR, SUBSET_START_DATE_STR,
     SUBSET_END_DATE_STR
 )
+from aospy.automate import _merge_dicts
 from aospy.utils.times import (
     apply_time_offset,
     average_time_bounds,
@@ -21,8 +24,6 @@ from aospy.utils.times import (
     monthly_mean_at_each_ind,
     ensure_datetime,
     datetime_or_default,
-    numpy_datetime_range_workaround,
-    numpy_datetime_workaround_encode_cf,
     month_indices,
     _month_conditional,
     extract_months,
@@ -32,11 +33,13 @@ from aospy.utils.times import (
     assert_matching_time_coord,
     ensure_time_as_index,
     sel_time,
-    yearly_average
+    yearly_average,
+    infer_year,
+    maybe_convert_to_index_date_type
 )
 
 
-_INVALID_DATE_OBJECTS = [1985, True, None, '2016-04-07', np.datetime64(1, 'Y')]
+_INVALID_DATE_OBJECTS = [1985, True, None]
 
 
 def test_apply_time_offset():
@@ -110,10 +113,12 @@ def test_monthly_mean_at_each_ind():
     assert actual.identical(desired)
 
 
-def test_ensure_datetime_valid_input():
-    for date in [datetime.datetime(1981, 7, 15),
-                 datetime.datetime(1, 1, 1)]:
-        assert ensure_datetime(date) == date
+@pytest.mark.parametrize('date', [np.datetime64('2000-01-01'),
+                                  cftime.DatetimeNoLeap(1, 1, 1),
+                                  datetime.datetime(1, 1, 1),
+                                  '2000-01-01'])
+def test_ensure_datetime_valid_input(date):
+    assert ensure_datetime(date) == date
 
 
 def test_ensure_datetime_invalid_input():
@@ -123,117 +128,9 @@ def test_ensure_datetime_invalid_input():
 
 
 def test_datetime_or_default():
-    date = datetime.datetime(1, 2, 3)
+    date = np.datetime64('2000-01-01')
     assert datetime_or_default(None, 'dummy') == 'dummy'
     assert datetime_or_default(date, 'dummy') == ensure_datetime(date)
-
-
-def test_numpy_datetime_range_workaround():
-    assert (numpy_datetime_range_workaround(
-        datetime.datetime(pd.Timestamp.min.year + 1, 1, 1),
-        pd.Timestamp.min.year + 1, pd.Timestamp.min.year + 2) ==
-            datetime.datetime(pd.Timestamp.min.year + 1, 1, 1))
-
-    assert (
-        numpy_datetime_range_workaround(datetime.datetime(3, 1, 1), 1, 6) ==
-        datetime.datetime(pd.Timestamp.min.year + 3, 1, 1)
-    )
-
-    assert (
-        numpy_datetime_range_workaround(datetime.datetime(5, 1, 1), 4, 6) ==
-        datetime.datetime(pd.Timestamp.min.year + 2, 1, 1)
-    )
-
-    # Test min_yr outside valid range
-    assert (
-        numpy_datetime_range_workaround(
-            datetime.datetime(pd.Timestamp.min.year + 3, 1, 1),
-            pd.Timestamp.min.year, pd.Timestamp.min.year + 2) ==
-        datetime.datetime(pd.Timestamp.min.year + 4, 1, 1)
-    )
-
-    # Test max_yr outside valid range
-    assert (
-        numpy_datetime_range_workaround(
-            datetime.datetime(pd.Timestamp.max.year + 2, 1, 1),
-            pd.Timestamp.max.year - 1, pd.Timestamp.max.year) ==
-        datetime.datetime(pd.Timestamp.min.year + 4, 1, 1))
-
-
-def _create_datetime_workaround_test_data(days, ref_units, expected_units):
-    # 1095 days corresponds to three years in a noleap calendar
-    # This allows us to generate ranges which straddle the
-    # Timestamp-valid range
-    three_yrs = 1095.
-    time = xr.DataArray([days, days + three_yrs], dims=[TIME_STR])
-    ds = xr.Dataset(coords={TIME_STR: time})
-    ds[TIME_STR].attrs['units'] = ref_units
-    ds[TIME_STR].attrs['calendar'] = 'noleap'
-    actual, min_yr, max_yr = numpy_datetime_workaround_encode_cf(ds)
-
-    time_desired = xr.DataArray([days, days + three_yrs],
-                                dims=[TIME_STR])
-    desired = xr.Dataset(coords={TIME_STR: time_desired})
-    desired[TIME_STR].attrs['units'] = expected_units
-    desired[TIME_STR].attrs['calendar'] = 'noleap'
-    return actual, min_yr, max_yr, desired
-
-
-def _numpy_datetime_workaround_encode_cf_tests(days, ref_units, expected_units,
-                                               expected_time0, expected_min_yr,
-                                               expected_max_yr):
-    with warnings.catch_warnings(record=True) as warnlog:
-        actual, minyr, maxyr, desired = _create_datetime_workaround_test_data(
-            days, ref_units, expected_units)
-    assert len(warnlog) == 0
-    xr.testing.assert_identical(actual, desired)
-    assert xr.decode_cf(actual).time.values[0] == expected_time0
-    assert minyr == expected_min_yr
-    assert maxyr == expected_max_yr
-
-
-def test_numpy_datetime_workaround_encode_cf():
-    # 255169 days from 0001-01-01 corresponds to date 700-02-04.
-    _numpy_datetime_workaround_encode_cf_tests(
-        255169., 'days since 0001-01-01 00:00:00',
-        'days since 979-01-01 00:00:00', np.datetime64('1678-02-04'),
-        700, 703)
-
-    # Test a case where times are in the Timestamp-valid range
-    _numpy_datetime_workaround_encode_cf_tests(
-        10., 'days since 2000-01-01 00:00:00',
-        'days since 2000-01-01 00:00:00', np.datetime64('2000-01-11'),
-        2000, 2003)
-
-    # Regression tests for GH188
-    _numpy_datetime_workaround_encode_cf_tests(
-        732., 'days since 0700-01-01 00:00:00',
-        'days since 1676-01-01 00:00:00', np.datetime64('1678-01-03'),
-        702, 705)
-
-    # Non-January 1st reference date
-    _numpy_datetime_workaround_encode_cf_tests(
-        732., 'days since 0700-05-03 00:00:00',
-        'days since 1676-05-03 00:00:00', np.datetime64('1678-05-05'),
-        702, 705)
-
-    # Above Timestamp.max
-    _numpy_datetime_workaround_encode_cf_tests(
-        732., 'days since 2300-01-01 00:00:00',
-        'days since 1676-01-01 00:00:00', np.datetime64('1678-01-03'),
-        2302, 2305)
-
-    # Straddle lower bound
-    _numpy_datetime_workaround_encode_cf_tests(
-        2., 'days since 1677-01-01 00:00:00',
-        'days since 1678-01-01 00:00:00', np.datetime64('1678-01-03'),
-        1677, 1680)
-
-    # Straddle upper bound
-    _numpy_datetime_workaround_encode_cf_tests(
-        2., 'days since 2262-01-01 00:00:00',
-        'days since 1678-01-01 00:00:00', np.datetime64('1678-01-03'),
-        2262, 2265)
 
 
 def test_month_indices():
@@ -421,6 +318,94 @@ def test_assert_has_data_for_time():
         _assert_has_data_for_time(da, start_date_bad, end_date_bad)
 
 
+_CFTIME_DATE_TYPES = {
+    'noleap': cftime.DatetimeNoLeap,
+    '365_day': cftime.DatetimeNoLeap,
+    '360_day': cftime.Datetime360Day,
+    'julian': cftime.DatetimeJulian,
+    'all_leap': cftime.DatetimeAllLeap,
+    '366_day': cftime.DatetimeAllLeap,
+    'gregorian': cftime.DatetimeGregorian,
+    'proleptic_gregorian': cftime.DatetimeProlepticGregorian
+}
+
+
+@pytest.mark.parametrize(['calendar', 'date_type'],
+                         list(_CFTIME_DATE_TYPES.items()))
+def test_assert_has_data_for_time_cftime_datetimes(calendar, date_type):
+    time_bounds = np.array([[0, 2], [2, 4], [4, 6]])
+    nv = np.array([0, 1])
+    time = np.array([1, 3, 5])
+    data = np.zeros((3))
+    var_name = 'a'
+    ds = xr.DataArray(data,
+                      coords=[time],
+                      dims=[TIME_STR],
+                      name=var_name).to_dataset()
+    ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
+                                       coords=[time, nv],
+                                       dims=[TIME_STR, BOUNDS_STR],
+                                       name=TIME_BOUNDS_STR)
+    units_str = 'days since 0002-01-02 00:00:00'
+    ds[TIME_STR].attrs['units'] = units_str
+    ds[TIME_STR].attrs['calendar'] = calendar
+    ds = ensure_time_avg_has_cf_metadata(ds)
+    ds = set_grid_attrs_as_coords(ds)
+    with xr.set_options(enable_cftimeindex=True):
+        ds = xr.decode_cf(ds)
+    da = ds[var_name]
+
+    start_date = date_type(2, 1, 2)
+    end_date = date_type(2, 1, 8)
+    _assert_has_data_for_time(da, start_date, end_date)
+
+    start_date_bad = date_type(2, 1, 1)
+    end_date_bad = date_type(2, 1, 9)
+
+    with pytest.raises(AssertionError):
+        _assert_has_data_for_time(da, start_date_bad, end_date)
+
+    with pytest.raises(AssertionError):
+        _assert_has_data_for_time(da, start_date, end_date_bad)
+
+    with pytest.raises(AssertionError):
+        _assert_has_data_for_time(da, start_date_bad, end_date_bad)
+
+
+def test_assert_has_data_for_time_str_input():
+    time_bounds = np.array([[0, 31], [31, 59], [59, 90]])
+    nv = np.array([0, 1])
+    time = np.array([15, 46, 74])
+    data = np.zeros((3))
+    var_name = 'a'
+    ds = xr.DataArray(data,
+                      coords=[time],
+                      dims=[TIME_STR],
+                      name=var_name).to_dataset()
+    ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
+                                       coords=[time, nv],
+                                       dims=[TIME_STR, BOUNDS_STR],
+                                       name=TIME_BOUNDS_STR)
+    units_str = 'days since 2000-01-01 00:00:00'
+    ds[TIME_STR].attrs['units'] = units_str
+    ds = ensure_time_avg_has_cf_metadata(ds)
+    ds = set_grid_attrs_as_coords(ds)
+    ds = xr.decode_cf(ds)
+    da = ds[var_name]
+
+    start_date = '2000-01-01'
+    end_date = '2000-03-31'
+    _assert_has_data_for_time(da, start_date, end_date)
+
+    start_date_bad = '1999-12-31'
+    end_date_bad = '2000-04-01'
+
+    # With strings these checks are disabled
+    _assert_has_data_for_time(da, start_date_bad, end_date)
+    _assert_has_data_for_time(da, start_date, end_date_bad)
+    _assert_has_data_for_time(da, start_date_bad, end_date_bad)
+
+
 def test_assert_matching_time_coord():
     rng = pd.date_range('2000-01-01', '2001-01-01', freq='M')
     arr1 = xr.DataArray(rng, coords=[rng], dims=[TIME_STR])
@@ -555,3 +540,83 @@ def test_average_time_bounds(ds_time_encoded_cf):
                            coords={TIME_STR: desired_values}, name=TIME_STR)
 
     xr.testing.assert_identical(actual, desired)
+
+
+_INFER_YEAR_TESTS = [
+    (np.datetime64('2000-01-01'), 2000),
+    (datetime.datetime(2000, 1, 1), 2000),
+    ('2000', 2000),
+    ('2000-01', 2000),
+    ('2000-01-01', 2000)
+]
+_INFER_YEAR_TESTS = _INFER_YEAR_TESTS + [
+    (date_type(2000, 1, 1), 2000) for date_type in _CFTIME_DATE_TYPES.values()]
+
+
+@pytest.mark.parametrize(
+    ['date', 'expected'],
+    _INFER_YEAR_TESTS)
+def test_infer_year(date, expected):
+    assert infer_year(date) == expected
+
+
+@pytest.mark.parametrize('date', ['-0001', 'A001', '01'])
+def test_infer_year_invalid(date):
+    with pytest.raises(ValueError):
+        infer_year(date)
+
+
+_DATETIME_INDEX = pd.date_range('2000-01-01', freq='M', periods=1)
+_DATETIME_CONVERT_TESTS = {}
+for date_label, date_type in _CFTIME_DATE_TYPES.items():
+    key = 'DatetimeIndex-{}'.format(date_label)
+    _DATETIME_CONVERT_TESTS[key] = (_DATETIME_INDEX, date_type(2000, 1, 1),
+                                    np.datetime64('2000-01'))
+_NON_CFTIME_DATES = {
+    'datetime.datetime': datetime.datetime(2000, 1, 1),
+    'np.datetime64': np.datetime64('2000-01-01'),
+    'str': '2000'
+}
+for date_label, date in _NON_CFTIME_DATES.items():
+    key = 'DatetimeIndex-{}'.format(date_label)
+    if isinstance(date, str):
+        _DATETIME_CONVERT_TESTS[key] = (_DATETIME_INDEX, date, date)
+    else:
+        _DATETIME_CONVERT_TESTS[key] = (_DATETIME_INDEX, date,
+                                        np.datetime64('2000-01'))
+
+_CFTIME_INDEXES = {
+    'CFTimeIndex[{}]'.format(key): xr.CFTimeIndex([value(1, 1, 1)]) for
+    key, value in _CFTIME_DATE_TYPES.items()
+}
+_CFTIME_CONVERT_TESTS = {}
+for ((index_label, index),
+     (date_label, date_type)) in product(_CFTIME_INDEXES.items(),
+                                         _CFTIME_DATE_TYPES.items()):
+    key = '{}-{}'.format(index_label, date_label)
+    _CFTIME_CONVERT_TESTS[key] = (index, date_type(1, 1, 1),
+                                  index.date_type(1, 1, 1))
+_NON_CFTIME_DATES_0001 = {
+    'datetime.datetime': datetime.datetime(1, 1, 1),
+    'np.datetime64': np.datetime64('0001-01-01'),
+    'str': '0001'
+}
+for ((idx_label, index),
+     (date_label, date)) in product(_CFTIME_INDEXES.items(),
+                                    _NON_CFTIME_DATES_0001.items()):
+    key = '{}-{}'.format(index_label, date_label)
+    if isinstance(date, str):
+        _CFTIME_CONVERT_TESTS[key] = (index, date, date)
+    else:
+        _CFTIME_CONVERT_TESTS[key] = (index, date, index.date_type(1, 1, 1))
+
+_CONVERT_DATE_TYPE_TESTS = _merge_dicts(_DATETIME_CONVERT_TESTS,
+                                        _CFTIME_CONVERT_TESTS)
+
+
+@pytest.mark.parametrize(['index', 'date', 'expected'],
+                         list(_CONVERT_DATE_TYPE_TESTS.values()),
+                         ids=list(_CONVERT_DATE_TYPE_TESTS.keys()))
+def test_maybe_convert_to_index_date_type(index, date, expected):
+    result = maybe_convert_to_index_date_type(index, date)
+    assert result == expected

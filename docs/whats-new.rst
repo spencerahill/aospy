@@ -44,6 +44,11 @@ Documentation
 Enhancements
 ~~~~~~~~~~~~
 
+- Use an ``xarray.CFTimeIndex`` for dates from non-standard calendars and
+  outside the Timestamp-valid range.  This eliminates the need for the prior
+  workaround, which shifted dates to within the range 1678 to 2262 prior to
+  indexing (closes :issue:`98` via :pull:`273`).  By
+  `Spencer Clark <https://github.com/spencerkclark>`_.
 - Create ``utils.longitude`` module and ``Longitude`` class for
   representing and comparing longitudes.  Used internally by
   ``aospy.Region`` to construct masks, but could also be useful for
@@ -137,9 +142,9 @@ Dependencies
 
 - ``aospy`` now requires a minimum version of ``distributed`` of
   1.17.1 (fixes :issue:`210` via :pull:`211`).
-- ``aospy`` now requires a minimum version of ``xarray`` of 0.10.3.
-  See discussion in :issue:`199`, :pull:`240`, :issue:`268`, and
-  :pull:`269` for more details.
+- ``aospy`` now requires a minimum version of ``xarray`` of 0.10.4.
+  See discussion in :issue:`199`, :pull:`240`, :issue:`268`,
+  :pull:`269`, and :pull:`273` for more details.
 
 .. _whats-new.0.2:
 

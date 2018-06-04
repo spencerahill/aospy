@@ -1,5 +1,5 @@
 """Sample aospy object library using the included example data."""
-import datetime
+from datetime import datetime
 import os
 
 import aospy
@@ -17,8 +17,8 @@ example_run = Run(
     description=(
         'Control simulation of the idealized moist model'
     ),
-    default_start_date=datetime.datetime(4, 1, 1),
-    default_end_date=datetime.datetime(6, 12, 31),
+    default_start_date=datetime(4, 1, 1),
+    default_end_date=datetime(6, 12, 31),
     data_loader=DictDataLoader(_file_map)
 )
 

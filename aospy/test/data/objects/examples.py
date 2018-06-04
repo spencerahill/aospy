@@ -1,5 +1,6 @@
-from datetime import datetime
 import os
+
+from cftime import DatetimeNoLeap
 
 from aospy import Proj, Model, Run, Var, Region
 from aospy.data_loader import NestedDictDataLoader
@@ -25,8 +26,8 @@ example_run = Run(
         'Control simulation of the idealized moist model'
     ),
     data_loader=NestedDictDataLoader(file_map),
-    default_start_date=datetime(4, 1, 1),
-    default_end_date=datetime(6, 12, 31)
+    default_start_date=DatetimeNoLeap(4, 1, 1),
+    default_end_date=DatetimeNoLeap(6, 12, 31)
 )
 
 example_model = Model(

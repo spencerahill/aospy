@@ -1,7 +1,6 @@
 """aospy DataLoader objects"""
 import logging
 import os
-import warnings
 
 import numpy as np
 import xarray as xr
@@ -16,7 +15,7 @@ from .utils import times, io
 
 
 def _preprocess_and_rename_grid_attrs(func, **kwargs):
-    """Call a custom preprocessing method first then rename grid attrs
+    """Call a custom preprocessing method first then rename grid attrs.
 
     This wrapper is needed to generate a single function to pass to the
     ``preprocesss`` of xr.open_mfdataset.  It makes sure that the
@@ -100,7 +99,7 @@ def set_grid_attrs_as_coords(ds):
 
 
 def _maybe_cast_to_float64(da):
-    """Cast DataArrays to np.float64 if they are of type np.float32
+    """Cast DataArrays to np.float64 if they are of type np.float32.
 
     Parameters
     ----------
@@ -157,16 +156,14 @@ def _sel_var(ds, var, upcast_float32=True):
 
 
 def _prep_time_data(ds):
-    """Prepare time coord. information in Dataset for use in aospy.
+    """Prepare time coordinate information in Dataset for use in aospy.
 
-    1. Edit units attribute of time variable if it contains a Timestamp invalid
-       date
-    2. If the Dataset contains a time bounds coordinate, add attributes
+    1. If the Dataset contains a time bounds coordinate, add attributes
        representing the true beginning and end dates of the time interval used
        to construct the Dataset
-    3. If the Dataset contains a time bounds coordinate, overwrite the time
+    2. If the Dataset contains a time bounds coordinate, overwrite the time
        coordinate values with the averages of the time bounds at each timestep
-    4. Decode the times into np.datetime64 objects for time indexing
+    3. Decode the times into np.datetime64 objects for time indexing
 
     Parameters
     ----------
@@ -176,11 +173,10 @@ def _prep_time_data(ds):
 
     Returns
     -------
-    Dataset, int, int
-        The processed Dataset and minimum and maximum years in the loaded data
+    Dataset
+        The processed Dataset
     """
     ds = times.ensure_time_as_index(ds)
-    ds, min_year, max_year = times.numpy_datetime_workaround_encode_cf(ds)
     if TIME_BOUNDS_STR in ds:
         ds = times.ensure_time_avg_has_cf_metadata(ds)
         ds[TIME_STR] = times.average_time_bounds(ds)
@@ -189,10 +185,10 @@ def _prep_time_data(ds):
                         "values in time, even though this may not be "
                         "the case")
         ds = times.add_uniform_time_weights(ds)
-    with warnings.catch_warnings(record=True):
+    with xr.set_options(enable_cftimeindex=True):
         ds = xr.decode_cf(ds, decode_times=True, decode_coords=False,
                           mask_and_scale=True)
-    return ds, min_year, max_year
+    return ds
 
 
 def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds,
@@ -239,7 +235,7 @@ def apply_preload_user_commands(file_set, cmd=io.dmget):
 
 
 def _setattr_default(obj, attr, value, default):
-    """Set an attribute of an object to a value or default value"""
+    """Set an attribute of an object to a value or default value."""
     if value is None:
         setattr(obj, attr, default)
     else:
@@ -247,7 +243,7 @@ def _setattr_default(obj, attr, value, default):
 
 
 class DataLoader(object):
-    """A fundamental DataLoader object"""
+    """A fundamental DataLoader object."""
     def load_variable(self, var=None, start_date=None, end_date=None,
                       time_offset=None, **DataAttrs):
         """Load a DataArray for requested variable and time range.
@@ -280,21 +276,19 @@ class DataLoader(object):
             coords=self.coords, start_date=start_date, end_date=end_date,
             time_offset=time_offset, **DataAttrs
         )
-
-        ds, min_year, max_year = _prep_time_data(ds)
+        ds = _prep_time_data(ds)
+        start_date = times.maybe_convert_to_index_date_type(
+            ds.indexes[TIME_STR], start_date)
+        end_date = times.maybe_convert_to_index_date_type(
+            ds.indexes[TIME_STR], end_date)
         ds = set_grid_attrs_as_coords(ds)
         da = _sel_var(ds, var, self.upcast_float32)
         da = self._maybe_apply_time_shift(da, time_offset, **DataAttrs)
-
-        start_date_xarray = times.numpy_datetime_range_workaround(
-            start_date, min_year, max_year)
-        end_date_xarray = start_date_xarray + (end_date - start_date)
-        return times.sel_time(da, np.datetime64(start_date_xarray),
-                              np.datetime64(end_date_xarray)).load()
+        return times.sel_time(da, start_date, end_date).load()
 
     def recursively_compute_variable(self, var, start_date=None, end_date=None,
                                      time_offset=None, **DataAttrs):
-        """Compute a variable recursively, loading data where needed
+        """Compute a variable recursively, loading data where needed.
 
         An obvious requirement here is that the variable must eventually be
         able to be expressed in terms of model-native quantities; otherwise the
@@ -344,7 +338,7 @@ class DataLoader(object):
 
 
 class DictDataLoader(DataLoader):
-    """A DataLoader that uses a dict mapping lists of files to string tags
+    """A DataLoader that uses a dict mapping lists of files to string tags.
 
     This is the simplest DataLoader; it is useful for instance if one is
     dealing with raw model history files, which tend to group all variables
@@ -393,7 +387,7 @@ class DictDataLoader(DataLoader):
     """
     def __init__(self, file_map=None, upcast_float32=True, data_vars='minimal',
                  coords='minimal', preprocess_func=lambda ds, **kwargs: ds):
-        """Create a new DictDataLoader"""
+        """Create a new DictDataLoader."""
         self.file_map = file_map
         self.upcast_float32 = upcast_float32
         self.data_vars = data_vars
@@ -412,7 +406,7 @@ class DictDataLoader(DataLoader):
 
 
 class NestedDictDataLoader(DataLoader):
-    """DataLoader that uses a nested dictionary mapping to load files
+    """DataLoader that uses a nested dictionary mapping to load files.
 
     This is the most flexible existing type of DataLoader; it allows for the
     specification of different sets of files for different variables.  The
@@ -474,7 +468,7 @@ class NestedDictDataLoader(DataLoader):
 
 
 class GFDLDataLoader(DataLoader):
-    """DataLoader for NOAA GFDL model output
+    """DataLoader for NOAA GFDL model output.
 
     This is an example of a domain-specific custom DataLoader, designed
     specifically for finding files output by the Geophysical Fluid Dynamics
@@ -609,10 +603,13 @@ class GFDLDataLoader(DataLoader):
         else:
             subdir = os.path.join(intvl_in, dur_str)
         direc = os.path.join(self.data_direc, domain, dtype_lbl, subdir)
+        data_start_year = times.infer_year(self.data_start_date)
+        start_year = times.infer_year(start_date)
+        end_year = times.infer_year(end_date)
         files = [os.path.join(direc, io.data_name_gfdl(
                     name, domain, dtype, intvl_in, year, intvl_out,
-                    self.data_start_date.year, self.data_dur))
-                 for year in range(start_date.year, end_date.year + 1)]
+                    data_start_year, self.data_dur))
+                 for year in range(start_year, end_year + 1)]
         files = list(set(files))
         files.sort()
         return files

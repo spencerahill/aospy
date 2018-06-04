@@ -1,10 +1,14 @@
 """Utility functions for handling times, dates, etc."""
 import datetime
-import warnings
+import logging
+import re
 
+import cftime
 import numpy as np
 import pandas as pd
 import xarray as xr
+
+from pandas.errors import OutOfBoundsDatetime
 
 from ..internal_names import (
     BOUNDS_STR, GRID_ATTRS_NO_TIMES, RAW_END_DATE_STR, RAW_START_DATE_STR,
@@ -173,7 +177,7 @@ def yearly_average(arr, dt):
 
 
 def ensure_datetime(obj):
-    """Return the object if it is of type datetime.datetime; else raise.
+    """Return the object if it is a datetime-like object
 
     Parameters
     ----------
@@ -181,24 +185,24 @@ def ensure_datetime(obj):
 
     Returns
     -------
-    The original object if it is a datetime.datetime object.
+    The original object if it is a datetime-like object
 
     Raises
     ------
-    TypeError if `obj` is not of type `datetime.datetime`.
+    TypeError if `obj` is not datetime-like
     """
-    if isinstance(obj, datetime.datetime):
+    if isinstance(obj, (str, datetime.datetime, cftime.datetime, np.datetime64)):
         return obj
-    raise TypeError("`datetime.datetime` object required.  "
+    raise TypeError("datetime-like object required.  "
                     "Type given: {}".format(type(obj)))
 
 
 def datetime_or_default(date, default):
-    """Return a datetime.datetime object or a default.
+    """Return a datetime-like object or a default.
 
     Parameters
     ----------
-    date : `None` or datetime-like object
+    date : `None` or datetime-like object or str
     default : The value to return if `date` is `None`
 
     Returns
@@ -211,85 +215,6 @@ def datetime_or_default(date, default):
         return default
     else:
         return ensure_datetime(date)
-
-
-def numpy_datetime_range_workaround(date, min_year, max_year):
-    """Reset a date to earliest allowable year if outside of valid range.
-
-    Hack to address np.datetime64, and therefore pandas and xarray, not
-    supporting dates outside the range 1677-09-21 and 2262-04-11 due to
-    nanosecond precision.  See e.g.
-    https://github.com/spencerahill/aospy/issues/96.
-
-
-    Parameters
-    ----------
-    date : datetime.datetime object
-    min_year : int
-        Minimum year in the raw decoded dataset
-    max_year : int
-        Maximum year in the raw decoded dataset
-
-    Returns
-    -------
-    datetime.datetime object
-        Original datetime.datetime object if the original date is within the
-        permissible dates, otherwise a datetime.datetime object with the year
-        offset to the earliest allowable year.
-    """
-    min_yr_in_range = pd.Timestamp.min.year < min_year < pd.Timestamp.max.year
-    max_yr_in_range = pd.Timestamp.min.year < max_year < pd.Timestamp.max.year
-    if not (min_yr_in_range and max_yr_in_range):
-        return datetime.datetime(
-            date.year - min_year + pd.Timestamp.min.year + 1,
-            date.month, date.day)
-    return date
-
-
-def numpy_datetime_workaround_encode_cf(ds):
-    """Generate CF-compliant units for out-of-range dates.
-
-    Hack to address np.datetime64, and therefore pandas and xarray, not
-    supporting dates outside the range 1677-09-21 and 2262-04-11 due to
-    nanosecond precision.  See e.g.
-    https://github.com/spencerahill/aospy/issues/96.
-
-    Specifically, we coerce the data such that, when decoded, the earliest
-    value starts in 1678 but with its month, day, and shorter timescales
-    (hours, minutes, seconds, etc.) intact and with the time-spacing between
-    values intact.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-
-    Returns
-    -------
-    xarray.Dataset, int, int
-        Dataset with time units adjusted as needed, minimum year
-        in loaded data, and maximum year in loaded data.
-    """
-    time = ds[TIME_STR]
-    units = time.attrs['units']
-    units_yr = units.split(' since ')[1].split('-')[0]
-    with warnings.catch_warnings(record=True):
-        min_yr_decoded = xr.decode_cf(time.to_dataset(name='dummy'))
-    min_date = min_yr_decoded[TIME_STR].values[0]
-    max_date = min_yr_decoded[TIME_STR].values[-1]
-    if all(isinstance(date, np.datetime64) for date in [min_date, max_date]):
-        return ds, pd.Timestamp(min_date).year, pd.Timestamp(max_date).year
-    else:
-        min_yr = min_date.year
-        max_yr = max_date.year
-        offset = int(units_yr) - min_yr + 1
-        new_units_yr = pd.Timestamp.min.year + offset
-        new_units = units.replace(units_yr, str(new_units_yr))
-
-        for VAR_STR in TIME_VAR_STRS:
-            if VAR_STR in ds:
-                var = ds[VAR_STR]
-                var.attrs['units'] = new_units
-        return ds, min_yr, max_yr
 
 
 def month_indices(months):
@@ -462,9 +387,9 @@ def _assert_has_data_for_time(da, start_date, end_date):
     ----------
     da : DataArray
          DataArray with a time variable
-    start_date : netCDF4.netcdftime or np.datetime64
+    start_date : datetime-like object or str
          start date
-    end_date : netCDF4.netcdftime or np.datetime64
+    end_date : datetime-like object or str
          end date
 
     Raises
@@ -472,6 +397,16 @@ def _assert_has_data_for_time(da, start_date, end_date):
     AssertionError
          if the time range is not within the time range of the DataArray
     """
+    if isinstance(start_date, str) and isinstance(end_date, str):
+        logging.warning(
+            'When using strings to specify start and end dates, the check '
+            'to determine if data exists for the full extent of the desired '
+            'interval is not implemented.  Therefore it is possible that '
+            'you are doing a calculation for a lesser interval than you '
+            'specified.  If you would like this check to occur, use explicit '
+            'datetime-like objects for bounds instead.')
+        return
+
     if RAW_START_DATE_STR in da.coords:
         da_start = da[RAW_START_DATE_STR].values
         da_end = da[RAW_END_DATE_STR].values
@@ -480,7 +415,11 @@ def _assert_has_data_for_time(da, start_date, end_date):
         da_start, da_end = times.values
     message = ('Data does not exist for requested time range: {0} to {1};'
                ' found data from time range: {2} to {3}.')
-    range_exists = start_date >= da_start and end_date <= da_end
+    # Add tolerance of one second, due to precision of cftime.datetimes
+    tol = datetime.timedelta(seconds=1)
+    if isinstance(da_start, np.datetime64):
+        tol = np.timedelta64(tol, 'ns')
+    range_exists = (da_start - tol) <= start_date and (da_end + tol) >= end_date
     assert (range_exists), message.format(start_date, end_date,
                                           da_start, da_end)
 
@@ -571,3 +510,95 @@ def ensure_time_as_index(ds):
             da[TIME_STR] = ds[TIME_STR]
             ds[name] = da
     return ds
+
+
+def infer_year(date):
+    """Given a datetime-like object or string infer the year.
+
+    Parameters
+    ----------
+    date : datetime-like object or str
+        Input date
+
+    Returns
+    -------
+    int
+
+    Examples
+    --------
+    >>> infer_year('2000')
+    2000
+    >>> infer_year('2000-01')
+    2000
+    >>> infer_year('2000-01-31')
+    2000
+    >>> infer_year(datetime.datetime(2000, 1, 1))
+    2000
+    >>> infer_year(np.datetime64('2000-01-01'))
+    2000
+    >>> infer_year(DatetimeNoLeap(2000, 1, 1))
+    2000
+    >>> 
+    """
+    if isinstance(date, str):
+        # Look for a string that begins with four numbers; the first four
+        # numbers found are the year.
+        pattern = '(?P<year>\d{4})'
+        result = re.match(pattern, date)
+        if result:
+            return int(result.groupdict()['year'])
+        else:
+            raise ValueError('Invalid date string provided: {}'.format(date))
+    elif isinstance(date, np.datetime64):
+        return date.item().year
+    else:
+        return date.year
+    
+
+def maybe_convert_to_index_date_type(index, date):
+    """Convert a datetime-like object to the index's date type.
+
+    Datetime indexing in xarray can be done using either a pandas 
+    DatetimeIndex or a CFTimeIndex.  Both support partial-datetime string
+    indexing regardless of the calendar type of the underlying data;
+    therefore if a string is passed as a date, we return it unchanged.  If a
+    datetime-like object is provided, it will be converted to the underlying
+    date type of the index.  For a DatetimeIndex that is np.datetime64; for a
+    CFTimeIndex that is an object of type cftime.datetime specific to the
+    calendar used.
+
+    Parameters
+    ----------
+    index : pd.Index
+        Input time index
+    date : datetime-like object or str
+        Input datetime
+
+    Returns
+    -------
+    date of the type appropriate for the time index of the Dataset
+    """
+    if isinstance(date, str):
+        return date
+
+    if isinstance(index, pd.DatetimeIndex):
+        if isinstance(date, np.datetime64):
+            return date
+        else:
+            return np.datetime64(str(date))
+    else:
+        date_type = index.date_type
+        if isinstance(date, date_type):
+            return date
+        else:
+            if isinstance(date, np.datetime64):
+                # Convert to datetime.date or datetime.datetime object
+                date = date.item()
+                
+            if isinstance(date, datetime.date):
+                # Convert to a datetime.datetime object
+                date = datetime.datetime.combine(
+                    date, datetime.datetime.min.time())
+                
+            return date_type(date.year, date.month, date.day, date.hour,
+                             date.minute, date.second, date.microsecond)
