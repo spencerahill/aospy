@@ -53,9 +53,8 @@ _3D_DATE_RANGES = {
     'datetime': (datetime.datetime(6, 1, 1), datetime.datetime(6, 1, 31)),
     'datetime64': (np.datetime64('0006-01-01'), np.datetime64('0006-01-31')),
     'cftime': (cftime.DatetimeNoLeap(6, 1, 1),
-               cftime.DatetimeNoLeap(6, 1, 31))
-    # 'str': ('0006', '0006')  TODO: This should work once xarray version
-    # 0.10.5 is released
+               cftime.DatetimeNoLeap(6, 1, 31)),
+    'str': ('0006', '0006')
 }
 _2D_VARS = {'basic': condensation_rain, 'composite': precip}
 _2D_DTYPE_OUT_VERT = {'None': None}

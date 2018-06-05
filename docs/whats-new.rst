@@ -142,9 +142,9 @@ Dependencies
 
 - ``aospy`` now requires a minimum version of ``distributed`` of
   1.17.1 (fixes :issue:`210` via :pull:`211`).
-- ``aospy`` now requires a minimum version of ``xarray`` of 0.10.4.
+- ``aospy`` now requires a minimum version of ``xarray`` of 0.10.6.
   See discussion in :issue:`199`, :pull:`240`, :issue:`268`,
-  :pull:`269`, and :pull:`273` for more details.
+  :pull:`269`, :pull:`273`, and :pull:`275` for more details.
 
 .. _whats-new.0.2:
 
