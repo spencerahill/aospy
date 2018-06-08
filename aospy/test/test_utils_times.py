@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Test suite for aospy.timedate module."""
 import datetime
+import warnings
 
 import cftime
 import numpy as np
@@ -69,7 +70,7 @@ def test_monthly_mean_ts_submonthly():
     time = pd.date_range('2000-01-01', freq='1D', periods=365 * 3)
     arr = xr.DataArray(np.random.random(time.shape), dims=[TIME_STR],
                        coords={TIME_STR: time})
-    desired = arr.resample('1M', TIME_STR, how='mean')
+    desired = arr.resample(**{TIME_STR: '1M'}).mean(TIME_STR)
     actual = monthly_mean_ts(arr)
     assert desired.identical(actual)
 
@@ -85,7 +86,8 @@ def test_monthly_mean_ts_monthly():
 def test_monthly_mean_ts_na():
     time = pd.to_datetime(['2000-06-01', '2001-06-01'])
     arr = xr.DataArray(np.random.random(time.shape), dims=[TIME_STR],
-                       coords={TIME_STR: time}).resample('1M', TIME_STR)
+                       coords={TIME_STR: time})
+    arr = arr.resample(**{TIME_STR: '1M'}).mean(TIME_STR)
     actual = monthly_mean_ts(arr)
     desired = arr.dropna(TIME_STR)
     assert desired.identical(actual)
@@ -351,12 +353,15 @@ def test_assert_has_data_for_time_cftime_datetimes(calendar, date_type):
     ds[TIME_STR].attrs['calendar'] = calendar
     ds = ensure_time_avg_has_cf_metadata(ds)
     ds = set_grid_attrs_as_coords(ds)
-    with xr.set_options(enable_cftimeindex=True):
-        ds = xr.decode_cf(ds)
+
+    with warnings.catch_warnings(record=True):
+        with xr.set_options(enable_cftimeindex=True):
+            ds = xr.decode_cf(ds)
     da = ds[var_name]
 
     start_date = date_type(2, 1, 2)
     end_date = date_type(2, 1, 8)
+
     _assert_has_data_for_time(da, start_date, end_date)
 
     start_date_bad = date_type(2, 1, 1)

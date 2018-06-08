@@ -2,6 +2,7 @@
 import datetime
 import logging
 import re
+import warnings
 
 import cftime
 import numpy as np
@@ -115,8 +116,9 @@ def monthly_mean_ts(arr):
     See Also
     --------
     monthly_mean_at_each_ind : Copy monthly means to each submonthly time
+
     """
-    return arr.resample('1M', TIME_STR, how='mean').dropna(TIME_STR)
+    return arr.resample(**{TIME_STR: '1M'}).mean(TIME_STR).dropna(TIME_STR)
 
 
 def monthly_mean_at_each_ind(monthly_means, sub_monthly_timeseries):
@@ -395,7 +397,8 @@ def _assert_has_data_for_time(da, start_date, end_date):
     Raises
     ------
     AssertionError
-         if the time range is not within the time range of the DataArray
+         If the time range is not within the time range of the DataArray
+
     """
     if isinstance(start_date, str) and isinstance(end_date, str):
         logging.warning(
@@ -408,11 +411,13 @@ def _assert_has_data_for_time(da, start_date, end_date):
         return
 
     if RAW_START_DATE_STR in da.coords:
-        da_start = da[RAW_START_DATE_STR].values
-        da_end = da[RAW_END_DATE_STR].values
+        with warnings.catch_warnings(record=True):
+            da_start = da[RAW_START_DATE_STR].values
+            da_end = da[RAW_END_DATE_STR].values
     else:
         times = da.time.isel(**{TIME_STR: [0, -1]})
         da_start, da_end = times.values
+
     message = ('Data does not exist for requested time range: {0} to {1};'
                ' found data from time range: {2} to {3}.')
     # Add tolerance of one second, due to precision of cftime.datetimes
@@ -538,7 +543,7 @@ def infer_year(date):
     2000
     >>> infer_year(DatetimeNoLeap(2000, 1, 1))
     2000
-    >>> 
+    >>>
     """
     if isinstance(date, str):
         # Look for a string that begins with four numbers; the first four
@@ -553,12 +558,12 @@ def infer_year(date):
         return date.item().year
     else:
         return date.year
-    
+
 
 def maybe_convert_to_index_date_type(index, date):
     """Convert a datetime-like object to the index's date type.
 
-    Datetime indexing in xarray can be done using either a pandas 
+    Datetime indexing in xarray can be done using either a pandas
     DatetimeIndex or a CFTimeIndex.  Both support partial-datetime string
     indexing regardless of the calendar type of the underlying data;
     therefore if a string is passed as a date, we return it unchanged.  If a
@@ -594,11 +599,11 @@ def maybe_convert_to_index_date_type(index, date):
             if isinstance(date, np.datetime64):
                 # Convert to datetime.date or datetime.datetime object
                 date = date.item()
-                
+
             if isinstance(date, datetime.date):
                 # Convert to a datetime.datetime object
                 date = datetime.datetime.combine(
                     date, datetime.datetime.min.time())
-                
+
             return date_type(date.year, date.month, date.day, date.hour,
                              date.minute, date.second, date.microsecond)
