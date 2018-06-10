@@ -1,6 +1,7 @@
 """aospy DataLoader objects"""
 import logging
 import os
+import pprint
 
 import numpy as np
 import xarray as xr
@@ -572,14 +573,18 @@ class GFDLDataLoader(DataLoader):
     def _generate_file_set(self, var=None, start_date=None, end_date=None,
                            domain=None, intvl_in=None, dtype_in_vert=None,
                            dtype_in_time=None, intvl_out=None):
+        attempted_file_sets = []
         for name in var.names:
             file_set = self._input_data_paths_gfdl(
                 name, start_date, end_date, domain, intvl_in, dtype_in_vert,
                 dtype_in_time, intvl_out)
+            attempted_file_sets.append(file_set)
             if all([os.path.isfile(filename) for filename in file_set]):
                 return file_set
-        raise IOError('Files for the var {0} cannot be located'
-                      'using GFDL post-processing conventions'.format(var))
+        raise IOError('Files for the var {0} cannot be located '
+                      'using GFDL post-processing conventions. '
+                      'Attempted using the following sets of paths:\n\n'
+                      '{1}'.format(var, pprint.pformat(attempted_file_sets)))
 
     def _input_data_paths_gfdl(self, name, start_date, end_date, domain,
                                intvl_in, dtype_in_vert, dtype_in_time,
