@@ -15,5 +15,4 @@ dependencies:
   - pip:
     - coveralls
     - pytest-cov
-    - pytest-catchlog
     - git+https://github.com/pydata/xarray.git

@@ -424,35 +424,21 @@ class Calc(object):
         arr.name = self.name
         return arr
 
-    def _compute(self, data, monthly_mean=False):
+    def _compute(self, data):
         """Perform the calculation."""
-        if monthly_mean:
-            data_monthly = []
-            for d in data:
-                try:
-                    data_monthly.append(utils.times.monthly_mean_ts(d))
-                except KeyError:
-                    data_monthly.append(d)
-            data = data_monthly
         local_ts = self._local_ts(*data)
         dt = local_ts[internal_names.TIME_WEIGHTS_STR]
-        if monthly_mean:
-            dt = utils.times.monthly_mean_ts(dt)
         # Convert dt to units of days to prevent overflow
         dt = dt / np.timedelta64(1, 'D')
         return local_ts, dt
 
-    def _compute_full_ts(self, data, monthly_mean=False, zonal_asym=False):
+    def _compute_full_ts(self, data):
         """Perform calculation and create yearly timeseries at each point."""
         # Get results at each desired timestep and spatial point.
-        # Here we need to provide file read-in dates (NOT xarray dates)
-        full_ts, dt = self._compute(data, monthly_mean=monthly_mean)
-        if zonal_asym:
-            full_ts = full_ts - full_ts.mean(internal_names.LON_STR)
+        full_ts, dt = self._compute(data)
         # Vertically integrate.
         vert_types = ('vert_int', 'vert_av')
         if self.dtype_out_vert in vert_types and self.var.def_vert:
-            # Here we need file read-in dates (NOT xarray dates)
             full_ts = utils.vertcoord.int_dp_g(
                 full_ts, self._get_pressure_vals(dp, self.start_date,
                                                  self.end_date)
@@ -515,55 +501,19 @@ class Calc(object):
             reg_dat.update(**{reg.name: data_out})
         return xr.Dataset(reg_dat)
 
-    def _apply_all_time_reductions(self, full_ts, monthly_ts, eddy_ts):
+    def _apply_all_time_reductions(self, data):
         """Apply all requested time reductions to the data."""
         logging.info(self._print_verbose("Applying desired time-"
                                          "reduction methods."))
-        # Determine which are regional, eddy, time-mean.
         reduc_specs = [r.split('.') for r in self.dtype_out_time]
         reduced = {}
         for reduc, specs in zip(self.dtype_out_time, reduc_specs):
             func = specs[-1]
-            if 'eddy' in specs:
-                data = eddy_ts
-            elif 'time-mean' in specs:
-                data = monthly_ts
-            else:
-                data = full_ts
             if 'reg' in specs:
                 reduced.update({reduc: self.region_calcs(data, func)})
             else:
                 reduced.update({reduc: self._time_reduce(data, func)})
         return OrderedDict(sorted(reduced.items(), key=lambda t: t[0]))
-
-    def _make_full_mean_eddy_ts(self, data):
-        """Create full, monthly-mean, and eddy timeseries of data."""
-        bool_monthly = (['monthly_from' in self.dtype_in_time] +
-                        ['time-mean' in dout for dout in self.dtype_out_time])
-        bool_eddy = ['eddy' in dout for dout in self.dtype_out_time]
-        if not all(bool_monthly):
-            full, full_dt = self._compute_full_ts(data,
-                                                  monthly_mean=False)
-        else:
-            full = False
-        if any(bool_eddy) or any(bool_monthly):
-            monthly, monthly_dt = self._compute_full_ts(data,
-                                                        monthly_mean=True)
-        else:
-            monthly = False
-        if any(bool_eddy):
-            eddy = full - utils.times.monthly_mean_at_each_ind(monthly, full)
-        else:
-            eddy = False
-
-        # Average within each year.
-        if not all(bool_monthly):
-            full = self._full_to_yearly_ts(full, full_dt)
-        if any(bool_monthly):
-            monthly = self._full_to_yearly_ts(monthly, monthly_dt)
-        if any(bool_eddy):
-            eddy = self._full_to_yearly_ts(eddy, full_dt)
-        return full, monthly, eddy
 
     def compute(self, write_to_tar=True):
         """Perform all desired calculations on the data and save externally."""
@@ -572,8 +522,9 @@ class Calc(object):
                                self.var.func_input_dtype)
         logging.info('Computing timeseries for {0} -- '
                      '{1}.'.format(self.start_date, self.end_date))
-        full, monthly, eddy = self._make_full_mean_eddy_ts(data)
-        reduced = self._apply_all_time_reductions(full, monthly, eddy)
+        full, full_dt = self._compute_full_ts(data)
+        full_out = self._full_to_yearly_ts(full, full_dt)
+        reduced = self._apply_all_time_reductions(full_out)
         logging.info("Writing desired gridded outputs to disk.")
         for dtype_time, data in reduced.items():
             data = _add_metadata_as_attrs(data, self.var.units,
