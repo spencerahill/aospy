@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 
 import pytest
 
@@ -19,4 +20,5 @@ def test_tutorial_notebook():
         notebook = nbformat.read(nb_file, as_version=nbformat.NO_CONVERT)
     kernel_name = 'python' + str(sys.version[0])
     ep = ExecutePreprocessor(kernel_name=kernel_name)
-    ep.preprocess(notebook, {})
+    with warnings.catch_warnings(record=True):
+        ep.preprocess(notebook, {})

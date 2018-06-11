@@ -16,7 +16,6 @@ from aospy.automate import (_get_attr_by_tag, _permuted_dicts_of_specs,
                             _compute_or_skip_on_error, submit_mult_calcs,
                             _n_workers_for_local_cluster,
                             _prune_invalid_time_reductions)
-from . import requires_pytest_catchlog
 from .data.objects import examples as lib
 from .data.objects.examples import (
     example_proj, example_model, example_run, var_not_time_defined,
@@ -202,7 +201,6 @@ def calc(calcsuite_init_specs_single_calc):
     return CalcSuite(calcsuite_init_specs_single_calc).create_calcs()[0]
 
 
-@requires_pytest_catchlog
 def test_compute_or_skip_on_error(calc, caplog):
     result = _compute_or_skip_on_error(calc, dict(write_to_tar=False))
     assert result is calc
@@ -221,7 +219,7 @@ def external_client():
     cluster = distributed.LocalCluster(n_workers=4)
     client = distributed.Client(cluster)
     yield client
-    client.shutdown()
+    client.close()
     cluster.close()
 
 
