@@ -5,7 +5,28 @@ from .internal_names import YEAR_STR
 _TIME_DEFINED_REDUCTIONS = ['av', 'std', 'ts', 'reg.av', 'reg.std', 'reg.ts']
 
 
-class Reduction(object):
+registry = {}
+
+
+def register_reduction(reduction):
+    label = reduction.label
+    if label in registry:
+        raise KeyError("A Reduction object already exists with the desired "
+                       "label '{0}', and duplicates are not allowed.  "
+                       "The existing object is: "
+                       "{1}".format(label, registry[label]))
+    else:
+        registry[label] = reduction
+
+
+class RegisterReduction(type):
+    def __new__(meta, name, bases, class_dict):
+        cls = type.__new__(meta, name, bases, class_dict)
+        register_reduction(cls)
+        return cls
+
+
+class Reduction(object, metaclass=RegisterReduction):
     """Base class for spatiotemporal reductions."""
     def __init__(self, reduction_func, label):
         self._reducer = reduction_func
