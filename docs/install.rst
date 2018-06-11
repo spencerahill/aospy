@@ -7,7 +7,7 @@ Supported platforms
 -------------------
 
 - Operating system: Windows, MacOS/Mac OS X, and Linux
-- Python: 2.7, 3.5, and 3.6
+- Python: 3.5 and 3.6
 
 .. note::
 

@@ -5,11 +5,6 @@
 environment:
 
   matrix:
-    - PYTHON: "C:\\Python27-conda64"
-      PYTHON_VERSION: "2.7"
-      PYTHON_ARCH: "64"
-      CONDA_ENV: "py27"
-
     - PYTHON: "C:\\Python35-conda64"
       PYTHON_VERSION: "3.5"
       PYTHON_ARCH: "64"

@@ -16,8 +16,8 @@ Breaking Changes
   explicit ``east_bound``, ``west_bound``, ``south_bound``, and
   ``north_bound`` (:pull:`266`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
-- Drop support for Python 3.4, since our core upstream dependency
-  xarray is also dropping it as of their 0.11 release (:pull:`255`).
+- Drop support for Python 2.7 and 3.4, since our core upstream dependency
+  xarray is also dropping these soon (:pull:`255`, :pull:`280`).
   By `Spencer Hill <https://github.com/spencerahill>`_.
 - Deprecate ``Constant`` class and ``constants.py`` module.
   Physical constants used internally by aospy are now stored
