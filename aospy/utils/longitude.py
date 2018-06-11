@@ -106,6 +106,7 @@ class Longitude(object):
         """
         Parameters
         ----------
+
         value : {scalar, str}
             Scalars get converted to longitudes using the convention that 0-180
             corresponds to the Eastern Hemisphere, 180-360 corresponds to the
@@ -116,6 +117,7 @@ class Longitude(object):
             range 0-180 followed by a single letter 'e' or 'w' (case
             insensitive).  For example, ``Longitude('10w')`` would yield a
             ``Longitude`` object corresponding to 10 degrees west longitude.
+
         """
         try:
             val_as_float = float(value)

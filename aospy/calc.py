@@ -13,6 +13,7 @@ import xarray as xr
 from ._constants import GRAV_EARTH
 from . import internal_names
 from . import utils
+from .reductions import _TIME_DEFINED_REDUCTIONS
 from .var import Var
 
 
@@ -39,7 +40,6 @@ ps = Var(
     def_lat=True,
     def_lon=True,
 )
-_TIME_DEFINED_REDUCTIONS = ['av', 'std', 'ts', 'reg.av', 'reg.std', 'reg.ts']
 
 
 class Calc(object):
