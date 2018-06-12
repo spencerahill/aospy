@@ -42,6 +42,23 @@ ps = Var(
 )
 
 
+def _print_verbose(*args):
+    """Print diagnostic message."""
+    labels = ['{} '.format(a) for a in args] + ['({})'.format(ctime())]
+    message = ''
+    for label in labels:
+        message += label
+    return message
+
+
+def log_step(func, logger, log_msg):
+    """Decorator for logging status update messages."""
+    def func_with_logging(*args, **kwargs):
+        logger(log_msg)
+        return func(*args, **kwargs)
+    return func_with_logging
+
+
 class Calc(object):
     """Class for executing, saving, and loading a single computation."""
 
@@ -96,14 +113,7 @@ class Calc(object):
     def _path_tar_out(self):
         return os.path.join(self.dir_tar_out, 'data.tar')
 
-    @staticmethod
-    def _print_verbose(*args):
-        """Print diagnostic message."""
-        try:
-            return '{0} {1} ({2})'.format(args[0], args[1], ctime())
-        except IndexError:
-            return '{0} ({1})'.format(args[0], ctime())
-
+    @log_step(logging.debug, 'Initializing Calc instance: {}'.format(self))
     def __init__(self, proj=None, model=None, run=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
@@ -191,9 +201,6 @@ class Calc(object):
         self.def_time = self.var.def_time
         self.def_vert = self.var.def_vert
 
-        logging.debug(self._print_verbose('Initializing Calc '
-                                          'instance:', self.__str__()))
-
         try:
             self.function = self.var.func
         except AttributeError:
@@ -276,7 +283,7 @@ class Calc(object):
                                "Therefore replacing Run's values with the "
                                "model's.".format(name_int, self.run,
                                                  self.model))
-                        logging.info(msg)
+                        logging.debug(msg)
                         ds[name_int].values = model_attr.values
                     else:
                         msg = ("Model coordinates for '{0}' do not match those"
@@ -341,9 +348,9 @@ class Calc(object):
         raise ValueError("`dtype_in_vert` must be either 'pressure' or "
                          "'sigma' for pressure data")
 
+    @log_step(logging.info, "Getting input data: {}".format(var))
     def _get_input_data(self, var, start_date, end_date):
         """Get the data for a single variable over the desired date range."""
-        logging.info(self._print_verbose("Getting input data:", var))
         # Pass numerical constants as is.
         if isinstance(var, (float, int)):
             return var
@@ -442,10 +449,9 @@ class Calc(object):
             reg_dat.update(**{reg.name: data_out})
         return reg_dat
 
-    def _apply_all_time_reductions(self, data):
+    @log_step(logging.info, "Applying desired time-reduction methods.")
+    def _apply_time_reductions(self, data):
         """Apply all requested time reductions to the data."""
-        logging.info(self._print_verbose("Applying desired time-"
-                                         "reduction methods."))
         reduced = {}
         for reduc in self.dtype_out_time:
             if isinstance(reduc, RegionReduction):
@@ -454,6 +460,8 @@ class Calc(object):
                 reduced.update({reduc.label: reduc(data)})
         return OrderedDict(sorted(reduced.items(), key=lambda t: t[0]))
 
+    @log_step(logging.info, ('Computing timeseries for {0} -- '
+                             '{1}.'.format(self.start_date, self.end_date))
     def compute(self, write_to_tar=True):
         """Perform all desired calculations on the data and save externally.
 
@@ -465,19 +473,16 @@ class Calc(object):
             location.  Default is True.
 
         """
-        data = self._get_all_data(self.start_date, self.end_date)
-        logging.info('Computing timeseries for {0} -- '
-                     '{1}.'.format(self.start_date, self.end_date))
+        data_in = self._get_all_data(self.start_date, self.end_date)
         # Get results at each desired timestep and spatial point.
-        full_ts = self._local_ts(*data)
-        # Convert dt to units of days to prevent overflow
-        dt = local_ts[internal_names.TIME_WEIGHTS_STR] / np.timedelta64(1, 'D')
+        data_out = self.function(*data).rename(self.name)
+        # Convert time weights to units of days to prevent overflow
+        dt = data_out[internal_names.TIME_WEIGHTS_STR] / np.timedelta64(1, 'D')
         # Apply any specified vertical reduction.
-        full_out =
-        full_out = self._full_to_yearly_ts(full, full_dt)
-        reduced = self._apply_all_time_reductions(full_out)
-        logging.info("Writing desired gridded outputs to disk.")
-        for dtype_time, data in reduced.items():
+        data_out = self._apply_vert_reduc(data_out)
+        # Apply any time reductions.
+        data_out = self._apply_time_reductions(data_out)
+        for dtype_time, data in time_reduced.items():
             data = _add_metadata_as_attrs(data, self.var.units,
                                           self.var.description,
                                           self.dtype_out_vert)
@@ -555,6 +560,7 @@ class Calc(object):
         except AttributeError:
             self.data_out = {dtype: data}
 
+    @log_step(logging.info, "Writing desired gridded outputs to disk.")
     def save(self, data, dtype_out_time, dtype_out_vert=False,
              save_files=True, write_to_tar=False):
         """Save aospy data to data_out attr and to an external file."""
