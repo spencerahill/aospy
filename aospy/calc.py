@@ -212,10 +212,10 @@ class Calc(object):
             self.dtype_out_time = tuple(dtype_out_time)
         else:
             self.dtype_out_time = tuple([dtype_out_time])
-        if not self.def_time:
+        if (self.dtype_in_time == 'av') or (not self.def_time):
             for reduction in self.dtype_out_time:
                 if reduction in _TIME_DEFINED_REDUCTIONS:
-                    msg = ("Var {0} has no time dimension "
+                    msg = ("Var {0} has no time dependence "
                            "for the given time reduction "
                            "{1}".format(self.name, reduction))
                     raise ValueError(msg)
@@ -424,28 +424,17 @@ class Calc(object):
         arr.name = self.name
         return arr
 
-    def _compute(self, data):
-        """Perform the calculation."""
-        local_ts = self._local_ts(*data)
-        dt = local_ts[internal_names.TIME_WEIGHTS_STR]
-        # Convert dt to units of days to prevent overflow
-        dt = dt / np.timedelta64(1, 'D')
-        return local_ts, dt
-
-    def _compute_full_ts(self, data):
-        """Perform calculation and create yearly timeseries at each point."""
-        # Get results at each desired timestep and spatial point.
-        full_ts, dt = self._compute(data)
-        # Vertically integrate.
+    def _apply_vert_reduc(self, data):
+        """Apply the user=specified vertical reductions."""
         vert_types = ('vert_int', 'vert_av')
         if self.dtype_out_vert in vert_types and self.var.def_vert:
-            full_ts = utils.vertcoord.int_dp_g(
+           reduced = utils.vertcoord.int_dp_g(
                 full_ts, self._get_pressure_vals(dp, self.start_date,
                                                  self.end_date)
             )
             if self.dtype_out_vert == 'vert_av':
-                full_ts *= (GRAV_EARTH / self._to_desired_dates(self._ps_data))
-        return full_ts, dt
+                reduced *= (GRAV_EARTH / self._to_desired_dates(self._ps_data))
+        return reduced
 
     def _full_to_yearly_ts(self, arr, dt):
         """Average the full timeseries within each year."""
@@ -454,22 +443,7 @@ class Calc(object):
             arr = utils.times.yearly_average(arr, dt)
         return arr
 
-    def _time_reduce(self, arr, reduction):
-        """Perform the specified time reduction on a local time-series."""
-        if self.dtype_in_time == 'av' or not self.def_time:
-            return arr
-        reductions = {
-            'ts': lambda xarr: xarr,
-            'av': lambda xarr: xarr.mean(internal_names.YEAR_STR),
-            'std': lambda xarr: xarr.std(internal_names.YEAR_STR),
-            }
-        try:
-            return reductions[reduction](arr)
-        except KeyError:
-            raise ValueError("Specified time-reduction method '{}' is not "
-                             "supported".format(reduction))
-
-    def region_calcs(self, arr, func):
+    def region_calcs(self, arr, reduction):
         """Perform a calculation for all regions."""
         # Get pressure values for data output on hybrid vertical coordinates.
         bool_pfull = (self.def_vert and self.dtype_in_vert ==
@@ -480,49 +454,54 @@ class Calc(object):
                                      0), self.var.func_input_dtype
             ), arr[internal_names.TIME_WEIGHTS_STR]).rename('pressure')
         # Loop over the regions, performing the calculation.
-        reg_dat = {}
+        reg_dat = xr.Dataset()
         for reg in self.region:
-            # Just pass along the data if averaged already.
-            if 'av' in self.dtype_in_time:
-                data_out = reg.ts(arr)
-            # Otherwise perform the calculation.
-            else:
-                method = getattr(reg, func)
-                data_out = method(arr)
-                if bool_pfull:
-                    # Don't apply e.g. standard deviation to coordinates.
-                    if func not in ['av', 'ts']:
-                        method = reg.ts
-                    # Convert Pa to hPa
-                    coord = method(pfull) * 1e-2
-                    data_out = data_out.assign_coords(
-                        **{reg.name + '_pressure': coord}
-                    )
+            data_out = reduction(arr)
+            if bool_pfull:
+                # Don't apply e.g. standard deviation to coordinates.
+                if func not in ['av', 'ts']:
+                    method = reg.ts
+                # Convert Pa to hPa
+                coord = method(pfull) * 1e-2
+                data_out = data_out.assign_coords(**{reg.name + '_pressure':
+                                                     coord})
             reg_dat.update(**{reg.name: data_out})
-        return xr.Dataset(reg_dat)
+        return reg_dat
 
     def _apply_all_time_reductions(self, data):
         """Apply all requested time reductions to the data."""
         logging.info(self._print_verbose("Applying desired time-"
                                          "reduction methods."))
-        reduc_specs = [r.split('.') for r in self.dtype_out_time]
         reduced = {}
-        for reduc, specs in zip(self.dtype_out_time, reduc_specs):
-            func = specs[-1]
-            if 'reg' in specs:
-                reduced.update({reduc: self.region_calcs(data, func)})
+        for reduc in self.dtype_out_time:
+            if isinstance(reduc, RegionReduction):
+                reduced.update({reduc.label: self.region_calcs(data, reduc)})
             else:
-                reduced.update({reduc: self._time_reduce(data, func)})
+                reduced.update({reduc.label: reduc(data)})
         return OrderedDict(sorted(reduced.items(), key=lambda t: t[0]))
 
     def compute(self, write_to_tar=True):
-        """Perform all desired calculations on the data and save externally."""
+        """Perform all desired calculations on the data and save externally.
+
+        Parameters
+        ----------
+        write_to_tar : bool, optional
+            Whether to write the results of the calculation to the (usually
+            secondary) tar archive, in addition to writing them to the primary
+            location.  Default is True.
+
+        """
         data = self._prep_data(self._get_all_data(self.start_date,
                                                   self.end_date),
                                self.var.func_input_dtype)
         logging.info('Computing timeseries for {0} -- '
                      '{1}.'.format(self.start_date, self.end_date))
-        full, full_dt = self._compute_full_ts(data)
+        # Get results at each desired timestep and spatial point.
+        full_ts = self._local_ts(*data)
+        # Convert dt to units of days to prevent overflow
+        dt = local_ts[internal_names.TIME_WEIGHTS_STR] / np.timedelta64(1, 'D')
+        # Apply any specified vertical reduction.
+        full_out =
         full_out = self._full_to_yearly_ts(full, full_dt)
         reduced = self._apply_all_time_reductions(full_out)
         logging.info("Writing desired gridded outputs to disk.")
@@ -532,7 +511,6 @@ class Calc(object):
                                           self.dtype_out_vert)
             self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
                       save_files=True, write_to_tar=write_to_tar)
-        return self
 
     def _save_files(self, data, dtype_out_time):
         """Save the data to netcdf files in direc_out."""
