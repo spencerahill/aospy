@@ -202,9 +202,9 @@ class Calc(object):
         self.def_vert = self.var.def_vert
 
         try:
-            self.function = self.var.func
+            self._function = self.var.func
         except AttributeError:
-            self.function = lambda x: x
+            self._function = lambda x: x
         if getattr(self.var, 'variables', False):
             self.variables = self.var.variables
         else:
@@ -400,10 +400,6 @@ class Calc(object):
         return [self._get_input_data(var, start_date, end_date)
                 for var in self.variables]
 
-    def _local_ts(self, *data):
-        """Perform the computation at each gridpoint and time index."""
-        return self.function(*data).rename(self.name)
-
     def _apply_vert_reduc(self, data):
         """Apply the user=specified vertical reductions."""
         vert_types = ('vert_int', 'vert_av')
@@ -450,7 +446,7 @@ class Calc(object):
         return reg_dat
 
     @log_step(logging.info, "Applying desired time-reduction methods.")
-    def _apply_time_reductions(self, data):
+    def _apply_time_reductions(self, data, dt):
         """Apply all requested time reductions to the data."""
         reduced = {}
         for reduc in self.dtype_out_time:
@@ -460,10 +456,20 @@ class Calc(object):
                 reduced.update({reduc.label: reduc(data)})
         return OrderedDict(sorted(reduced.items(), key=lambda t: t[0]))
 
-    @log_step(logging.info, ('Computing timeseries for {0} -- '
+    @log_step(logging.info, ('Executing calculation for the dates {0} -- '
                              '{1}.'.format(self.start_date, self.end_date))
     def compute(self, write_to_tar=True):
         """Perform all desired calculations on the data and save externally.
+
+        This method goes through each step needed to perform the given
+        calculations:
+
+        1. Load all required data from disk.
+        2. Subset the data to the desired times.
+        3. Compute the desired quantity.
+        4. Apply all desired spatiotemporal reductions.
+        5. Write the results to disk as specified and save them to this
+           object's ``data_out`` attribute.
 
         Parameters
         ----------
@@ -474,14 +480,11 @@ class Calc(object):
 
         """
         data_in = self._get_all_data(self.start_date, self.end_date)
-        # Get results at each desired timestep and spatial point.
-        data_out = self.function(*data).rename(self.name)
-        # Convert time weights to units of days to prevent overflow
-        dt = data_out[internal_names.TIME_WEIGHTS_STR] / np.timedelta64(1, 'D')
-        # Apply any specified vertical reduction.
+        data_out = self._function(*data).rename(self.name)
         data_out = self._apply_vert_reduc(data_out)
-        # Apply any time reductions.
-        data_out = self._apply_time_reductions(data_out)
+        dt_in_days = (data_out[internal_names.TIME_WEIGHTS_STR] /
+                      np.timedelta64(1, 'D'))
+        data_out = self._apply_time_reductions(data_out, dt_in_days)
         for dtype_time, data in time_reduced.items():
             data = _add_metadata_as_attrs(data, self.var.units,
                                           self.var.description,
