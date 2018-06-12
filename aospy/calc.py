@@ -388,41 +388,14 @@ class Calc(object):
         else:
             return data
 
-    def _prep_data(self, data, func_input_dtype):
-        """Convert data to type needed by the given function.
-
-        Parameters
-        ----------
-        data : List of xarray.DataArray objects.
-        func_input_dtype : {None, 'DataArray', 'Dataset', 'numpy'}
-            Which datatype to convert to
-
-        """
-        if func_input_dtype in (None, 'DataArray'):
-            return data
-        if func_input_dtype == 'Dataset':
-            # TODO: add logic that creates a single Dataset comprising all of
-            # the DataArray objects in `data`.
-            raise NotImplementedError("func_input_dtype of `Dataset` not yet "
-                                      "implemented.")
-        if func_input_dtype == 'numpy':
-            self.coords = data[0].coords
-            return [d.values for d in data]
-
     def _get_all_data(self, start_date, end_date):
         """Get the needed data from all of the vars in the calculation."""
-        return [self._prep_data(self._get_input_data(var, start_date,
-                                                     end_date),
-                                self.var.func_input_dtype)
-                for n, var in enumerate(self.variables)]
+        return [self._get_input_data(var, start_date, end_date)
+                for var in self.variables]
 
     def _local_ts(self, *data):
         """Perform the computation at each gridpoint and time index."""
-        arr = self.function(*data)
-        if self.var.func_input_dtype == 'numpy':
-            arr = xr.DataArray(arr, coords=self.coords)
-        arr.name = self.name
-        return arr
+        return self.function(*data).rename(self.name)
 
     def _compute(self, data):
         """Perform the calculation."""
@@ -475,10 +448,11 @@ class Calc(object):
         bool_pfull = (self.def_vert and self.dtype_in_vert ==
                       internal_names.ETA_STR and self.dtype_out_vert is False)
         if bool_pfull:
-            pfull = self._full_to_yearly_ts(self._prep_data(
-                self._get_input_data(Var('p'), self.start_date, self.end_date,
-                                     0), self.var.func_input_dtype
-            ), arr[internal_names.TIME_WEIGHTS_STR]).rename('pressure')
+            pfull_data = self._get_input_data(Var('p'), self.start_date,
+                                              self.end_date)
+            pfull = self._full_to_yearly_ts(
+                pfull_data, arr[internal_names.TIME_WEIGHTS_STR]
+            ).rename('pressure')
         # Loop over the regions, performing the calculation.
         reg_dat = {}
         for reg in self.region:
@@ -517,9 +491,7 @@ class Calc(object):
 
     def compute(self, write_to_tar=True):
         """Perform all desired calculations on the data and save externally."""
-        data = self._prep_data(self._get_all_data(self.start_date,
-                                                  self.end_date),
-                               self.var.func_input_dtype)
+        data = self._get_all_data(self.start_date, self.end_date)
         logging.info('Computing timeseries for {0} -- '
                      '{1}.'.format(self.start_date, self.end_date))
         full, full_dt = self._compute_full_ts(data)

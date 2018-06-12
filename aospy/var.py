@@ -19,8 +19,6 @@ class Var(object):
         The function with which to compute the variable
     variables : sequence of aospy.Var objects
         The variables passed to `func` to compute it
-    func_input_dtype : {'DataArray', 'Dataset', 'numpy'}
-        The datatype expected by `func` of its arguments
     units : str
         The variable's physical units
     domain : str
@@ -38,10 +36,10 @@ class Var(object):
     """
 
     def __init__(self, name, alt_names=None, func=None, variables=None,
-                 func_input_dtype='DataArray', units='', plot_units='',
-                 plot_units_conv=1, domain='atmos', description='',
-                 def_time=False, def_vert=False, def_lat=False, def_lon=False,
-                 math_str=False, colormap='RdBu_r', valid_range=None):
+                 units='', plot_units='', plot_units_conv=1, domain='atmos',
+                 description='', def_time=False, def_vert=False, def_lat=False,
+                 def_lon=False, math_str=False, colormap='RdBu_r',
+                 valid_range=None):
         """Instantiate a Var object.
 
         Parameters
@@ -61,8 +59,6 @@ class Var(object):
             whenever calculations are performed to generate data corresponding
             to this Var, the data corresponding to the elements of `variables`
             will be passed to `self.function` in the same order.
-        func_input_dtype : {None, 'DataArray', 'Dataset', 'numpy'}
-            The datatype expected by `func` of its arguments
         units : str
             The variable's physical units
         domain : str
@@ -93,12 +89,9 @@ class Var(object):
         if func is None:
             self.func = lambda x: x
             self.variables = None
-            self.func_input_dtype = None
         else:
             self.func = func
             self.variables = variables
-        assert func_input_dtype in (None, 'DataArray', 'Dataset', 'numpy')
-        self.func_input_dtype = func_input_dtype
 
         self.units = units
 

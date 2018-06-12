@@ -11,14 +11,14 @@ v0.3 (unreleased)
 Breaking Changes
 ~~~~~~~~~~~~~~~~
 
+- Drop support for Python 2.7 and 3.4, since our core upstream dependency
+  xarray is also dropping these soon (:pull:`255`, :pull:`280`).
+  By `Spencer Hill <https://github.com/spencerahill>`_.
 - ``aospy.Region`` no longer can be instantiated using ``lat_bounds``
   and ``lon_bounds`` keywords.  These have been replaced with the more
   explicit ``east_bound``, ``west_bound``, ``south_bound``, and
   ``north_bound`` (:pull:`266`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
-- Drop support for Python 2.7 and 3.4, since our core upstream dependency
-  xarray is also dropping these soon (:pull:`255`, :pull:`280`).
-  By `Spencer Hill <https://github.com/spencerahill>`_.
 - Deprecate ``Constant`` class and ``constants.py`` module.
   Physical constants used internally by aospy are now stored
   in ``_constants.py`` (fixes :issue:`50` via :pull:`223`).
@@ -33,6 +33,9 @@ Breaking Changes
 - Deprecate ``utils.times.convert_scalar_to_indexable_coord``, since
   as of xarray version 0.10.3 release, the functionality is no longer
   necessary (fixes :issue:`268` via :pull:`269`.  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
+- Deprecate ``func_input_dtype`` argument to ``Var`` (fixes
+  :issue:`281` via :pull:`282`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
 
 Documentation
