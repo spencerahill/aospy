@@ -621,38 +621,8 @@ class Calc(object):
             )
             return ds[self.name]
 
-    def _get_data_subset(self, data, region=False, time=False,
-                         vert=False, lat=False, lon=False):
-        """Subset the data array to the specified time/level/lat/lon, etc."""
-        if region:
-            raise NotImplementedError
-        if np.any(time):
-            data = data[time]
-            if 'monthly_from_' in self.dtype_in_time:
-                data = np.mean(data, axis=0)[np.newaxis, :]
-        if np.any(vert):
-            if self.dtype_in_vert == internal_names.ETA_STR:
-                data = data[{PFULL_STR: vert}]  # flake8: noqa
-            else:
-                if np.max(self.model.level) > 1e4:
-                    # Convert from Pa to hPa.
-                    lev_hpa = self.model.level*1e-2
-                else:
-                    lev_hpa = self.model.level
-                level_index = np.where(lev_hpa == self.level)
-                if 'ts' in self.dtype_out_time:
-                    data = np.squeeze(data[:, level_index])
-                else:
-                    data = np.squeeze(data[level_index])
-        if np.any(lat):
-            raise NotImplementedError
-        if np.any(lon):
-            raise NotImplementedError
-        return data
-
     def load(self, dtype_out_time, dtype_out_vert=False, region=False,
-             time=False, vert=False, lat=False, lon=False, plot_units=False,
-             mask_unphysical=False):
+             plot_units=False, mask_unphysical=False):
         """Load the data from the object if possible or from disk."""
         msg = ("Loading data from disk for object={0}, dtype_out_time={1}, "
                "dtype_out_vert={2}, and region="
@@ -670,10 +640,6 @@ class Calc(object):
                 data = self._load_from_tar(dtype_out_time, dtype_out_vert)
         # Copy the array to self.data_out for ease of future access.
         self._update_data_out(data, dtype_out_time)
-        # Subset the array and convert units as desired.
-        if any((time, vert, lat, lon)):
-            data = self._get_data_subset(data, region=False, time=time,
-                                         vert=vert, lat=lat, lon=lon)
         # Apply desired plotting/cleanup methods.
         if mask_unphysical:
             data = self.var.mask_unphysical(data)
