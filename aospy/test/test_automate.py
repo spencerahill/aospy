@@ -19,7 +19,8 @@ from aospy.automate import (_get_attr_by_tag, _permuted_dicts_of_specs,
 from .data.objects import examples as lib
 from .data.objects.examples import (
     example_proj, example_model, example_run, var_not_time_defined,
-    condensation_rain, convection_rain, precip, ps, sphum, globe, sahel
+    condensation_rain, convection_rain, precip, ps, sphum, globe, sahel, bk,
+    p, dp
 )
 
 
@@ -145,7 +146,7 @@ def test_user_verify():
 @pytest.mark.parametrize(
     ('type_', 'expected'),
     [(Var, [var_not_time_defined, condensation_rain, convection_rain,
-            precip, ps, sphum]),
+            precip, ps, sphum, bk, p, dp]),
      (Proj, [example_proj])])
 def test_get_all_objs_of_type(obj_lib, type_, expected):
     actual = _get_all_objs_of_type(type_, obj_lib)

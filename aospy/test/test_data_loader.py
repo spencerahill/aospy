@@ -23,7 +23,7 @@ from aospy.internal_names import (LAT_STR, LON_STR, TIME_STR, TIME_BOUNDS_STR,
                                   TIME_WEIGHTS_STR, GRID_ATTRS, ZSURF_STR)
 from aospy.utils import io
 from .data.objects.examples import (condensation_rain, convection_rain, precip,
-                                    file_map, ROOT_PATH)
+                                    file_map, ROOT_PATH, example_model, bk)
 
 
 def _open_ds_catch_warnings(path):
@@ -786,6 +786,45 @@ def test_recursively_compute_variable_multi_level(load_variable_data_loader):
                             '00050101.precip_monthly.nc')
     expected = 3. * _open_ds_catch_warnings(filepath)['condensation_rain']
     np.testing.assert_array_equal(result.values, expected.values)
+
+
+def test_recursively_compute_grid_attr(load_variable_data_loader):
+    result = load_variable_data_loader.recursively_compute_variable(
+        bk, DatetimeNoLeap(5, 1, 1),
+        DatetimeNoLeap(5, 12, 31), model=example_model,
+        intvl_in='monthly')
+    filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                            '00060101.sphum_monthly.nc')
+    expected = _open_ds_catch_warnings(filepath)['bk']
+    np.testing.assert_array_equal(result.values, expected.values)
+
+
+def test_recursively_compute_grid_attr_multi_level(load_variable_data_loader):
+    one_level = Var(
+        name='one_level', variables=(bk, ),
+        func=lambda x: 2 * x)
+    multi_level = Var(
+        name='multi_level', variables=(one_level, bk),
+        func=lambda x, y: x + y)
+    result = load_variable_data_loader.recursively_compute_variable(
+        multi_level, DatetimeNoLeap(5, 1, 1),
+        DatetimeNoLeap(5, 12, 31), model=example_model,
+        intvl_in='monthly')
+    filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
+                            '00060101.sphum_monthly.nc')
+    expected = 3 * _open_ds_catch_warnings(filepath)['bk']
+    np.testing.assert_array_equal(result.values, expected.values)
+
+
+def test_recursively_compute_grid_attr_error(load_variable_data_loader):
+    # Should fail because zsurf is not provided to the example_model object
+    zsurf = Var(name=ZSURF_STR, def_time=False, def_vert=False,
+                def_lon=True, def_lat=True)
+    with pytest.raises(AttributeError):
+        load_variable_data_loader.recursively_compute_variable(
+            zsurf, DatetimeNoLeap(5, 1, 1),
+            DatetimeNoLeap(5, 12, 31), model=example_model,
+            intvl_in='monthly')
 
 
 if __name__ == '__main__':

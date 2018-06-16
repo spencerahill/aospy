@@ -11,6 +11,7 @@ import numpy as np
 import xarray as xr
 
 from ._constants import GRAV_EARTH
+from .var import Var
 from . import internal_names
 from .internal_names import TIME_WEIGHTS_STR
 from . import utils
@@ -21,26 +22,10 @@ from .var import Var
 logging.basicConfig(level=logging.INFO)
 
 
-dp = Var(
-    name='dp',
-    units='Pa',
-    domain='atmos',
-    description='Pressure thickness of model levels.',
-    def_time=True,
-    def_vert=True,
-    def_lat=True,
-    def_lon=True,
-)
-ps = Var(
-    name='ps',
-    units='Pa',
-    domain='atmos',
-    description='Surface pressure.',
-    def_time=True,
-    def_vert=False,
-    def_lat=True,
-    def_lon=True,
-)
+_P_VARS = {internal_names.ETA_STR: utils.vertcoord.p_eta,
+           'pressure': utils.vertcoord.p_level}
+_DP_VARS = {internal_names.ETA_STR: utils.vertcoord.dp_eta,
+            'pressure': utils.vertcoord.dp_level}
 
 
 def _print_verbose(*args):
@@ -58,6 +43,23 @@ def log_step(func, logger, log_msg):
         logger(log_msg)
         return func(*args, **kwargs)
     return func_with_logging
+
+
+def _replace_pressure(arguments, dtype_in_vert):
+    """Replace p and dp Vars with appropriate Var objects specific to
+    the dtype_in_vert."""
+    arguments_out = []
+    for arg in arguments:
+        if isinstance(arg, Var):
+            if arg.name == 'p':
+                arguments_out.append(_P_VARS[dtype_in_vert])
+            elif arg.name == 'dp':
+                arguments_out.append(_DP_VARS[dtype_in_vert])
+            else:
+                arguments_out.append(arg)
+        else:
+            arguments_out.append(arg)
+    return arguments_out
 
 
 class Calc(object):
@@ -228,7 +230,6 @@ class Calc(object):
                            "{1}".format(self.name, reduction))
                     raise ValueError(msg)
 
-        self.ps = ps
         self.level = level
         self.dtype_out_vert = dtype_out_vert
         self.region = region
@@ -303,77 +304,17 @@ class Calc(object):
                 self.pressure = ds.level
         return ds
 
-    def _get_pressure_from_p_coords(self, ps, name='p'):
-        """Get pressure or pressure thickness array for data on p-coords."""
-        if np.any(self.pressure):
-            pressure = self.pressure
-        else:
-            pressure = self.model.level
-        if name == 'p':
-            return pressure
-        if name == 'dp':
-            return utils.vertcoord.dp_from_p(pressure, ps)
-        raise ValueError("name must be 'p' or 'dp':"
-                         "'{}'".format(name))
-
-    def _get_pressure_from_eta_coords(self, ps, name='p'):
-        """Get pressure (p) or p thickness array for data on model coords."""
-        bk = self.model.bk
-        pk = self.model.pk
-        pfull_coord = self.model.pfull
-        if name == 'p':
-            return utils.vertcoord.pfull_from_ps(bk, pk, ps, pfull_coord)
-        if name == 'dp':
-            return utils.vertcoord.dp_from_ps(bk, pk, ps, pfull_coord)
-        raise ValueError("name must be 'p' or 'dp':"
-                         "'{}'".format(name))
-
-    def _get_pressure_vals(self, var, start_date, end_date):
-        """Get pressure array, whether sigma or standard levels."""
-        try:
-            ps = self._ps_data
-        except AttributeError:
-            self._ps_data = self.data_loader.recursively_compute_variable(
-                self.ps, start_date, end_date, self.time_offset,
-                **self.data_loader_attrs)
-            name = self._ps_data.name
-            self._ps_data = self._add_grid_attributes(
-                self._ps_data.to_dataset(name=name))
-            self._ps_data = self._ps_data[name]
-
-            ps = self._ps_data
-        if self.dtype_in_vert == 'pressure':
-            return self._get_pressure_from_p_coords(ps, name=var.name)
-        if self.dtype_in_vert == internal_names.ETA_STR:
-            return self._get_pressure_from_eta_coords(ps, name=var.name)
-        raise ValueError("`dtype_in_vert` must be either 'pressure' or "
-                         "'sigma' for pressure data")
-
     @log_step(logging.info, "Getting input data: {}".format(var))
     def _get_input_data(self, var, start_date, end_date):
         """Get the data for a single variable over the desired date range."""
-        # Pass numerical constants as is.
         if isinstance(var, (float, int)):
             return var
-        # aospy.Var objects remain.
-        # Pressure handled specially due to complications from sigma vs. p.
-        elif var.name in ('p', 'dp'):
-            data = self._get_pressure_vals(var, start_date, end_date)
-            if self.dtype_in_vert == internal_names.ETA_STR:
-                return self._to_desired_dates(data)
-            return data
-        # Get grid, time, etc. arrays directly from model object
-        elif var.name in (internal_names.LAT_STR, internal_names.LON_STR,
-                          internal_names.TIME_STR, internal_names.PLEVEL_STR,
-                          internal_names.PK_STR, internal_names.BK_STR,
-                          internal_names.SFC_AREA_STR):
-            data = getattr(self.model, var.name)
         else:
             cond_pfull = ((not hasattr(self, internal_names.PFULL_STR))
                           and var.def_vert and
                           self.dtype_in_vert == internal_names.ETA_STR)
             data = self.data_loader.recursively_compute_variable(
-                var, start_date, end_date, self.time_offset,
+                var, start_date, end_date, self.time_offset, self.model,
                 **self.data_loader_attrs)
             name = data.name
             data = self._add_grid_attributes(data.to_dataset(name=data.name))
@@ -399,18 +340,21 @@ class Calc(object):
     def _get_all_data(self, start_date, end_date):
         """Get the needed data from all of the vars in the calculation."""
         return [self._get_input_data(var, start_date, end_date)
-                for var in self.variables]
+                for var in _replace_pressure(self.variables,
+                                             self.dtype_in_vert)]
 
     def _apply_vert_reduc(self, data):
         """Apply the user=specified vertical reductions."""
         vert_types = ('vert_int', 'vert_av')
         if self.dtype_out_vert in vert_types and self.var.def_vert:
-            pressure = self._get_pressure_vals(dp, self.start_date,
-                                               self.end_date)
-            reduced = utils.vertcoord.int_dp_g(data, pressure)
+            dp = self._get_input_data(_DP_VARS[self.dtype_in_vert],
+                                      self.start_date, self.end_date)
+            full_ts = utils.vertcoord.int_dp_g(full_ts, dp)
             if self.dtype_out_vert == 'vert_av':
-                reduced *= (GRAV_EARTH / self._to_desired_dates(self._ps_data))
-        return reduced
+                ps = self._get_input_data(utils.vertcoord.ps,
+                                          self.start_date, self.end_date)
+                full_ts *= (GRAV_EARTH / ps)
+        return full_ts, dt
 
     @log_step(logging.info, "Applying regional time-reduction methods.")
     def _apply_region_time_reductions(self, arr):
@@ -419,7 +363,8 @@ class Calc(object):
         bool_pfull = (self.def_vert and self.dtype_in_vert ==
                       internal_names.ETA_STR and self.dtype_out_vert is False)
         if bool_pfull:
-            pfull_data = self._get_input_data(Var('p'), self.start_date,
+            pfull_data = self._get_input_data(_P_VARS[self.dtype_in_vert],
+                                              self.start_date,
                                               self.end_date)
             pfull = utils.times.yearly_average(
                 pfull_data, arr[TIME_WEIGHTS_STR]

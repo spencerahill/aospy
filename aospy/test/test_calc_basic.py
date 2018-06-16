@@ -12,10 +12,12 @@ import numpy as np
 import xarray as xr
 
 from aospy import Var
-from aospy.calc import Calc, _add_metadata_as_attrs
+from aospy.calc import Calc, _add_metadata_as_attrs, _replace_pressure
+from aospy.internal_names import ETA_STR
+from aospy.utils.vertcoord import p_eta, dp_eta, p_level, dp_level
 from .data.objects.examples import (
     example_proj, example_model, example_run, var_not_time_defined,
-    condensation_rain, convection_rain, precip, sphum, globe, sahel
+    condensation_rain, convection_rain, precip, sphum, globe, sahel, p, dp
 )
 
 
@@ -60,7 +62,8 @@ _2D_VARS = {'basic': condensation_rain, 'composite': precip}
 _2D_DTYPE_OUT_VERT = {'None': None}
 _2D_DTYPE_IN_VERT = {'None': None}
 _3D_VARS = {'3D': sphum}
-_3D_DTYPE_OUT_VERT = {'vert_int': 'vert_int'}
+_3D_DTYPE_OUT_VERT = {'vert_int': 'vert_int',
+                      'vert_av': 'vert_av'}
 _3D_DTYPE_IN_VERT = {'sigma': 'sigma'}
 _CASES = (
     list(itertools.product(_2D_DATE_RANGES.items(), _2D_VARS.items(),
@@ -273,6 +276,60 @@ def test_recursive_calculation(recursive_test_params):
     _test_files_and_attrs(calc, 'av')
 
     xr.testing.assert_equal(expected, result)
+
+
+def test_compute_pressure():
+    calc = Calc(
+        intvl_out='ann',
+        dtype_out_time='av',
+        var=p,
+        proj=example_proj,
+        model=example_model,
+        run=example_run,
+        date_range=('0006', '0006'),
+        intvl_in='monthly',
+        dtype_in_time='ts',
+        dtype_in_vert='sigma',
+        dtype_out_vert=None
+    )
+    calc.compute()
+    _test_files_and_attrs(calc, 'av')
+
+
+def test_compute_pressure_thicknesses():
+    calc = Calc(
+        intvl_out='ann',
+        dtype_out_time='av',
+        var=dp,
+        proj=example_proj,
+        model=example_model,
+        run=example_run,
+        date_range=('0006', '0006'),
+        intvl_in='monthly',
+        dtype_in_time='ts',
+        dtype_in_vert='sigma',
+        dtype_out_vert=None
+    )
+    calc.compute()
+    _test_files_and_attrs(calc, 'av')
+
+
+@pytest.mark.parametrize(
+    ['dtype_in_vert', 'expected'],
+    [(ETA_STR, [p_eta, dp_eta, condensation_rain, 5]),
+     ('pressure', [p_level, dp_level, condensation_rain, 5])])
+def test_replace_pressure(dtype_in_vert, expected):
+    arguments = [p, dp, condensation_rain, 5]
+    p_in, dp_in, cond, num = arguments
+    p_expected, dp_expected, cond_expected, num_expected = expected
+    assert p_in.func != p_expected.func
+    assert dp_in.func != dp_expected.func
+    result = _replace_pressure(arguments, dtype_in_vert)
+    p_out, dp_out, cond_out, num_out = result
+    assert p_out.func == p_expected.func
+    assert dp_out.func == dp_expected.func
+    assert cond_out.func == cond_expected.func
+    assert num_out == num_expected
 
 
 if __name__ == '__main__':

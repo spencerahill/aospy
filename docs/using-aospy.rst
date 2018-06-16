@@ -56,6 +56,19 @@ those fields that must be computed from other variables (e.g. they
 weren't directly outputted but can be computed from other variables
 that were outputted).
 
+.. note::
+
+   :py:class:`aospy.Var` objects with the name ``'p'`` or ``'dp'`` are
+   handled in a special manner.  These variables are meant to represent
+   pressure and pressure thicknesses, respectively.  When encountering
+   variables named this way, ``aospy`` will attempt to compute them in
+   accordance with the available vertical coordinates depending on the
+   ``dtype_in_vert`` specified in the main script.  Currently supported
+   ``dtype_in_vert`` values are:
+   
+   - ``'sigma'``: for data output on hybrid pressure coordinates
+   - ``'pressure'``: for data interpolated to levels of constant pressure.
+
 Geographical regions
 --------------------
 
