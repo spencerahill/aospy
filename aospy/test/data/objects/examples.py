@@ -38,7 +38,8 @@ example_model = Model(
          os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                       'im.landmask.nc')),
     ),
-    runs=[example_run]
+    runs=[example_run],
+    load_grid_data=True
 )
 
 example_proj = Proj(
@@ -105,4 +106,31 @@ sahel = Region(
     mask_bounds=[(0, 40, 10, 20),
                  (342, 360, 10, 20)],
     do_land_mask=True
+)
+
+bk = Var(
+    name='bk',
+    description=('hybrid coefficients'),
+    def_time=False,
+    def_vert=True,
+    def_lon=False,
+    def_lat=False
+)
+
+p = Var(
+    name='p',
+    description=('pressure'),
+    def_time=True,
+    def_vert=True,
+    def_lon=True,
+    def_lat=True
+)
+
+dp = Var(
+    name='dp',
+    description=('pressure thicknesses'),
+    def_time=True,
+    def_vert=True,
+    def_lon=True,
+    def_lat=True
 )

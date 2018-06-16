@@ -277,18 +277,47 @@ class DataLoader(object):
             coords=self.coords, start_date=start_date, end_date=end_date,
             time_offset=time_offset, **DataAttrs
         )
-        ds = _prep_time_data(ds)
-        start_date = times.maybe_convert_to_index_date_type(
-            ds.indexes[TIME_STR], start_date)
-        end_date = times.maybe_convert_to_index_date_type(
-            ds.indexes[TIME_STR], end_date)
+        if var.def_time:
+            ds = _prep_time_data(ds)
+            start_date = times.maybe_convert_to_index_date_type(
+                ds.indexes[TIME_STR], start_date)
+            end_date = times.maybe_convert_to_index_date_type(
+                ds.indexes[TIME_STR], end_date)
         ds = set_grid_attrs_as_coords(ds)
         da = _sel_var(ds, var, self.upcast_float32)
-        da = self._maybe_apply_time_shift(da, time_offset, **DataAttrs)
-        return times.sel_time(da, start_date, end_date).load()
+        if var.def_time:
+            da = self._maybe_apply_time_shift(da, time_offset, **DataAttrs)
+            return times.sel_time(da, start_date, end_date).load()
+        else:
+            return da.load()
+
+    def _load_or_get_from_model(self, var, start_date=None, end_date=None,
+                                time_offset=None, model=None, **DataAttrs):
+        """Load a DataArray for the requested variable and time range
+
+        Supports both access of grid attributes either through the DataLoader
+        or through an optionally-provided Model object.  Defaults to using
+        the version found in the DataLoader first.
+        """
+        try:
+            return self.load_variable(
+                var, start_date=start_date, end_date=end_date,
+                time_offset=time_offset, **DataAttrs)
+        except (KeyError, IOError) as e:
+            if var.name not in GRID_ATTRS or model is None:
+                raise e
+            else:
+                try:
+                    return getattr(model, var.name)
+                except AttributeError:
+                    raise AttributeError(
+                        'Grid attribute {} could not be located either '
+                        'through this DataLoader or in the provided Model '
+                        'object: {}.'.format(var, model))
 
     def recursively_compute_variable(self, var, start_date=None, end_date=None,
-                                     time_offset=None, **DataAttrs):
+                                     time_offset=None, model=None,
+                                     **DataAttrs):
         """Compute a variable recursively, loading data where needed.
 
         An obvious requirement here is that the variable must eventually be
@@ -306,6 +335,8 @@ class DataLoader(object):
         time_offset : dict
             Option to add a time offset to the time coordinate to correct for
             incorrect metadata.
+        model : Model
+            aospy Model object (optional)
         **DataAttrs
             Attributes needed to identify a unique set of files to load from
 
@@ -315,11 +346,11 @@ class DataLoader(object):
              DataArray for the specified variable, date range, and interval in
         """
         if var.variables is None:
-            return self.load_variable(var, start_date, end_date, time_offset,
-                                      **DataAttrs)
+            return self._load_or_get_from_model(
+                var, start_date, end_date, time_offset, model, **DataAttrs)
         else:
             data = [self.recursively_compute_variable(
-                v, start_date, end_date, time_offset, **DataAttrs)
+                v, start_date, end_date, time_offset, model, **DataAttrs)
                     for v in var.variables]
             return var.func(*data).rename(var.name)
 

@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 
 from .._constants import GRAV_EARTH
+from ..var import Var
 from .. import internal_names
 
 
@@ -262,3 +263,97 @@ def does_coord_increase_w_index(arr):
         raise ValueError("Array is not monotonic: {}".format(arr))
     # Since we know its monotonic, just test the first value.
     return bool(diff[0])
+
+
+bk = Var(
+    name=internal_names.BK_STR,
+    alt_names=internal_names.GRID_ATTRS[internal_names.BK_STR],
+    def_vert=True,
+    def_time=False,
+    def_lon=False,
+    def_lat=False
+)
+
+
+pk = Var(
+    name=internal_names.PK_STR,
+    alt_names=internal_names.GRID_ATTRS[internal_names.PK_STR],
+    def_vert=True,
+    def_time=False,
+    def_lon=False,
+    def_lat=False
+)
+
+
+pfull_coord = Var(
+    name=internal_names.PFULL_STR,
+    alt_names=internal_names.GRID_ATTRS[internal_names.PFULL_STR],
+    def_vert=True,
+    def_time=False,
+    def_lon=False,
+    def_lat=False
+)
+
+
+ps = Var(
+    name='ps',
+    domain='atmos',
+    description='Surface pressure',
+    units='Pa',
+    def_vert=False,
+    def_time=True,
+    def_lon=True,
+    def_lat=True
+)
+
+
+p_level = Var(
+    name='p',
+    alt_names=internal_names.GRID_ATTRS[internal_names.PLEVEL_STR],
+    domain='atmos',
+    description='Pressure on interpolated levels',
+    units='Pa',
+    def_vert=True,
+    def_time=False,
+    def_lon=False,
+    def_lat=False
+)
+
+
+dp_level = Var(
+    name='dp',
+    description='Pressure thickness of model levels',
+    units='Pa',
+    def_vert=True,
+    def_time=True,
+    def_lon=True,
+    def_lat=True,
+    func=dp_from_p,
+    variables=(p_level, ps)
+)
+
+
+p_eta = Var(
+    name='p',
+    description='Pressure at model-native level midpoints',
+    units='Pa',
+    def_vert=True,
+    def_time=True,
+    def_lon=True,
+    def_lat=True,
+    func=pfull_from_ps,
+    variables=(bk, pk, ps, pfull_coord)
+)
+
+
+dp_eta = Var(
+    name='dp',
+    description='Pressure thickness of model levels',
+    units='Pa',
+    def_vert=True,
+    def_time=True,
+    def_lon=True,
+    def_lat=True,
+    func=dp_from_ps,
+    variables=(bk, pk, ps, pfull_coord)
+)
