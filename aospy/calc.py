@@ -349,12 +349,12 @@ class Calc(object):
         if self.dtype_out_vert in vert_types and self.var.def_vert:
             dp = self._get_input_data(_DP_VARS[self.dtype_in_vert],
                                       self.start_date, self.end_date)
-            full_ts = utils.vertcoord.int_dp_g(full_ts, dp)
+            data = utils.vertcoord.int_dp_g(data, dp)
             if self.dtype_out_vert == 'vert_av':
                 ps = self._get_input_data(utils.vertcoord.ps,
                                           self.start_date, self.end_date)
-                full_ts *= (GRAV_EARTH / ps)
-        return full_ts, dt
+                data *= (GRAV_EARTH / ps)
+        return data
 
     @log_step(logging.info, "Applying regional time-reduction methods.")
     def _apply_region_time_reductions(self, arr):
