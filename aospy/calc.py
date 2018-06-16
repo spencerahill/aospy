@@ -12,6 +12,7 @@ import xarray as xr
 
 from ._constants import GRAV_EARTH
 from . import internal_names
+from .internal_names import TIME_WEIGHTS_STR
 from . import utils
 from .reductions import _TIME_DEFINED_REDUCTIONS
 from .var import Var
@@ -404,31 +405,24 @@ class Calc(object):
         """Apply the user=specified vertical reductions."""
         vert_types = ('vert_int', 'vert_av')
         if self.dtype_out_vert in vert_types and self.var.def_vert:
-           reduced = utils.vertcoord.int_dp_g(
-                full_ts, self._get_pressure_vals(dp, self.start_date,
-                                                 self.end_date)
-            )
+            pressure = self._get_pressure_vals(dp, self.start_date,
+                                               self.end_date)
+            reduced = utils.vertcoord.int_dp_g(data, pressure)
             if self.dtype_out_vert == 'vert_av':
                 reduced *= (GRAV_EARTH / self._to_desired_dates(self._ps_data))
         return reduced
 
-    def _full_to_yearly_ts(self, arr, dt):
-        """Average the full timeseries within each year."""
-        time_defined = self.def_time and not ('av' in self.dtype_in_time)
-        if time_defined:
-            arr = utils.times.yearly_average(arr, dt)
-        return arr
-
-    def region_calcs(self, arr, reduction):
-        """Perform a calculation for all regions."""
+    @log_step(logging.info, "Applying regional time-reduction methods.")
+    def _apply_region_time_reductions(self, arr):
+        """Apply all region-averaged time reductions to the data."""
         # Get pressure values for data output on hybrid vertical coordinates.
         bool_pfull = (self.def_vert and self.dtype_in_vert ==
                       internal_names.ETA_STR and self.dtype_out_vert is False)
         if bool_pfull:
             pfull_data = self._get_input_data(Var('p'), self.start_date,
                                               self.end_date)
-            pfull = self._full_to_yearly_ts(
-                pfull_data, arr[internal_names.TIME_WEIGHTS_STR]
+            pfull = utils.times.yearly_average(
+                pfull_data, arr[TIME_WEIGHTS_STR]
             ).rename('pressure')
         # Loop over the regions, performing the calculation.
         reg_dat = xr.Dataset()
@@ -445,19 +439,14 @@ class Calc(object):
             reg_dat.update(**{reg.name: data_out})
         return reg_dat
 
-    @log_step(logging.info, "Applying desired time-reduction methods.")
-    def _apply_time_reductions(self, data, dt):
-        """Apply all requested time reductions to the data."""
-        reduced = {}
-        for reduc in self.dtype_out_time:
-            if isinstance(reduc, RegionReduction):
-                reduced.update({reduc.label: self.region_calcs(data, reduc)})
-            else:
-                reduced.update({reduc.label: reduc(data)})
+    @log_step(logging.info, "Applying lat-lon time-reduction methods.")
+    def _apply_latlon_time_reductions(self, data):
+        """Apply all point-by-point time reductions to the data."""
+        reduced = {reduc.label: reduc(data) for reduc in self.dtype_out_time}
         return OrderedDict(sorted(reduced.items(), key=lambda t: t[0]))
 
     @log_step(logging.info, ('Executing calculation for the dates {0} -- '
-                             '{1}.'.format(self.start_date, self.end_date))
+                             '{1}.'.format(self.start_date, self.end_date)))
     def compute(self, write_to_tar=True):
         """Perform all desired calculations on the data and save externally.
 
@@ -480,17 +469,22 @@ class Calc(object):
 
         """
         data_in = self._get_all_data(self.start_date, self.end_date)
-        data_out = self._function(*data).rename(self.name)
+        data_out = self._function(*data_in).rename(self.name)
         data_out = self._apply_vert_reduc(data_out)
-        dt_in_days = (data_out[internal_names.TIME_WEIGHTS_STR] /
-                      np.timedelta64(1, 'D'))
-        data_out = self._apply_time_reductions(data_out, dt_in_days)
-        for dtype_time, data in time_reduced.items():
-            data = _add_metadata_as_attrs(data, self.var.units,
+
+        # Convert time units to days to prevent overflow.
+        data_out[TIME_WEIGHTS_STR] /= np.timedelta64(1, 'D')
+
+        data_out = _add_metadata_as_attrs(data_out, self.var.units,
                                           self.var.description,
                                           self.dtype_out_vert)
-            self.save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
-                      save_files=True, write_to_tar=write_to_tar)
+        latlon_out = self._apply_latlon_time_reductions(data_out)
+        region_out = self._apply_region_time_reductions(data_out)
+        combined_out = latlon_out + region_out
+
+        for dtype_time, data in combined_out.items():
+            self._save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
+                       save_files=True, write_to_tar=write_to_tar)
 
     def _save_files(self, data, dtype_out_time):
         """Save the data to netcdf files in direc_out."""
@@ -509,6 +503,7 @@ class Calc(object):
         if isinstance(data_out, xr.DataArray):
             data_out = xr.Dataset({self.name: data_out})
         data_out.to_netcdf(path, engine='netcdf4', format='NETCDF3_64BIT')
+        logging.info('\t{}'.format(self.path_out[dtype_out_time]))
 
     def _write_to_tar(self, dtype_out_time):
         """Add the data to the tar file in tar_out_direc."""
@@ -564,15 +559,14 @@ class Calc(object):
             self.data_out = {dtype: data}
 
     @log_step(logging.info, "Writing desired gridded outputs to disk.")
-    def save(self, data, dtype_out_time, dtype_out_vert=False,
-             save_files=True, write_to_tar=False):
+    def _save(self, data, dtype_out_time, dtype_out_vert=False,
+              save_files=True, write_to_tar=False):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
         if save_files:
             self._save_files(data, dtype_out_time)
         if write_to_tar and self.proj.tar_direc_out:
             self._write_to_tar(dtype_out_time)
-        logging.info('\t{}'.format(self.path_out[dtype_out_time]))
 
     def _load_from_disk(self, dtype_out_time, dtype_out_vert=False,
                         region=False):
