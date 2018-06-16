@@ -1,34 +1,25 @@
 """Functionality relating to spatiotemporal reduction operations."""
-from .internal_names import YEAR_STR
+from .internal_names import TIME_STR, TIME_WEIGHTS_STR, YEAR_STR
+from .utils.times import yearly_average
 
 
-_TIME_DEFINED_REDUCTIONS = ['av', 'std', 'ts', 'reg.av', 'reg.std', 'reg.ts']
-
-
-registry = {}
-
-
-def register_reduction(reduction):
-    label = reduction.label
-    if label in registry:
-        raise KeyError("A Reduction object already exists with the desired "
-                       "label '{0}', and duplicates are not allowed.  "
-                       "The existing object is: "
-                       "{1}".format(label, registry[label]))
-    else:
-        registry[label] = reduction
-
-
-class RegisterReduction(type):
-    def __new__(meta, name, bases, class_dict):
-        cls = type.__new__(meta, name, bases, class_dict)
-        register_reduction(cls)
-        return cls
-
-
-class Reduction(object, metaclass=RegisterReduction):
+class Reduction(object):
     """Base class for spatiotemporal reductions."""
+    instances = {}
+
+    @classmethod
+    def register_reduction(cls, reduction):
+        label = reduction.label
+        if label in cls.instances:
+            raise KeyError("A Reduction object already exists with the "
+                           "desired label '{0}', and duplicates are not "
+                           "allowed. The existing object is: "
+                           "{1}".format(label, cls.instances[label]))
+        else:
+            cls.instances[label] = reduction
+
     def __init__(self, reduction_func, label):
+        self.register_reduction(self)
         self._reducer = reduction_func
         if isinstance(label, str):
             self._label = label
@@ -58,6 +49,11 @@ class Reduction(object, metaclass=RegisterReduction):
         return self.reduce(data)
 
 
-no_reduc = Reduction(lambda x: x)
-time_avg = Reduction(lambda x: x.mean(YEAR_STR))
-time_stdev = Reduction(lambda x: x.std(YEAR_STR))
+def _in_year_avg(arr):
+    return yearly_average(arr, arr[TIME_WEIGHTS_STR])
+
+
+no_reduc = Reduction(lambda x: x, 'full')
+time_avg = Reduction(lambda x: x.mean(TIME_STR), 'av')
+yearly_ts = Reduction(lambda x: _in_year_avg(x), 'ts')
+yearly_stdev = Reduction(lambda x: _in_year_avg(x).std(YEAR_STR), 'std')
