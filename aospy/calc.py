@@ -11,7 +11,6 @@ import numpy as np
 import xarray as xr
 
 from ._constants import GRAV_EARTH
-from .var import Var
 from . import internal_names
 from .internal_names import TIME_WEIGHTS_STR
 from . import utils
@@ -116,7 +115,6 @@ class Calc(object):
     def _path_tar_out(self):
         return os.path.join(self.dir_tar_out, 'data.tar')
 
-    @log_step(logging.debug, 'Initializing Calc instance: {}'.format(self))
     def __init__(self, proj=None, model=None, run=None, var=None,
                  date_range=None, region=None, intvl_in=None, intvl_out=None,
                  dtype_in_time=None, dtype_in_vert=None, dtype_out_time=None,
@@ -416,10 +414,8 @@ class Calc(object):
         data_in = self._get_all_data(self.start_date, self.end_date)
         data_out = self._function(*data_in).rename(self.name)
         data_out = self._apply_vert_reduc(data_out)
-
         # Convert time units to days to prevent overflow.
         data_out[TIME_WEIGHTS_STR] /= np.timedelta64(1, 'D')
-
         data_out = _add_metadata_as_attrs(data_out, self.var.units,
                                           self.var.description,
                                           self.dtype_out_vert)
