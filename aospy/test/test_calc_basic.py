@@ -38,6 +38,14 @@ def _test_output_attrs(calc, dtype_out):
                 assert expected_description == arr.attrs['description']
 
 
+def _clean_test_direcs():
+    for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
+        try:
+            shutil.rmtree(direc)
+        except OSError:
+            pass
+
+
 def _test_files_and_attrs(calc, dtype_out):
     assert isfile(calc.path_out[dtype_out])
     assert isfile(calc.path_tar_out)
@@ -95,11 +103,7 @@ def test_params(request):
         'dtype_in_vert': vert_in,
         'dtype_out_vert': vert_out
     }
-    for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
-        try:
-            shutil.rmtree(direc)
-        except OSError:
-            pass
+    _clean_test_direcs()
 
 
 def test_annual_mean(test_params):
@@ -254,8 +258,7 @@ def recursive_test_params():
 
     yield (basic_params, recursive_params)
 
-    for direc in [example_proj.direc_out, example_proj.tar_direc_out]:
-        shutil.rmtree(direc)
+    _clean_test_direcs()
 
 
 def test_recursive_calculation(recursive_test_params):
@@ -294,6 +297,7 @@ def test_compute_pressure():
     )
     calc.compute()
     _test_files_and_attrs(calc, 'av')
+    _clean_test_direcs()
 
 
 def test_compute_pressure_thicknesses():
@@ -312,6 +316,7 @@ def test_compute_pressure_thicknesses():
     )
     calc.compute()
     _test_files_and_attrs(calc, 'av')
+    _clean_test_direcs()
 
 
 @pytest.mark.parametrize(
