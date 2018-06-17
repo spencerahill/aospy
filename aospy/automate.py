@@ -1,5 +1,7 @@
 """Functionality for specifying and cycling through multiple calculations."""
 from __future__ import print_function
+
+from distutils.version import LooseVersion
 from multiprocessing import cpu_count
 
 import dask
@@ -278,7 +280,11 @@ def _compute_or_skip_on_error(calc, compute_kwargs):
 def _submit_calcs_on_client(calcs, client, func):
     """Submit calculations via dask.bag and a distributed client"""
     logging.info('Connected to client: {}'.format(client))
-    with dask.set_options(get=client.get):
+    if LooseVersion(dask.__version__) < '0.18':
+        dask_option_setter = dask.set_options
+    else:
+        dask_option_setter = dask.config.set
+    with dask_option_setter(get=client.get):
         return db.from_sequence(calcs).map(func).compute()
 
 
