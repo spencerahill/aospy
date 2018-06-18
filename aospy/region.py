@@ -131,7 +131,7 @@ class Region(object):
                the region includes the points east of west_bound and west of
                east_bound.
              - If west_bound greater than east_bound, then the
-               region is treated as wrapping around the dateline, i.e. it's
+               region is treated as wrapping around the dateline, i.e. its
                western-most point is east_bound, and it includes all points
                moving east from there until west_bound.
 
@@ -146,7 +146,7 @@ class Region(object):
              Each element is a length-4 sequence of the format `(west_bound,
              east_bound, south_bound, north_bound)`, where each of these
              `_bound` arguments is of the form described above.
-        do_land_mask : { False, True, 'ocean', 'strict_land', 'strict_ocean'},
+        do_land_mask : { False, True, 'ocean', 'strict_land', 'strict_ocean' },
                        optional
              Determines what, if any, land mask is applied in addition to the
              mask defining the region's boundaries.  Default `False`.
@@ -229,8 +229,8 @@ class Region(object):
         return mask
 
     def mask_var(self, data, lon_cyclic=True, lon_str=LON_STR,
-                 lat_str=LAT_STR):
-        """Mask the given data outside this region.
+                 lat_str=LAT_STR, land_mask_str=LAND_MASK_STR):
+        """Mask the data using this region's boundaries and (maybe) land mask.
 
         Parameters
         ----------
@@ -240,16 +240,21 @@ class Region(object):
             Whether or not the longitudes of ``data`` span the whole globe,
             meaning that they should be wrapped around as necessary to cover
             the Region's full width.
-        lon_str, lat_str : str, optional
+        lon_str, lat_str: str, optional
             The names of the longitude and latitude dimensions, respectively,
-            in the data to be masked.  Defaults are
-            ``aospy.internal_names.LON_STR`` and
-            ``aospy.internal_names.LON_STR``, respectively.
+            in the data to be masked.  Defaults are in
+            ``aospy.internal_names``.
+        land_mask_str: { str, None }, optional
+            The name of the land mask in the data to be masked.  Default is
+            ``aospy.internal_names.LAND_MASK_STR``.  Ignored if the Region
+            doesn't use a land mask.  If ``None``, the land mask is ignored.
 
         Returns
         -------
         xarray.DataArray
-            The original array with points outside of the region masked.
+            The original array with points outside of the region masked and, if
+            ``land_mask_str`` is not ``None``, weighted based on the region's
+            land mask.
 
         """
         # TODO: is this still necessary?
@@ -260,11 +265,14 @@ class Region(object):
                                  "definition requires wraparound longitudes.")
         masked = data.where(self._make_mask(data, lon_str=lon_str,
                                             lat_str=lat_str))
+        if land_mask_str is not None:
+            masked *= _get_land_mask(data, self.do_land_mask,
+                                     land_mask_str=land_mask_str)
         return masked
 
     def ts(self, data, lon_cyclic=True, lon_str=LON_STR, lat_str=LAT_STR,
            land_mask_str=LAND_MASK_STR, sfc_area_str=SFC_AREA_STR):
-        """Create yearly time-series of region-averaged data.
+        """Create time-series of region-averaged data.
 
         Parameters
         ----------
@@ -282,24 +290,23 @@ class Region(object):
         Returns
         -------
         xarray.DataArray
-            The timeseries of values averaged within the region and within each
-            year, one value per year.
+            The timeseries of values averaged within the region and with the
+            region's land mask applied, one value per timestep in the input
+            ``data``.
 
         """
         data_masked = self.mask_var(data, lon_cyclic=lon_cyclic,
-                                    lon_str=lon_str, lat_str=lat_str)
+                                    lon_str=lon_str, lat_str=lat_str,
+                                    land_mask_str=land_mask_str)
         sfc_area = data[sfc_area_str]
-        sfc_area_masked = self.mask_var(sfc_area, lon_cyclic=lon_cyclic,
-                                        lon_str=lon_str, lat_str=lat_str)
-        land_mask = _get_land_mask(data, self.do_land_mask,
-                                   land_mask_str=land_mask_str)
-        weights = sfc_area_masked * land_mask
+        weights = self.mask_var(sfc_area, lon_cyclic=lon_cyclic,
+                                lon_str=lon_str, lat_str=lat_str,
+                                land_mask_str=None)
         # Mask weights where data values are initially invalid in addition
         # to applying the region mask.
         weights = weights.where(np.isfinite(data))
-        weights_reg_sum = weights.sum(lon_str).sum(lat_str)
-        data_reg_sum = (data_masked * sfc_area_masked *
-                        land_mask).sum(lat_str).sum(lon_str)
+        weights_reg_sum = weights.sum(lat_str).sum(lon_str)
+        data_reg_sum = (data_masked * weights).sum(lat_str).sum(lon_str)
         return data_reg_sum / weights_reg_sum
 
     def av(self, data, lon_str=LON_STR, lat_str=LAT_STR,

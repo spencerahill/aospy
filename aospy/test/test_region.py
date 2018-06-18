@@ -29,7 +29,7 @@ def data_for_reg_calcs(values_for_reg_arr):
     lat = [-10., 1., 10., 20.]
     lon = [1., 10.]
     sfc_area = [0.5, 1., 0.5, 0.25]
-    land_mask = [1., 1., 0., 1.]
+    land_mask = [1., 0., 0.5, 1.]
 
     lat = xr.DataArray(lat, dims=[LAT_STR], coords=[lat])
     lon = xr.DataArray(lon, dims=[LON_STR], coords=[lon])
@@ -161,38 +161,43 @@ def test_make_mask_mult_rect(data_for_reg_calcs):
     xr.testing.assert_equal(result.transpose(), expected)
 
 
+expected_without_mask = [[np.nan, np.nan],
+                         [np.nan, np.nan],
+                         [3., np.nan],
+                         [4., np.nan]]
+expected_with_mask = [[np.nan, np.nan],
+                      [np.nan, np.nan],
+                      [1.5, np.nan],
+                      [4., np.nan]]
+
+
 @pytest.mark.parametrize(
-    'region',
-    [region_no_land_mask, region_land_mask],
+    ('region', 'expected_values'),
+    [(region_no_land_mask, expected_without_mask),
+     (region_land_mask, expected_with_mask)],
     ids=['no-land-mask', 'land-mask'])
-def test_mask_var(data_for_reg_calcs, region):
+def test_mask_var(data_for_reg_calcs, region, expected_values):
     # Test region masks first row and second column of test data.  Note that
     # first element of second row is np.nan in initial dataset.
-    expected_data = [[np.nan, np.nan],
-                     [np.nan, np.nan],
-                     [3., np.nan],
-                     [4., np.nan]]
     expected = data_for_reg_calcs.copy(deep=True)
-    expected.values = expected_data
+    expected.values = expected_values
     result = region.mask_var(data_for_reg_calcs)
     xr.testing.assert_identical(result, expected)
 
 
 @pytest.mark.parametrize(
-    'region',
-    [region_no_land_mask, region_land_mask],
+    ('region', 'expected_values'),
+    [(region_no_land_mask, expected_without_mask),
+     (region_land_mask, expected_with_mask)],
     ids=['no-land-mask', 'land-mask'])
-def test_mask_var_non_aospy_names(data_reg_alt_names, region):
+def test_mask_var_non_aospy_names(data_reg_alt_names, region, expected_values):
     # Test region masks first row and second column of test data.  Note that
     # first element of second row is np.nan in initial dataset.
-    expected_data = [[np.nan, np.nan],
-                     [np.nan, np.nan],
-                     [3., np.nan],
-                     [4., np.nan]]
     expected = data_reg_alt_names.copy(deep=True)
-    expected.values = expected_data
+    expected.values = expected_values
     result = region.mask_var(data_reg_alt_names, lon_str=_alt_names[LON_STR],
-                             lat_str=_alt_names[LAT_STR])
+                             lat_str=_alt_names[LAT_STR],
+                             land_mask_str=_alt_names[LAND_MASK_STR])
     xr.testing.assert_identical(result, expected)
 
 
@@ -209,7 +214,14 @@ def test_ts_no_land_mask(data_for_reg_calcs):
 
 def test_ts_land_mask(data_for_reg_calcs):
     result = region_land_mask.ts(data_for_reg_calcs)
-    expected = xr.DataArray(data_for_reg_calcs.values[3, 0])
+
+    data = data_for_reg_calcs.values
+    sfc_area = data_for_reg_calcs.sfc_area.values
+    land_mask = data_for_reg_calcs.land_mask.values
+    exp_numerator = (data[2, 0] * sfc_area[2, 0] * land_mask[2, 0] +
+                     data[3, 0] * sfc_area[3, 0] * land_mask[3, 0])
+    exp_denominator = sfc_area[2, 0] + sfc_area[3, 0]
+    expected = xr.DataArray(exp_numerator / exp_denominator)
     xr.testing.assert_identical(result, expected)
 
 
@@ -221,5 +233,12 @@ _map_to_alt_names = {'lon_str': _alt_names[LON_STR],
 
 def test_ts_non_aospy_names(data_reg_alt_names):
     result = region_land_mask.ts(data_reg_alt_names, **_map_to_alt_names)
-    expected = xr.DataArray(data_reg_alt_names.values[3, 0])
+
+    data = data_reg_alt_names.values
+    sfc_area = data_reg_alt_names[_alt_names[SFC_AREA_STR]].values
+    land_mask = data_reg_alt_names[_alt_names[LAND_MASK_STR]].values
+    exp_numerator = (data[2, 0] * sfc_area[2, 0] * land_mask[2, 0] +
+                     data[3, 0] * sfc_area[3, 0] * land_mask[3, 0])
+    exp_denominator = sfc_area[2, 0] + sfc_area[3, 0]
+    expected = xr.DataArray(exp_numerator / exp_denominator)
     xr.testing.assert_identical(result, expected)
