@@ -12,7 +12,8 @@ import logging
 import pprint
 import traceback
 
-from .calc import Calc, _TIME_DEFINED_REDUCTIONS
+from .calc import Calc
+from .reductions import _TIME_DEFINED_REDUCTIONS
 from .region import Region
 from .var import Var
 
@@ -249,7 +250,11 @@ def _prune_invalid_time_reductions(spec):
     valid_reductions = []
     if not spec['var'].def_time and spec['dtype_out_time'] is not None:
         for reduction in spec['dtype_out_time']:
-            if reduction not in _TIME_DEFINED_REDUCTIONS:
+            if isinstance(reduction, str):
+                label = reduction
+            else:
+                label = reduction.label
+            if label not in _TIME_DEFINED_REDUCTIONS:
                 valid_reductions.append(reduction)
             else:
                 msg = ("Var {0} has no time dimension "
@@ -267,6 +272,7 @@ def _compute_or_skip_on_error(calc, compute_kwargs):
 
     Prevents one failed calculation from stopping a larger requested set
     of calculations.
+
     """
     try:
         return calc.compute(**compute_kwargs)
@@ -274,7 +280,6 @@ def _compute_or_skip_on_error(calc, compute_kwargs):
         msg = ("Skipping aospy calculation `{0}` due to error with the "
                "following traceback: \n{1}")
         logging.warn(msg.format(calc, traceback.format_exc()))
-        return None
 
 
 def _submit_calcs_on_client(calcs, client, func):
@@ -295,6 +300,7 @@ def _n_workers_for_local_cluster(calcs):
     depending on which is smaller.  This is to prevent more workers from
     being started than needed (but also to prevent too many workers from
     being started in the case that a large number of calcs are submitted).
+
     """
     return min(cpu_count(), len(calcs))
 
@@ -315,6 +321,7 @@ def _exec_calcs(calcs, parallelize=False, client=None, **compute_kwargs):
     Returns
     -------
     A list of the values returned by each Calc object that was executed.
+
     """
     if parallelize:
         def func(calc):
@@ -343,7 +350,7 @@ def _serial_write_to_tar(calcs):
     for calc in calcs:
         if calc.proj.tar_direc_out:
             for dtype_out_time in calc.dtype_out_time:
-                calc._write_to_tar(dtype_out_time)
+                calc._write_to_tar(dtype_out_time.label)
 
 
 def _print_suite_summary(calc_suite_specs):
