@@ -13,8 +13,9 @@ import xarray as xr
 from ._constants import GRAV_EARTH
 from . import internal_names
 from .internal_names import TIME_WEIGHTS_STR
+from .reductions import (_TIME_DEFINED_REDUCTIONS, GriddedReduction,
+                         RegionReduction)
 from . import utils
-from .reductions import _TIME_DEFINED_REDUCTIONS
 from .var import Var
 
 
@@ -59,6 +60,13 @@ def _replace_pressure(arguments, dtype_in_vert):
         else:
             arguments_out.append(arg)
     return arguments_out
+
+
+def _time_weights_as_days(arr):
+    """Converting time units to days helps prevent overflow errors."""
+    dt = arr[TIME_WEIGHTS_STR]
+    dt = dt / np.timedelta64(1, 'D')
+    return arr
 
 
 class Calc(object):
@@ -217,12 +225,33 @@ class Calc(object):
         self.dtype_in_vert = dtype_in_vert
 
         if isinstance(dtype_out_time, (list, tuple)):
-            self.dtype_out_time = tuple(dtype_out_time)
+            dtype_out_time = tuple(dtype_out_time)
         else:
-            self.dtype_out_time = tuple([dtype_out_time])
+            dtype_out_time = tuple([dtype_out_time])
+        time_reg_reducs = []
+        for dtype in dtype_out_time:
+            if isinstance(dtype, str):
+                for reduc_cls in (GriddedReduction, RegionReduction):
+                    if dtype in reduc_cls.instances:
+                        time_reg_reducs.append(reduc_cls.instances[dtype])
+                        break
+                else:
+                    raise ValueError("Provided reduction label '{}' not found")
+            elif isinstance(dtype, (GriddedReduction, RegionReduction)):
+                time_reg_reducs.append(dtype)
+            elif dtype is None:
+                time_reg_reducs.append(GriddedReduction.instances['full'])
+            else:
+                raise ValueError("Each element of `dtype_out_time` must be "
+                                 "a GriddedReduction object, RegionReduction "
+                                 "object, or a string corresponding to the "
+                                 "label of one of these reduction objects.  "
+                                 "Bad value given: {}".format(dtype))
+        self.dtype_out_time = tuple(time_reg_reducs)
+
         if (self.dtype_in_time == 'av') or (not self.def_time):
             for reduction in self.dtype_out_time:
-                if reduction in _TIME_DEFINED_REDUCTIONS:
+                if reduction.label in _TIME_DEFINED_REDUCTIONS:
                     msg = ("Var {0} has no time dependence "
                            "for the given time reduction "
                            "{1}".format(self.name, reduction))
@@ -252,8 +281,9 @@ class Calc(object):
 
         self.dir_out = self._dir_out()
         self.dir_tar_out = self._dir_tar_out()
-        self.file_name = {d: self._file_name(d) for d in self.dtype_out_time}
-        self.path_out = {d: self._path_out(d)
+        self.file_name = {d.label: self._file_name(d.label)
+                          for d in self.dtype_out_time}
+        self.path_out = {d.label: self._path_out(d.label)
                          for d in self.dtype_out_time}
         self.path_tar_out = self._path_tar_out()
 
@@ -302,7 +332,7 @@ class Calc(object):
                 self.pressure = ds.level
         return ds
 
-    @log_step(logging.info, "Getting input data: {}".format(var))
+    # @log_step(logging.info, "Getting input data: {}".format(self.var))
     def _get_input_data(self, var, start_date, end_date):
         """Get the data for a single variable over the desired date range."""
         if isinstance(var, (float, int)):
@@ -354,43 +384,58 @@ class Calc(object):
                 data *= (GRAV_EARTH / ps)
         return data
 
-    @log_step(logging.info, "Applying regional time-reduction methods.")
-    def _apply_region_time_reductions(self, arr):
+    # @log_step(logging.info, "Applying regional time-reduction methods.")
+    def _apply_region_reductions(self, data):
         """Apply all region-averaged time reductions to the data."""
         # Get pressure values for data output on hybrid vertical coordinates.
         bool_pfull = (self.def_vert and self.dtype_in_vert ==
                       internal_names.ETA_STR and self.dtype_out_vert is False)
+        pfull_name = 'pressure'
         if bool_pfull:
             pfull_data = self._get_input_data(_P_VARS[self.dtype_in_vert],
                                               self.start_date,
-                                              self.end_date)
-            pfull = utils.times.yearly_average(
-                pfull_data, arr[TIME_WEIGHTS_STR]
-            ).rename('pressure')
-        # Loop over the regions, performing the calculation.
-        reg_dat = xr.Dataset()
-        for reg in self.region:
-            data_out = reduction(arr)
-            if bool_pfull:
-                # Don't apply e.g. standard deviation to coordinates.
-                if func not in ['av', 'ts']:
-                    method = reg.ts
-                # Convert Pa to hPa
-                coord = method(pfull) * 1e-2
-                data_out = data_out.assign_coords(**{reg.name + '_pressure':
-                                                     coord})
-            reg_dat.update(**{reg.name: data_out})
-        return reg_dat
+                                              self.end_date).rename(pfull_name)
+            coord_name = pfull_name
+        else:
+            pfull_data = None
+            coord_name = None
 
-    @log_step(logging.info, "Applying lat-lon time-reduction methods.")
-    def _apply_latlon_time_reductions(self, data):
+        # Loop over the regions, performing the calculation.
+        reg_reducs = [reduc for reduc in self.dtype_out_time if
+                      isinstance(reduc, RegionReduction)]
+        all_regions_reducs = {}
+        for reduction in reg_reducs:
+            region_data = xr.Dataset()
+            for region in self.region:
+                reduced = reduction(data, region, coord_name=coord_name,
+                                    coord_data=pfull_data)
+                if bool_pfull:
+                    reg_pfull_name = '{0}_{1}'.format(region.name, pfull_name)
+                    reduced = reduced.rename({pfull_name: reg_pfull_name})
+                    # Convert from Pa to hPa.
+                    reduced[reg_pfull_name] *= 1e-2
+                reduced = _add_metadata_as_attrs(reduced, self.var.units,
+                                                 self.var.description,
+                                                 self.dtype_out_vert)
+                region_data.update({region.name: reduced})
+            all_regions_reducs.update({reduction.label: region_data})
+        return all_regions_reducs
+
+    # @log_step(logging.info, "Applying lat-lon time-reduction methods.")
+    def _apply_gridded_reductions(self, data):
         """Apply all point-by-point time reductions to the data."""
-        reduced = {reduc.label: reduc(data) for reduc in self.dtype_out_time}
+        reduced = {}
+        for reduc in self.dtype_out_time:
+            if isinstance(reduc, GriddedReduction):
+                data_out = _add_metadata_as_attrs(reduc(data), self.var.units,
+                                                  self.var.description,
+                                                  self.dtype_out_vert)
+                reduced.update({reduc.label: data_out})
         return OrderedDict(sorted(reduced.items(), key=lambda t: t[0]))
 
-    @log_step(logging.info, ('Executing calculation for the dates {0} -- '
-                             '{1}.'.format(self.start_date, self.end_date)))
-    def compute(self, write_to_tar=True):
+    # @log_step(logging.info, ('Executing calculation for the dates {0} -- '
+    #                          '{1}.'.format(self.start_date, self.end_date)))
+    def compute(self, write_to_netcdf=True, write_to_tar=True):
         """Perform all desired calculations on the data and save externally.
 
         This method goes through each step needed to perform the given
@@ -400,35 +445,49 @@ class Calc(object):
         2. Subset the data to the desired times.
         3. Compute the desired quantity.
         4. Apply all desired spatiotemporal reductions.
-        5. Write the results to disk as specified and save them to this
-           object's ``data_out`` attribute.
+        5. Save the results to this object's ``data_out`` attribute.
+        6. If specified, write the results to disk.
 
         Parameters
         ----------
-        write_to_tar : bool, optional
-            Whether to write the results of the calculation to the (usually
-            secondary) tar archive, in addition to writing them to the primary
-            location.  Default is True.
+        write_to_netcdf: bool, optional, write_to_tar : bool, optional
+            Whether to write the results of the calculation to netCDF files on
+            disk.  Default True.
+        write_to_tar: bool, optional
+            Whether to write the results of the calculation to a tarball
+            archive.  Default True.
+
+        Returns
+        -------
+        This ``Calc`` object, whose ``data_out`` attribute has been created or
+        updated with the results of the calculations performed.
 
         """
+        # Load.
         data_in = self._get_all_data(self.start_date, self.end_date)
+        # Compute.
         data_out = self._function(*data_in).rename(self.name)
+        data_out = _time_weights_as_days(data_out)
+        # Reduce.
         data_out = self._apply_vert_reduc(data_out)
-        # Convert time units to days to prevent overflow.
-        data_out[TIME_WEIGHTS_STR] /= np.timedelta64(1, 'D')
-        data_out = _add_metadata_as_attrs(data_out, self.var.units,
-                                          self.var.description,
-                                          self.dtype_out_vert)
-        latlon_out = self._apply_latlon_time_reductions(data_out)
-        region_out = self._apply_region_time_reductions(data_out)
-        combined_out = latlon_out + region_out
+        gridded_out = self._apply_gridded_reductions(data_out)
+        region_out = self._apply_region_reductions(data_out)
+        combined_out = {**gridded_out, **region_out}
+        # Save.
+        self._update_data_out(combined_out)
+        if write_to_netcdf or write_to_tar:
+            self._write_to_netcdf(combined_out)
+        if write_to_tar:
+            for dtype in combined_out.keys():
+                self._write_to_tar(dtype)
+        return self
 
-        for dtype_time, data in combined_out.items():
-            self._save(data, dtype_time, dtype_out_vert=self.dtype_out_vert,
-                       save_files=True, write_to_tar=write_to_tar)
-
-    def _save_files(self, data, dtype_out_time):
+    def _write_to_netcdf(self, data):
         """Save the data to netcdf files in direc_out."""
+        for dtype, arr in data.items():
+            self._write_single_netcdf(arr, dtype)
+
+    def _write_single_netcdf(self, data, dtype_out_time):
         path = self.path_out[dtype_out_time]
         if not os.path.isdir(self.dir_out):
             os.makedirs(self.dir_out)
@@ -492,20 +551,20 @@ class Calc(object):
             tar.add(self.path_out[dtype_out_time],
                     arcname=self.file_name[dtype_out_time])
 
-    def _update_data_out(self, data, dtype):
+    def _update_data_out(self, data):
         """Append the data of the given dtype_out to the data_out attr."""
         try:
-            self.data_out.update({dtype: data})
+            self.data_out.update(data)
         except AttributeError:
-            self.data_out = {dtype: data}
+            self.data_out = data
 
-    @log_step(logging.info, "Writing desired gridded outputs to disk.")
+    # @log_step(logging.info, "Writing desired gridded outputs to disk.")
     def _save(self, data, dtype_out_time, dtype_out_vert=False,
               save_files=True, write_to_tar=False):
         """Save aospy data to data_out attr and to an external file."""
         self._update_data_out(data, dtype_out_time)
         if save_files:
-            self._save_files(data, dtype_out_time)
+            self._write_to_netcdf(data, dtype_out_time)
         if write_to_tar and self.proj.tar_direc_out:
             self._write_to_tar(dtype_out_time)
 

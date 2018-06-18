@@ -14,6 +14,7 @@ import xarray as xr
 from aospy import Var
 from aospy.calc import Calc, _add_metadata_as_attrs, _replace_pressure
 from aospy.internal_names import ETA_STR
+from aospy.reductions import GriddedReduction
 from aospy.utils.vertcoord import p_eta, dp_eta, p_level, dp_level
 from .data.objects.examples import (
     example_proj, example_model, example_run, var_not_time_defined,
@@ -172,17 +173,14 @@ test_params_not_time_defined = {
     'intvl_in': 'monthly',
     'dtype_in_time': 'av',
     'intvl_out': 1,
+    'dtype_out_time': None,
 }
 
 
-@pytest.mark.parametrize('dtype_out_time', [None, []])
-def test_calc_object_no_time_options(dtype_out_time):
-    test_params_not_time_defined['dtype_out_time'] = dtype_out_time
+def test_calc_object_no_time_options():
     calc = Calc(**test_params_not_time_defined)
-    if isinstance(dtype_out_time, list):
-        assert calc.dtype_out_time == tuple(dtype_out_time)
-    else:
-        assert calc.dtype_out_time == tuple([dtype_out_time])
+    null_reduc = GriddedReduction.instances['full']
+    assert calc.dtype_out_time == tuple([null_reduc])
 
 
 @pytest.mark.parametrize(
