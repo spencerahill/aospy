@@ -2,6 +2,7 @@
 import logging
 import os
 import pprint
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -186,9 +187,13 @@ def _prep_time_data(ds):
                         "values in time, even though this may not be "
                         "the case")
         ds = times.add_uniform_time_weights(ds)
-    with xr.set_options(enable_cftimeindex=True):
-        ds = xr.decode_cf(ds, decode_times=True, decode_coords=False,
-                          mask_and_scale=True)
+    # Suppress enable_cftimeindex is a no-op warning; we'll keep setting it for
+    # now to maintain backwards compatibility for older xarray versions.
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore')
+        with xr.set_options(enable_cftimeindex=True):
+            ds = xr.decode_cf(ds, decode_times=True, decode_coords=False,
+                              mask_and_scale=True)
     return ds
 
 

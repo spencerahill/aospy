@@ -77,8 +77,7 @@ class Var(object):
             be used in plots of this variable.
         valid_range : length-2 tuple
             The range of values outside which to flag as unphysical/erroneous
-
-        """
+        """  # noqa: W605
         self.name = name
         if alt_names is None:
             self.names = tuple([name])

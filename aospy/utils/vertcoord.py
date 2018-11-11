@@ -116,7 +116,7 @@ def d_deta_from_pfull(arr):
     -------
     deriv : xarray.DataArray with the derivative along 'pfull' computed via
             2nd order centered differencing.
-    """
+    """  # noqa: W605
     right = arr[{internal_names.PFULL_STR: slice(2, None, None)}].values
     left = arr[{internal_names.PFULL_STR: slice(0, -2, 1)}].values
     deriv = xr.DataArray(np.zeros(arr.shape), dims=arr.dims,

@@ -571,6 +571,7 @@ def test_load_variable(load_variable_data_loader, start_date, end_date):
     np.testing.assert_array_equal(result.values, expected.values)
 
 
+@pytest.mark.filterwarnings('ignore:CFTimeIndex.data is deprecated')
 @pytest.mark.parametrize(['start_date', 'end_date'],
                          _LOAD_VAR_DATE_RANGES.values(),
                          ids=list(_LOAD_VAR_DATE_RANGES.keys()))

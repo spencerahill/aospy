@@ -134,7 +134,7 @@ def test_input_func_py2_py3():
         import builtins
         assert result is builtins.input
     elif sys.version.startswith('2'):
-        assert result is raw_input  # flake8: noqa
+        assert result is raw_input  # noqa: F821
 
 
 def test_user_verify():
@@ -377,7 +377,7 @@ def test_prune_invalid_time_reductions(var):
         'var': var,
         'dtype_out_time': None
     }
-    assert _prune_invalid_time_reductions(spec) == None
+    assert _prune_invalid_time_reductions(spec) is None
     for i in range(1, len(time_options) + 1):
         for time_option in list(itertools.permutations(time_options, i)):
             spec['dtype_out_time'] = time_option

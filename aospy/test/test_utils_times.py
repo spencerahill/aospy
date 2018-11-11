@@ -83,6 +83,7 @@ def test_monthly_mean_ts_monthly():
     assert arr.identical(actual)
 
 
+@pytest.mark.filterwarnings('ignore:Mean of empty slice')
 def test_monthly_mean_ts_na():
     time = pd.to_datetime(['2000-06-01', '2001-06-01'])
     arr = xr.DataArray(np.random.random(time.shape), dims=[TIME_STR],
@@ -332,6 +333,8 @@ _CFTIME_DATE_TYPES = {
 }
 
 
+@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
+@pytest.mark.filterwarnings('ignore:Unable to decode')
 @pytest.mark.parametrize(['calendar', 'date_type'],
                          list(_CFTIME_DATE_TYPES.items()))
 def test_assert_has_data_for_time_cftime_datetimes(calendar, date_type):

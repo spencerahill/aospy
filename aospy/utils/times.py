@@ -9,12 +9,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from pandas.errors import OutOfBoundsDatetime
-
 from ..internal_names import (
-    BOUNDS_STR, GRID_ATTRS_NO_TIMES, RAW_END_DATE_STR, RAW_START_DATE_STR,
+    BOUNDS_STR, RAW_END_DATE_STR, RAW_START_DATE_STR,
     SUBSET_END_DATE_STR, SUBSET_START_DATE_STR, TIME_BOUNDS_STR, TIME_STR,
-    TIME_VAR_STRS, TIME_WEIGHTS_STR
+    TIME_WEIGHTS_STR
 )
 
 
@@ -193,7 +191,9 @@ def ensure_datetime(obj):
     ------
     TypeError if `obj` is not datetime-like
     """
-    if isinstance(obj, (str, datetime.datetime, cftime.datetime, np.datetime64)):
+    _VALID_TYPES = (str, datetime.datetime, cftime.datetime,
+                    np.datetime64)
+    if isinstance(obj, _VALID_TYPES):
         return obj
     raise TypeError("datetime-like object required.  "
                     "Type given: {}".format(type(obj)))
@@ -335,7 +335,7 @@ def ensure_time_avg_has_cf_metadata(ds):
     -------
     Dataset or DataArray
         Time average metadata attributes added if needed.
-    """  # flake8: noqa
+    """  # noqa: E501
     if TIME_WEIGHTS_STR not in ds:
         time_weights = ds[TIME_BOUNDS_STR].diff(BOUNDS_STR)
         time_weights = time_weights.rename(TIME_WEIGHTS_STR).squeeze()
@@ -424,7 +424,8 @@ def _assert_has_data_for_time(da, start_date, end_date):
     tol = datetime.timedelta(seconds=1)
     if isinstance(da_start, np.datetime64):
         tol = np.timedelta64(tol, 'ns')
-    range_exists = (da_start - tol) <= start_date and (da_end + tol) >= end_date
+    range_exists = ((da_start - tol) <= start_date and
+                    (da_end + tol) >= end_date)
     assert (range_exists), message.format(start_date, end_date,
                                           da_start, da_end)
 
@@ -548,7 +549,7 @@ def infer_year(date):
     if isinstance(date, str):
         # Look for a string that begins with four numbers; the first four
         # numbers found are the year.
-        pattern = '(?P<year>\d{4})'
+        pattern = '(?P<year>\d{4})'  # noqa: W605
         result = re.match(pattern, date)
         if result:
             return int(result.groupdict()['year'])
