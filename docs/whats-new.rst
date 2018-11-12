@@ -47,6 +47,8 @@ Documentation
 Enhancements
 ~~~~~~~~~~~~
 
+- Add support for Python 3.7. (closes :issue:`292` via :pull:`306`.
+  By `Spencer Hill <https://github.com/spencerahill>`_.
 - Use an ``xarray.CFTimeIndex`` for dates from non-standard calendars and
   outside the Timestamp-valid range.  This eliminates the need for the prior
   workaround, which shifted dates to within the range 1678 to 2262 prior to

@@ -5,15 +5,15 @@
 environment:
 
   matrix:
-    - PYTHON: "C:\\Python35-conda64"
-      PYTHON_VERSION: "3.5"
-      PYTHON_ARCH: "64"
-      CONDA_ENV: "py35"
-
     - PYTHON: "C:\\Python36-conda64"
       PYTHON_VERSION: "3.6"
       PYTHON_ARCH: "64"
       CONDA_ENV: "py36"
+
+    - PYTHON: "C:\\Python36-conda64"
+      PYTHON_VERSION: "3.7"
+      PYTHON_ARCH: "64"
+      CONDA_ENV: "py37"
 
 install:
   # Install miniconda Python
@@ -31,6 +31,7 @@ install:
   # install aospy and dependencies
   - "conda env create --file ./ci/environment-%CONDA_ENV%.yml"
   - "activate test_env"
+  - "conda list"
   - "pip install -e ."
 
 build: false
