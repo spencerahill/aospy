@@ -100,6 +100,10 @@ Enhancements
 - Allow for variables to be functions of other computed variables (closes
   :issue:`3` via :pull:`263`).  By `Spencer
   Clark <https://github.com/spencerkclark>`_.
+- Add a ``grid_attrs`` argument to the :py:class:`~aospy.Model` constructor to
+  allow the specification of custom alternative names for grid attributes like
+  time, latitude, or longitude (closes :issue:`182` via :pull:`297`). By
+  `Spencer Clark <https://github.com/spencerkclark>`_.
 
 Bug Fixes
 ~~~~~~~~~

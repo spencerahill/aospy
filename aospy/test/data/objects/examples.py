@@ -4,6 +4,8 @@ from cftime import DatetimeNoLeap
 
 from aospy import Proj, Model, Run, Var, Region
 from aospy.data_loader import NestedDictDataLoader
+from aospy.internal_names import LAND_MASK_STR, LON_STR
+
 
 ROOT_PATH = os.path.dirname(__file__)
 
@@ -39,7 +41,8 @@ example_model = Model(
                       'im.landmask.nc')),
     ),
     runs=[example_run],
-    load_grid_data=True
+    load_grid_data=True,
+    grid_attrs={LAND_MASK_STR: 'custom_land_mask', LON_STR: 'custom_lon'}
 )
 
 example_proj = Proj(

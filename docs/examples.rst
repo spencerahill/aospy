@@ -158,18 +158,80 @@ The other important attribute is ``runs``, which is a list of the
 :py:class:`aospy.Run` objects that pertain to simulations performed in
 this particular model.
 
+Lastly, grid attibutes (like time, latitude, longitude, etc.), often have
+different names from model to model.  ``aospy`` can handle most typical grid
+attribute names automatically; however, if your model uses unusual grid
+attribute names you can add a ``grid_attrs`` dictionary to your
+:py:class:`~aospy.Model` object to define a mapping between ``aospy`` internal
+names and names for the grid attributes that can be found in your data files.
+In our example data, the land mask and longitude variables both have
+non-standard names: 'custom_land_mask' and 'custom_lon', respectively.  To
+account for this we can provide a ``grid_attrs`` dictionary to the
+:py:class:`~aospy.Model` constructor, mapping the ``aospy`` internal names for
+these grid attributes to the names used for them in the model.
+
 .. ipython:: python
 
     from aospy import Model
+    from aospy.internal_names import LAND_MASK_STR, LON_STR
     example_model = Model(
         name='example_model',
         grid_file_paths=(
             os.path.join(rootdir, '00040101.precip_monthly.nc'),
             os.path.join(rootdir, 'im.landmask.nc')
         ),
-        runs=[example_run]  # only one Run in our case, but could be more
+        runs=[example_run],  # only one Run in our case, but could be more
+        grid_attrs={LAND_MASK_STR: 'custom_land_mask', LON_STR: 'custom_lon'}
     )
 
+.. _built-in-alternative-names:
+
+Built-in alternative names
+**************************
+
+For reference, here is a table showing the list of grid attributes used in
+``aospy`` along with their associated built-in alternative names.  We are
+always open to adding more alternative names to this list, as long as their
+association with particular grid attributes is sufficiently unambiguous.
+For potentially ambiguous alternative names, e.g. 'T' for ``TIME_STR`` (since
+'T' is used for time in some datasets but for temperature in others), we
+recommend using the ``grid_attrs`` argument in the :py:class:`~aospy.Model`
+constructor as demonstrated above.
+   
++------------------------+-----------------------------------------------------------+
+| Internal name          | Built-in alternative names                                |
++========================+===========================================================+
+| ``LAT_STR``            | 'lat', 'latitude', 'LATITUDE', 'y', 'Y', 'yto', 'XLAT'    |
++------------------------+-----------------------------------------------------------+
+| ``LAT_BOUNDS_STR``     | 'latb', 'lat_bnds', 'lat_bounds'                          |
++------------------------+-----------------------------------------------------------+
+| ``LON_STR``            | 'lon', 'longitude', 'LONGITUDE', 'x', 'X', 'xto', 'XLONG' |
++------------------------+-----------------------------------------------------------+
+| ``LON_BOUNDS_STR``     | 'lonb', 'lon_bnds', 'lon_bounds'                          |
++------------------------+-----------------------------------------------------------+
+| ``ZSURF_STR``          | 'zsurf', 'HGT'                                            |
++------------------------+-----------------------------------------------------------+
+| ``SFC_AREA_STR``       | 'area', 'sfc_area'                                        |
++------------------------+-----------------------------------------------------------+
+| ``LAND_MASK_STR``      | 'land_mask', 'LANDFRAC', 'XLAND', 'land'                  |
++------------------------+-----------------------------------------------------------+
+| ``PK_STR``             | 'pk'                                                      |
++------------------------+-----------------------------------------------------------+
+| ``BK_STR``             | 'bk'                                                      |
++------------------------+-----------------------------------------------------------+
+| ``PHALF_STR``          | 'phalf'                                                   |
++------------------------+-----------------------------------------------------------+
+| ``PFULL_STR``          | 'pfull'                                                   |
++------------------------+-----------------------------------------------------------+
+| ``PLEVEL_STR``         | 'level', 'lev', 'plev', 'P'                               |
++------------------------+-----------------------------------------------------------+
+| ``TIME_STR``           | 'time', 'XTIME'                                           |
++------------------------+-----------------------------------------------------------+
+| ``TIME_WEIGHTS_STR``   | 'time_weights', 'average_DT'                              |
++------------------------+-----------------------------------------------------------+
+| ``BOUNDS_STR``         | 'bounds', 'bnds', 'nv', 'nbnd', 'nbnds'                   |
++------------------------+-----------------------------------------------------------+
+    
 Projects
 ========
 

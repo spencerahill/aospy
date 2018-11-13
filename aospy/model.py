@@ -18,9 +18,9 @@ def _get_grid_attr(grid_objs, attr_name):
             pass
 
 
-def _rename_coords(ds):
+def _rename_coords(ds, attrs):
     """Rename coordinates to aospy's internal names."""
-    for name_int, names_ext in internal_names.GRID_ATTRS.items():
+    for name_int, names_ext in attrs.items():
         # Check if coord is in dataset already.
         ds_coord_name = set(names_ext).intersection(set(ds.coords))
         if ds_coord_name:
@@ -127,13 +127,12 @@ class Model(object):
         coordinate data can be taken.
     default_start_date, default_end_date : datetime.datetime
         The default start and end dates of any calculations using this Model
-
     """
 
     def __init__(self, name=None, description=None, proj=None,
                  grid_file_paths=None, default_start_date=None,
                  default_end_date=None, runs=None, default_runs=None,
-                 load_grid_data=False):
+                 load_grid_data=False, grid_attrs=None):
         """
         Parameters
         ----------
@@ -164,6 +163,17 @@ class Model(object):
         load_grid_data : bool, optional (default False)
             Whether or not to load the grid data specified by 'grid_file_paths'
             upon initilization
+        grid_attrs : dict, optional (default None)
+            Dictionary mapping aospy internal names of grid attributes to their
+            corresponding names used in a particular model.
+            E.g. ``{TIME_STR: 'T'}``.  While aospy checks for a number of
+            alternative names for grid attributes used by various models,
+            it is not possible to anticipate all possible names.  This option
+            allows the user to explicitly tell aospy which variables correspond
+            to which internal names (internal names not provided in this
+            dictionary will be attempted to be found in the usual way).  For a
+            list of built-in alternative names see
+            :ref:`the table here <built-in-alternative-names>`.
 
         See Also
         --------
@@ -195,6 +205,8 @@ class Model(object):
             self.default_runs = []
         else:
             self.default_runs = default_runs
+
+        self.grid_attrs = grid_attrs
 
         self._grid_data_is_set = False
         if load_grid_data:
@@ -228,12 +240,27 @@ class Model(object):
         Set multiple attrs from grid file given their names in the grid file.
         """
         grid_objs = self._get_grid_files()
-        for name_int, names_ext in internal_names.GRID_ATTRS.items():
+
+        if self.grid_attrs is None:
+            self.grid_attrs = {}
+
+        # Override GRID_ATTRS with entries in grid_attrs
+        attrs = internal_names.GRID_ATTRS.copy()
+        for k, v in self.grid_attrs.items():
+            if k not in attrs:
+                raise ValueError(
+                    'Unrecognized internal name, {!r}, specified for a '
+                    'custom grid attribute name.  See the full list of '
+                    'valid internal names below:\n\n{}'.format(
+                        k, list(internal_names.GRID_ATTRS.keys())))
+            attrs[k] = (v, )
+
+        for name_int, names_ext in attrs.items():
             for name in names_ext:
                 grid_attr = _get_grid_attr(grid_objs, name)
                 if grid_attr is not None:
                     TIME_STR = internal_names.TIME_STR
-                    renamed_attr = _rename_coords(grid_attr)
+                    renamed_attr = _rename_coords(grid_attr, attrs)
                     if ((TIME_STR not in renamed_attr.dims) and
                        (TIME_STR in renamed_attr.coords)):
                         renamed_attr = renamed_attr.drop(TIME_STR)

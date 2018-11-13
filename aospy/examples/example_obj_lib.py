@@ -5,6 +5,7 @@ import os
 import aospy
 from aospy import Model, Proj, Region, Run, Var
 from aospy.data_loader import DictDataLoader
+from aospy.internal_names import LAND_MASK_STR, LON_STR
 
 
 rootdir = os.path.join(aospy.__path__[0], 'test', 'data', 'netcdf')
@@ -27,7 +28,8 @@ example_model = Model(
     name='example_model',
     grid_file_paths=(os.path.join(rootdir, '00040101.precip_monthly.nc'),
                      os.path.join(rootdir, 'im.landmask.nc')),
-    runs=[example_run]
+    runs=[example_run],
+    grid_attrs={LAND_MASK_STR: 'custom_land_mask', LON_STR: 'custom_lon'}
 )
 
 

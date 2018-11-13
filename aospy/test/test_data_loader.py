@@ -192,6 +192,21 @@ def test_rename_grid_attrs_copy_attrs(ds, alt_lat_str):
     assert ds[LAT_STR].attrs == orig_attrs
 
 
+def test_rename_grid_attrs_custom(ds, alt_lat_str):
+    assert LAT_STR not in ds
+    ds = ds.rename({alt_lat_str: 'custom_lat_name'})
+    ds = grid_attrs_to_aospy_names(ds, {LAT_STR: 'custom_lat_name'})
+    assert LAT_STR in ds
+    assert 'custom_lat_name' not in ds
+
+
+def test_rename_grid_attrs_custom_error(ds, alt_lat_str):
+    assert LAT_STR not in ds
+    ds = ds.rename({alt_lat_str: 'custom_lat_name'})
+    with pytest.raises(ValueError):
+        ds = grid_attrs_to_aospy_names(ds, {alt_lat_str: 'custom_lat_name'})
+
+
 def test_set_grid_attrs_as_coords(ds, var_name):
     ds = grid_attrs_to_aospy_names(ds)
     sfc_area = ds[var_name].isel(**{TIME_STR: 0}).drop(TIME_STR)

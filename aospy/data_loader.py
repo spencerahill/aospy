@@ -16,7 +16,7 @@ from .internal_names import (
 from .utils import times, io
 
 
-def _preprocess_and_rename_grid_attrs(func, **kwargs):
+def _preprocess_and_rename_grid_attrs(func, grid_attrs=None, **kwargs):
     """Call a custom preprocessing method first then rename grid attrs.
 
     This wrapper is needed to generate a single function to pass to the
@@ -32,6 +32,9 @@ def _preprocess_and_rename_grid_attrs(func, **kwargs):
        An arbitrary function to call before calling
        ``grid_attrs_to_aospy_names`` in ``_load_data_from_disk``.  Must take
        an xr.Dataset as an argument as well as ``**kwargs``.
+    grid_attrs : dict (optional)
+        Overriding dictionary of grid attributes mapping aospy internal
+        names to names of grid attributes used in a particular model.
 
     Returns
     -------
@@ -42,11 +45,11 @@ def _preprocess_and_rename_grid_attrs(func, **kwargs):
     """
 
     def func_wrapper(ds):
-        return grid_attrs_to_aospy_names(func(ds, **kwargs))
+        return grid_attrs_to_aospy_names(func(ds, **kwargs), grid_attrs)
     return func_wrapper
 
 
-def grid_attrs_to_aospy_names(data):
+def grid_attrs_to_aospy_names(data, grid_attrs=None):
     """Rename grid attributes to be consistent with aospy conventions.
 
     Search all of the dataset's coords and dims looking for matches to known
@@ -62,6 +65,9 @@ def grid_attrs_to_aospy_names(data):
     Parameters
     ----------
     data : xr.Dataset
+    grid_attrs : dict (default None)
+        Overriding dictionary of grid attributes mapping aospy internal
+        names to names of grid attributes used in a particular model.
 
     Returns
     -------
@@ -69,8 +75,21 @@ def grid_attrs_to_aospy_names(data):
         Data returned with coordinates consistent with aospy
         conventions
     """
+    if grid_attrs is None:
+        grid_attrs = {}
+
+    # Override GRID_ATTRS with entries in grid_attrs
+    attrs = GRID_ATTRS.copy()
+    for k, v in grid_attrs.items():
+        if k not in attrs:
+            raise ValueError(
+                'Unrecognized internal name, {!r}, specified for a custom '
+                'grid attribute name.  See the full list of valid internal '
+                'names below:\n\n{}'.format(k, list(GRID_ATTRS.keys())))
+        attrs[k] = (v, )
+
     dims_and_vars = set(data.variables).union(set(data.dims))
-    for name_int, names_ext in GRID_ATTRS.items():
+    for name_int, names_ext in attrs.items():
         data_coord_name = set(names_ext).intersection(dims_and_vars)
         if data_coord_name:
             data = data.rename({data_coord_name.pop(): name_int})
@@ -198,7 +217,8 @@ def _prep_time_data(ds):
 
 
 def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds,
-                         data_vars='minimal', coords='minimal', **kwargs):
+                         data_vars='minimal', coords='minimal',
+                         grid_attrs=None, **kwargs):
     """Load a Dataset from a list or glob-string of files.
 
     Datasets from files are concatenated along time,
@@ -216,13 +236,17 @@ def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds,
     coords : str (default 'minimal')
         Mode for concatenating coordinate variables in call to
         ``xr.open_mfdataset``.
+    grid_attrs : dict
+        Overriding dictionary of grid attributes mapping aospy internal
+        names to names of grid attributes used in a particular model.
 
     Returns
     -------
     Dataset
     """
     apply_preload_user_commands(file_set)
-    func = _preprocess_and_rename_grid_attrs(preprocess_func, **kwargs)
+    func = _preprocess_and_rename_grid_attrs(preprocess_func, grid_attrs,
+                                             **kwargs)
     return xr.open_mfdataset(file_set, preprocess=func, concat_dim=TIME_STR,
                              decode_times=False, decode_coords=False,
                              mask_and_scale=True, data_vars=data_vars,
@@ -251,7 +275,7 @@ def _setattr_default(obj, attr, value, default):
 class DataLoader(object):
     """A fundamental DataLoader object."""
     def load_variable(self, var=None, start_date=None, end_date=None,
-                      time_offset=None, **DataAttrs):
+                      time_offset=None, grid_attrs=None, **DataAttrs):
         """Load a DataArray for requested variable and time range.
 
         Automatically renames all grid attributes to match aospy conventions.
@@ -267,6 +291,9 @@ class DataLoader(object):
         time_offset : dict
             Option to add a time offset to the time coordinate to correct for
             incorrect metadata.
+        grid_attrs : dict (optional)
+            Overriding dictionary of grid attributes mapping aospy internal
+            names to names of grid attributes used in a particular model.
         **DataAttrs
             Attributes needed to identify a unique set of files to load from
 
@@ -280,7 +307,7 @@ class DataLoader(object):
         ds = _load_data_from_disk(
             file_set, self.preprocess_func, data_vars=self.data_vars,
             coords=self.coords, start_date=start_date, end_date=end_date,
-            time_offset=time_offset, **DataAttrs
+            time_offset=time_offset, grid_attrs=grid_attrs, **DataAttrs
         )
         if var.def_time:
             ds = _prep_time_data(ds)
@@ -304,10 +331,12 @@ class DataLoader(object):
         or through an optionally-provided Model object.  Defaults to using
         the version found in the DataLoader first.
         """
+        grid_attrs = None if model is None else model.grid_attrs
+
         try:
             return self.load_variable(
                 var, start_date=start_date, end_date=end_date,
-                time_offset=time_offset, **DataAttrs)
+                time_offset=time_offset, grid_attrs=grid_attrs, **DataAttrs)
         except (KeyError, IOError) as e:
             if var.name not in GRID_ATTRS or model is None:
                 raise e
