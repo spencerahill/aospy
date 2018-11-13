@@ -43,6 +43,11 @@ Breaking Changes
   ``BOUNDS_STR`` is a coordinate of ``time_weights`` (fixes :issue:`293`
   and :issue:`299` via :pull:`309`). By `James Doss-Gollin 
   <https://github.com/jdossgollin>`_.
+- Updates the documentation in the described ``calc_suite_specs``
+  argument to ``submit_mult_calcs`` in ``automate.py`` (fixes
+  :issue:`295` via :pull:`310`). By `James Doss-Gollin 
+  <https://github.com/jdossgollin>`_.
+
 
 Documentation
 ~~~~~~~~~~~~~

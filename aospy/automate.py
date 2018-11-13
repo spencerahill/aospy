@@ -384,10 +384,16 @@ def submit_mult_calcs(calc_suite_specs, exec_options=None):
             The region(s) over which any regional reductions will be performed.
             If 'all', use all regions in the ``regions`` attribute of each
             ``Proj``.
-        date_ranges : 'default' or tuple of datetime.datetime objects
+        date_ranges : 'default' or a list of tuples
             The range of dates (inclusive) over which to perform calculations.
             If 'default', use the ``default_start_date`` and
-            ``default_end_date`` attribute of each ``Run``.
+            ``default_end_date`` attribute of each ``Run``. Else provide a
+            list of tuples, each containing a pair of start and end dates,
+            such as  ``date_ranges=[(start, end)]`` where ``start`` and
+            ``end`` are each ``datetime.datetime`` objects, partial
+            datetime strings (e.g. '0001'), ``np.datetime64`` objects, or
+            ``cftime.datetime`` objects.
+
         output_time_intervals : {'ann', season-string, month-integer}
             The sub-annual time interval over which to aggregate.
 
