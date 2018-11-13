@@ -339,7 +339,9 @@ def ensure_time_avg_has_cf_metadata(ds):
     if TIME_WEIGHTS_STR not in ds:
         time_weights = ds[TIME_BOUNDS_STR].diff(BOUNDS_STR)
         time_weights = time_weights.rename(TIME_WEIGHTS_STR).squeeze()
-        ds[TIME_WEIGHTS_STR] = time_weights.drop(BOUNDS_STR)
+        if BOUNDS_STR in time_weights.coords:
+            time_weights = time_weights.drop(BOUNDS_STR)
+        ds[TIME_WEIGHTS_STR] = time_weights
 
     raw_start_date = ds[TIME_BOUNDS_STR].isel(**{TIME_STR: 0, BOUNDS_STR: 0})
     ds[RAW_START_DATE_STR] = raw_start_date.reset_coords(drop=True)

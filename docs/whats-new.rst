@@ -37,6 +37,12 @@ Breaking Changes
 - Deprecate ``func_input_dtype`` argument to ``Var`` (fixes
   :issue:`281` via :pull:`282`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
+- Improve compatibility for data following IRIDL conventions or NOAA
+  data formats. Specifically, several alternate names are defined in
+  ``GRID_ATTRS``, while there is no longer an assumption that 
+  ``BOUNDS_STR`` is a coordinate of ``time_weights`` (fixes :issue:`293`
+  and :issue:`299` via :pull:`309`). By `James Doss-Gollin 
+  <https://github.com/jdossgollin>`_.
 
 Documentation
 ~~~~~~~~~~~~~
