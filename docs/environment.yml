@@ -1,17 +1,15 @@
 name: aospy-docs
 channels:
   - conda-forge
-  - defaults
 dependencies:
-  - python=3.5
-  - sphinx=1.4.1
-  - numpy=1.11
-  - numpydoc=0.6
-  - scipy=0.18.1
-  - pandas=0.19.0
-  - hdf4
-  - netCDF4
-  - xarray=0.9.1
-  - ipython=5.1.0
-  - matplotlib=1.5.3
-  - cftime
+  - python=3.6
+  - sphinx=1.7.6
+  - numpy=1.14.5
+  - numpydoc=0.8.0
+  - scipy=1.1.0
+  - pandas=0.23.3
+  - netCDF4=1.4.0
+  - xarray=0.11.0
+  - ipython=6.4.0
+  - matplotlib=2.2.2
+  - cftime=1.0.0
