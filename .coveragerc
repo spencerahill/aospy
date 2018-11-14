@@ -1,2 +1,2 @@
 [run]
-omit = aospy/test/*
+omit = aospy/test/*,aospy/_version.py

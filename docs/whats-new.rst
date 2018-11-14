@@ -58,6 +58,10 @@ Documentation
 Enhancements
 ~~~~~~~~~~~~
 
+- aospy now uses `Versioneer
+  <https://github.com/warner/python-versioneer>`_ to manage its
+  version strings.  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
 - Add support for Python 3.7. (closes :issue:`292` via :pull:`306`.
   By `Spencer Hill <https://github.com/spencerahill>`_.
 - Use an ``xarray.CFTimeIndex`` for dates from non-standard calendars and

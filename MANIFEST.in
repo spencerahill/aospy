@@ -2,3 +2,6 @@ include LICENSE
 recursive-include docs *
 prune docs/_build
 prune docs/generated
+global-exclude .DS_Store
+include versioneer.py
+include aospy/_version.py

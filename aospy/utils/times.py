@@ -551,7 +551,7 @@ def infer_year(date):
     if isinstance(date, str):
         # Look for a string that begins with four numbers; the first four
         # numbers found are the year.
-        pattern = '(?P<year>\d{4})'  # noqa: W605
+        pattern = r'(?P<year>\d{4})'
         result = re.match(pattern, date)
         if result:
             return int(result.groupdict()['year'])

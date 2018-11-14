@@ -17,6 +17,10 @@ from .calc import Calc
 from .automate import submit_mult_calcs
 from . import examples
 
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
+
 __all__ = ['user_path', '_constants', 'utils', 'var', 'Var', 'region',
            'Region', 'run', 'Run', 'model', 'Model', 'proj', 'Proj',
            'calc', 'Calc', 'submit_mult_calcs', 'examples']

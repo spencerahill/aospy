@@ -1,5 +1,6 @@
 import setuptools
 
+import versioneer
 
 LONG_DESCRIPTION = """
 **aospy**: automated gridded climate data analysis and management
@@ -20,7 +21,8 @@ Important links
 
 setuptools.setup(
     name="aospy",
-    version="0.2",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     packages=setuptools.find_packages(),
     author="aospy Developers",
     author_email="aospy@googlegroups.com",
