@@ -5,8 +5,22 @@ What's New
 
 .. _whats-new.0.3:
 
-v0.3 (unreleased)
------------------
+v0.3 (15 November 2018)
+-----------------------
+
+This release adds a number of new features, fixes many bugs, and
+improves our documentation.  It includes several deprecations, other
+breaking changes, and modifications to aospy's list of required
+dependencies.  We are grateful for three new contributors this time
+around and are eager to grow the user- and developer-base further
+moving forward!  Highlights (full changelog below these):
+
+- Support for Python 3.7
+- ``Var`` objects can now be recursively computed in terms of other ``Var``s
+- Thanks to ``xarray.CFTimeIndex``, no longer require special logic/handling of
+  out-of-range datetimes
+- Improved handling of region longitude bounds in ``Region`` via new
+  New ``Longitude`` class
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
@@ -37,31 +51,31 @@ Breaking Changes
 - Deprecate ``func_input_dtype`` argument to ``Var`` (fixes
   :issue:`281` via :pull:`282`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
-- Improve compatibility for data following IRIDL conventions or NOAA
-  data formats. Specifically, several alternate names are defined in
-  ``GRID_ATTRS``, while there is no longer an assumption that 
-  ``BOUNDS_STR`` is a coordinate of ``time_weights`` (fixes :issue:`293`
-  and :issue:`299` via :pull:`309`). By `James Doss-Gollin 
-  <https://github.com/jdossgollin>`_.
-- Updates the documentation in the described ``calc_suite_specs``
-  argument to ``submit_mult_calcs`` in ``automate.py`` (fixes
-  :issue:`295` via :pull:`310`). By `James Doss-Gollin 
-  <https://github.com/jdossgollin>`_.
 
 
 Documentation
 ~~~~~~~~~~~~~
 
+- Updates the documentation in the described ``calc_suite_specs``
+  argument to ``submit_mult_calcs`` in ``automate.py`` (fixes
+  :issue:`295` via :pull:`310`). By `James Doss-Gollin
+  <https://github.com/jdossgollin>`_.
 - Corrected link to documentation badge on repository main page
   (:pull:`213`).  `By DaCoEx <https://github.com/dacoex>`_.
 
 Enhancements
 ~~~~~~~~~~~~
 
+- Improve compatibility for data following IRIDL conventions or NOAA
+  data formats. Specifically, several alternate names are defined in
+  ``GRID_ATTRS``, while there is no longer an assumption that
+  ``BOUNDS_STR`` is a coordinate of ``time_weights`` (fixes :issue:`293`
+  and :issue:`299` via :pull:`309`). By `James Doss-Gollin
+  <https://github.com/jdossgollin>`_.
 - aospy now uses `Versioneer
   <https://github.com/warner/python-versioneer>`_ to manage its
   version strings.  By `Spencer Hill
-  <https://github.com/spencerahill>`_.
+  <https://github.com/spencerahill>`_ (:pull:`311`).
 - Add support for Python 3.7. (closes :issue:`292` via :pull:`306`.
   By `Spencer Hill <https://github.com/spencerahill>`_.
 - Use an ``xarray.CFTimeIndex`` for dates from non-standard calendars and
@@ -169,6 +183,7 @@ Dependencies
 - ``aospy`` now requires a minimum version of ``xarray`` of 0.10.6.
   See discussion in :issue:`199`, :pull:`240`, :issue:`268`,
   :pull:`269`, :pull:`273`, and :pull:`275` for more details.
+
 
 .. _whats-new.0.2:
 
