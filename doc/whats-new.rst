@@ -4,6 +4,11 @@
 What's New
 ##########
 
+.. _whats-new.0.3.2:
+
+v0.3.2 (unreleased)
+===================
+
 .. _whats-new.0.3.1:
 
 v0.3.1 (19 November 2018)
