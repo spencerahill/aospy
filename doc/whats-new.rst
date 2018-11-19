@@ -6,8 +6,15 @@ What's New
 
 .. _whats-new.0.3.1:
 
-v0.3.1 (unreleased)
-===================
+v0.3.1 (19 November 2018)
+=========================
+
+This minor release fixes the builds of our documentation, adds
+continuous integration (CI) testing of those builds, introduces a
+how-to guide for future releases, and otherwise slightly modifies our
+docs and CI configurations.  (:pull:`313`, :pull:`314`).  These are
+all backend changes --- for aospy users, there are no changes from
+v0.3.0.
 
 
 .. _whats-new.0.3.0:
