@@ -66,7 +66,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-.. image:: docs/aospy_logo.png
+.. image:: doc/aospy_logo.png
    :alt: aospy logo
    :align: center
    :height: 300px

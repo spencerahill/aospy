@@ -1,4 +1,4 @@
-name: aospy-docs
+name: aospy_docs
 channels:
   - conda-forge
 dependencies:
@@ -13,3 +13,4 @@ dependencies:
   - ipython=6.4.0
   - matplotlib=2.2.2
   - cftime=1.0.0
+  - dask=0.18.2

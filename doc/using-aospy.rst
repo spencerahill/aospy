@@ -65,7 +65,7 @@ that were outputted).
    accordance with the available vertical coordinates depending on the
    ``dtype_in_vert`` specified in the main script.  Currently supported
    ``dtype_in_vert`` values are:
-   
+
    - ``'sigma'``: for data output on hybrid pressure coordinates
    - ``'pressure'``: for data interpolated to levels of constant pressure.
 
@@ -156,7 +156,7 @@ function.  We recommend copying it to the location of your choice.  In
 the copy, replace the example object library and associated objects
 with your own.  (If you accidentally change the original, you can
 always get a `fresh copy from Github
-<https://github.com/spencerahill/aospy/blob/develop/aospy/examples/aospy_main.py>`_).
+<https://github.com/spencerahill/aospy/blob/master/aospy/examples/aospy_main.py>`_).
 
 Running the main script
 -----------------------

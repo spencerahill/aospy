@@ -1,3 +1,4 @@
+# Based on http://conda.pydata.org/docs/travis.html
 language: minimal
 sudo: false
 notifications:
@@ -10,28 +11,40 @@ matrix:
   - env: CONDA_ENV=py36
   - env: CONDA_ENV=py36-xarray-dev
   - env: CONDA_ENV=py37
+  - env: CONDA_ENV=docs
   allow_failures:
   - env: CONDA_ENV=py36-xarray-dev
 
 before_install:
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+  - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
-  - conda config --set always_yes yes --set changeps1 no
+  - conda config --set always_yes yes --set changeps1 no --set show_channel_urls true
   - conda update -q conda
   - conda info -a
 
 install:
-  - conda env create --file ci/environment-$CONDA_ENV.yml
+  - if [[ "$CONDA_ENV" == "docs" ]]; then
+      conda env create -n test_env --file doc/environment.yml;
+    else
+      conda env create -n test_env --file ci/requirements-$CONDA_ENV.yml;
+    fi;
   - source activate test_env
   - conda list
-  - pip install -e .
+  - pip install --no-deps -e .
 
 script:
   - which python
   - python --version
-  - py.test aospy --cov=aospy --cov-report term-missing --verbose
-  - flake8 -j auto aospy
+  - python -OO -c "import aospy"
+  - if [[ "$CONDA_ENV" == "docs" ]]; then
+      conda install -c conda-forge sphinx sphinx_rtd_theme numpydoc;
+      sphinx-build -n -b html -d doc/_build/doctrees doc doc/_build/html;
+    else
+      py.test aospy --cov=aospy --cov-report term-missing --verbose $EXTRA_FLAGS;
+      flake8 -j auto aospy;
+    fi;
+
 after_success:
   - coveralls

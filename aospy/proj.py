@@ -62,8 +62,8 @@ class Proj(object):
             Path to the root directories of where, respectively, regular output
             and a .tar-version of the output will be saved to disk.
 
-        Note
-        ----
+        Notes
+        -----
         Instantiating a `Proj` object has the side-effect of setting the `proj`
         attribute of each of it's child `Model` objects to itself.
 

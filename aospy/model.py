@@ -179,8 +179,8 @@ class Model(object):
         --------
         aospy.DataLoader, aospy.Proj, aospy.Run
 
-        Note
-        ----
+        Notes
+        -----
         A side-effect of instantiating a Model object is that the `parent`
         attribute of all of the model's `Run` objects is set to that model.
 

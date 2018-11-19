@@ -127,16 +127,16 @@ class Region(object):
              until reaching ``east_bound``.  This means that there are two
              distinct cases:
 
-             - If, after this translation, west_bound is less than east_bound,
-               the region includes the points east of west_bound and west of
-               east_bound.
-             - If west_bound greater than east_bound, then the
+             - If, after this translation, ``west_bound`` is less than
+               ``east_bound``, the region includes the points east of
+               ``west_bound`` and west of ``east_bound``.
+             - If ``west_bound`` is greater than ``east_bound``, then the
                region is treated as wrapping around the dateline, i.e. it's
-               western-most point is east_bound, and it includes all points
-               moving east from there until west_bound.
+               western-most point is ``east_bound``, and it includes all points
+               moving east from there until ``west_bound``.
 
              If the region boundaries are more complicated than a single
-             lat-lon rectangle, use `mask_bounds` instead.
+             lat-lon rectangle, use ``mask_bounds`` instead.
 
         south_bound, north_bound : scalar, optional
              The southern, and northern boundaries, respectively, of the
@@ -146,13 +146,14 @@ class Region(object):
              Each element is a length-4 sequence of the format `(west_bound,
              east_bound, south_bound, north_bound)`, where each of these
              `_bound` arguments is of the form described above.
-        do_land_mask : { False, True, 'ocean', 'strict_land', 'strict_ocean'},
-                       optional
+        do_land_mask, bool or str, optional
              Determines what, if any, land mask is applied in addition to the
-             mask defining the region's boundaries.  Default `False`.
+             mask defining the region's boundaries.  Default `False`.  Must be
+             one of ``False``, ``True``, 'ocean', 'strict_land', or
+             'strict_ocean':
 
-             - True: apply the data's full land mask
-             - False: apply no mask
+             - ``True``: apply the data's full land mask
+             - ``False``: apply no mask
              - 'ocean': mask out land rather than ocean
              - 'strict_land': mask out all points that are not 100% land
              - 'strict_ocean': mask out all points that are not 100% ocean
@@ -190,8 +191,8 @@ class Region(object):
         ``east_bound`` of the previous example:
 
         >>> non_atl_south_trop = Region(name='non_atl_sh_trop', west_bound=30,
-        ...                         east_bound=-60, south_bound=-30,
-        ...                         north_bound=0, do_land_mask='ocean')
+        ...                             east_bound=-60, south_bound=-30,
+        ...                             north_bound=0, do_land_mask='ocean')
 
         """
         self.name = name

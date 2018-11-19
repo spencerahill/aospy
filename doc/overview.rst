@@ -1,10 +1,11 @@
 .. _overview:
 
+####################
 Overview: Why aospy?
-====================
+####################
 
 Use cases
----------
+=========
 
 If you've ever found yourself saying or thinking anything along these
 lines, then aospy may be a great tool for you:
@@ -26,7 +27,7 @@ Each of these common problems is easily solved by using aospy.
 .. _design-philosophy:
 
 Design philosophy
------------------
+=================
 
 aospy's ability to automate calculations (while properly handling
 model- and simulation-level idiosyncrasies) relies on separating your
@@ -48,7 +49,7 @@ this documentation, and explicit examples using included sample data
 are in the :ref:`examples` section.
 
 Open Science & Reproducible Research
-------------------------------------
+====================================
 
 This separation of your code into three categories promotes `open
 science <https://en.wikipedia.org/wiki/Open_science>`_ and

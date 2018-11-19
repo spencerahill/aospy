@@ -12,7 +12,7 @@ Examples
    aren't interested in those details.
 
 In this section, we use the `example data files
-<https://github.com/spencerahill/aospy/tree/develop/aospy/test/data/netcdf>`_
+<https://github.com/spencerahill/aospy/tree/master/aospy/test/data/netcdf>`_
 included with aospy to demonstrate the standard aospy workflow of
 executing and submitting multiple calculations at once.
 
@@ -32,7 +32,7 @@ the whole duration of the data, both at each gridpoint and aggregated
 over specific regions.
 
 Preliminaries
--------------
+=============
 
 First we'll save the path to the example data in a local variable,
 since we'll be using it in several places below.
@@ -63,10 +63,10 @@ workflow described in the :ref:`Using aospy <using-aospy>` section of
 this documentation.
 
 Describing your data
---------------------
+====================
 
 Runs and DataLoaders
-====================
+--------------------
 
 First we create an :py:class:`aospy.Run` object that stores metadata
 about this simulation.  This includes specifying where its files are
@@ -105,7 +105,7 @@ a name for the run and an optional description.
 .. note::
 
    Throughout aospy, date slice bounds can be specified with dates of any of
-   the following types: 
+   the following types:
 
    - ``str``, for partial-datetime string indexing
    - ``np.datetime64``
@@ -118,7 +118,7 @@ a name for the run and an optional description.
    ``default_end_date`` in the ``Run`` constructor are calendar-agnostic (as
    are the ``date_ranges`` specified :ref:`when submitting
    calculations<Submitting calculations>`).
-    
+
 .. note::
 
    See the :ref:`API reference <api-ref>` for other optional arguments
@@ -137,7 +137,7 @@ a name for the run and an optional description.
    argument in your ``DataLoader`` constructors to ``False``.
 
 Models
-======
+------
 
 Next, we create the :py:class:`aospy.Model` object that describes the
 model in which the simulation was executed.  One important attribute
@@ -187,7 +187,7 @@ these grid attributes to the names used for them in the model.
 .. _built-in-alternative-names:
 
 Built-in alternative names
-**************************
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For reference, here is a table showing the list of grid attributes used in
 ``aospy`` along with their associated built-in alternative names.  We are
@@ -197,7 +197,7 @@ For potentially ambiguous alternative names, e.g. 'T' for ``TIME_STR`` (since
 'T' is used for time in some datasets but for temperature in others), we
 recommend using the ``grid_attrs`` argument in the :py:class:`~aospy.Model`
 constructor as demonstrated above.
-   
+
 +------------------------+-----------------------------------------------------------+
 | Internal name          | Built-in alternative names                                |
 +========================+===========================================================+
@@ -231,9 +231,9 @@ constructor as demonstrated above.
 +------------------------+-----------------------------------------------------------+
 | ``BOUNDS_STR``         | 'bounds', 'bnds', 'nv', 'nbnd', 'nbnds'                   |
 +------------------------+-----------------------------------------------------------+
-    
+
 Projects
-========
+--------
 
 Finally, we associate the ``Model`` object with an
 :py:class:`aospy.Proj` object.  This is the level at which we specify
@@ -254,14 +254,14 @@ overkill for this simple example, but it really comes in handy once
 you start using aospy for more than one project.
 
 Defining physical quantities and regions
-----------------------------------------
+========================================
 
 Having now fully specified the particular data of interest, we now
 define the general physical quantities of interest and any geographic
 regions over which to aggregate results.
 
 Physical variables
-==================
+------------------
 
 We'll first define :py:class:`aospy.Var` objects for the two variables
 that we saw are directly available as model output:
@@ -354,7 +354,7 @@ In this case, aospy will automatically know to load in
 ``precip_largescale`` and ``precip_convective`` in order to compute
 ``precip_total`` before passing it along to the function specified
 in ``precip_conv_frac``.  Any depth of recursion is supported.
-   
+
 .. note::
 
    Although ``variables`` is passed a tuple of ``Var`` objects
@@ -380,7 +380,7 @@ in ``precip_conv_frac``.  Any depth of recursion is supported.
    would be physically wrong.
 
 Geographic regions
-==================
+------------------
 
 Last, we define the geographic regions over which to perform
 aggregations and add them to ``example_proj``.  We'll look at the
@@ -414,10 +414,10 @@ We now have all of the needed metadata in place.  So let's start
 crunching numbers!
 
 Submitting calculations
------------------------
+=======================
 
 Using :py:func:`aospy.submit_mult_calcs`
-========================================
+----------------------------------------
 
 .. _Submitting calculations:
 
@@ -497,7 +497,7 @@ the filepaths to the netCDF files written to disk of the results.
    more than the interval of the input data.
 
 Results
-=======
+-------
 
 The result is a list of :py:class:`aospy.Calc` objects, one per
 simulation.
@@ -527,9 +527,9 @@ and the results of each output type
     on hand.
 
 Gridpoint-by-gridpoint
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
-Let's plot (using `matplotlib <http://matplotlib.org/>`_) the time
+Let's plot (using `matplotlib <https://matplotlib.org/>`_) the time
 average at each gridcell of all four variables.  For demonstration
 purposes, we'll load the data that was saved to disk using xarray
 rather than getting it directly from the ``data_out`` attribute as
@@ -563,7 +563,7 @@ the gridscale condensation plays an increasingly larger fractional
 role (note different colorscales in each panel). [#ls-conv]_
 
 Regional averages
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 Now let's examine the regional averages.  We find that the global
 annual mean total precipitation rate for this run (converting to units
@@ -583,10 +583,10 @@ globe the large-scale condensation is a more equal player (40.2% for
 large-scale, 59.8% for convective).
 
 Beyond this simple example
---------------------------
+==========================
 
 Scaling up
-==========
+----------
 
 In this case, we computed time averages of four variables, both at
 each gridpoint (which we'll call 1 calculation) and averaged over two
@@ -613,7 +613,7 @@ operations))*(12 temporal averages) = 288 calculations submitted with
 a single command.
 
 Modifying your object library
-=============================
+-----------------------------
 
 We can also add new objects to our object library at any time.  For
 example, suppose we performed a new simulation in which we modified
@@ -630,7 +630,7 @@ metadata-rich directory structure and filenames of the aospy output
 netCDF files, all of the resulting data is easy to find and use.
 
 Example "main" script
-=====================
+---------------------
 
 Finally, aospy comes included with a "main" script for submitting
 calculations that is pre-populated with the objects from the example

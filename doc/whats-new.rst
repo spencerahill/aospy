@@ -1,18 +1,19 @@
 .. _whats-new:
 
+##########
 What's New
-==========
+##########
 
-.. _whats-new.0.3.0:
+.. _whats-new.0.3.1:
 
 v0.3.1 (unreleased)
--------------------
+===================
 
 
 .. _whats-new.0.3.0:
 
 v0.3 (15 November 2018)
------------------------
+=======================
 
 This release adds a number of new features, fixes many bugs, and
 improves our documentation.  It includes several deprecations, other
@@ -22,14 +23,15 @@ around and are eager to grow the user- and developer-base further
 moving forward!  Highlights (full changelog below these):
 
 - Support for Python 3.7
-- ``Var`` objects can now be recursively computed in terms of other ``Var``s
+- ``Var`` objects can now be recursively computed in terms of other
+  ``Var`` objects
 - Thanks to ``xarray.CFTimeIndex``, no longer require special logic/handling of
   out-of-range datetimes
 - Improved handling of region longitude bounds in ``Region`` via new
   New ``Longitude`` class
 
 Breaking Changes
-~~~~~~~~~~~~~~~~
+----------------
 
 - Drop support for Python 2.7 and 3.4, since our core upstream dependency
   xarray is also dropping these soon (:pull:`255`, :pull:`280`).
@@ -60,7 +62,7 @@ Breaking Changes
 
 
 Documentation
-~~~~~~~~~~~~~
+-------------
 
 - Updates the documentation in the described ``calc_suite_specs``
   argument to ``submit_mult_calcs`` in ``automate.py`` (fixes
@@ -70,7 +72,7 @@ Documentation
   (:pull:`213`).  `By DaCoEx <https://github.com/dacoex>`_.
 
 Enhancements
-~~~~~~~~~~~~
+------------
 
 - Improve compatibility for data following IRIDL conventions or NOAA
   data formats. Specifically, several alternate names are defined in
@@ -135,7 +137,7 @@ Enhancements
   `Spencer Clark <https://github.com/spencerkclark>`_.
 
 Bug Fixes
-~~~~~~~~~
+---------
 
 - Use the new ``Longitude`` class to support any longitude numbering
   convention (e.g. -180 to 180, 0 to 360, or any other) for both
@@ -166,7 +168,7 @@ Bug Fixes
 
 
 Testing
-~~~~~~~
+-------
 
 - Create Travis CI environment that tests against the xarray
   development branch. (closes :issue:`224` via :pull: `226`).
@@ -182,7 +184,7 @@ Testing
   <https://github.com/micahkim23>`_.
 
 Dependencies
-~~~~~~~~~~~~
+------------
 
 - ``aospy`` now requires a minimum version of ``distributed`` of
   1.17.1 (fixes :issue:`210` via :pull:`211`).
@@ -194,7 +196,7 @@ Dependencies
 .. _whats-new.0.2:
 
 v0.2 (26 September 2017)
-------------------------
+========================
 
 This release includes some new features plus several bugfixes.  The
 bugfixes include some that previously made using aospy on
@@ -207,7 +209,7 @@ total of users up to at least 4.  The first user-generated Github
 Issues have now also been created.  We're a real thing!
 
 Enhancements
-~~~~~~~~~~~~
+------------
 
 - Use ``dask.bag`` coupled with ``dask.distributed`` rather than
   ``multiprocess`` to parallelize computations (closes :issue:`169`
@@ -232,7 +234,7 @@ Enhancements
 
 
 Dependencies
-~~~~~~~~~~~~
+------------
 
 - ``multiprocess`` is no longer required for submitting ``aospy``
   calculations in parallel (see discussion in :issue:`169` and pull
@@ -242,7 +244,7 @@ Dependencies
   :pull:`172`).
 
 Bug Fixes
-~~~~~~~~~
+---------
 
 - Remove faulty logic for calculations with data coming from multiple
   runs.  Eventually this feature will be properly implemented (fixes
@@ -289,10 +291,11 @@ Bug Fixes
   interval, i.e. the wrong month or year (fixes :issue `185` via
   :pull:`200`).  By `Spencer Hill <https://github.com/spencerahill>`_.
 
+
 .. _whats-new.0.1.2:
 
 v0.1.2 (30 March 2017)
-----------------------
+======================
 
 This release improves the process of submitting multiple calculations
 for automatic execution.  The user interface, documentation, internal
@@ -304,7 +307,7 @@ your own usage questions, bug reports, suggestions, etc.
 .. _mailing list: https://groups.google.com/d/forum/aospy
 
 Enhancements
-~~~~~~~~~~~~
+------------
 
 - Include an example library of aospy objects that works
   out-of-the-box with the provided example main script (:pull:`155`).
@@ -327,7 +330,7 @@ Enhancements
   <https://github.com/spencerahill>`_.
 
 Bug fixes
-~~~~~~~~~
+---------
 
 - Update packaging specifications such that the example main script
   and tutorial notebook actually ship with aospy as intended (fixes
@@ -341,17 +344,19 @@ Bug fixes
 
 .. _xarray.DataArray.to_netcdf : http://xarray.pydata.org/en/stable/generated/xarray.DataArray.to_netcdf.html
 
+
 .. _whats-new.0.1.1:
 
 v0.1.1 (2 March 2017)
----------------------
+=====================
 
 This release includes fixes for a number of bugs mistakenly introduced
 in the refactoring of the variable loading step of ``calc.py``
 (:pull:`90`), as well as support for xarray version 0.9.1.
 
 Enhancements
-~~~~~~~~~~~~
+------------
+
 - Support for xarray version 0.9.1 and require it or a later xarray
   version.  By `Spencer Clark <https://github.com/spencerkclark>`_ and
   `Spencer Hill <https://github.com/spencerahill>`_.
@@ -365,7 +370,8 @@ Enhancements
   `Spencer Hill <https://github.com/spencerahill>`_.
 
 Bug fixes
-~~~~~~~~~
+---------
+
 - Fix bug involving loading data that has dims that lack coords (which
   is possible as of xarray v0.9.0).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
@@ -398,10 +404,12 @@ Bug fixes
   requested (fixes :issue:`138` through :pull:`139`). By `Spencer
   Clark <https://github.com/spencerkclark>`_.
 
+
 .. _whats-new.0.1:
 
 v0.1 (24 January 2017)
-----------------------
+======================
+
 - Initial release!
 - Contributors:
 
