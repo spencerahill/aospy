@@ -341,7 +341,7 @@ with ``func`` and ``variables`` attributes) in terms of other computed
 variables.  For example we could equivalently express the
 ``precip_conv_frac`` more simply as the following:
 
-.. ipython::
+.. ipython:: python
 
    precip_conv_frac = Var(
        name='precip_conv_frac',
@@ -647,8 +647,15 @@ from your terminal.
     :suppress:
 
     from shutil import rmtree
-    rmtree('example-output')
-    rmtree('example-tar-output')
+    try:
+       rmtree('example-output')
+    except FileNotFoundError:
+       pass
+    try:
+       rmtree('example-tar-output')
+    except FileNotFoundError:
+       pass
+
 
 .. rubric:: Footnotes
 

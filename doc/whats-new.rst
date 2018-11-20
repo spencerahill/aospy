@@ -40,7 +40,7 @@ moving forward!  Highlights (full changelog below these):
 - Thanks to ``xarray.CFTimeIndex``, no longer require special logic/handling of
   out-of-range datetimes
 - Improved handling of region longitude bounds in ``Region`` via new
-  New ``Longitude`` class
+  ``Longitude`` class
 
 Breaking Changes
 ----------------
