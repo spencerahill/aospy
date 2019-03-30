@@ -12,6 +12,7 @@ matrix:
   - env: CONDA_ENV=py36-xarray-dev
   - env: CONDA_ENV=py37
   - env: CONDA_ENV=docs
+  - env: CONDA_ENV=lint
   allow_failures:
   - env: CONDA_ENV=py36-xarray-dev
 
@@ -27,6 +28,8 @@ before_install:
 install:
   - if [[ "$CONDA_ENV" == "docs" ]]; then
       conda env create -n test_env --file doc/environment.yml;
+    elif [[ "$CONDA_ENV" == "lint" ]]; then
+      conda env create -n test_env --file ci/requirements-py37.yml;
     else
       conda env create -n test_env --file ci/requirements-$CONDA_ENV.yml;
     fi;
@@ -41,10 +44,11 @@ script:
   - if [[ "$CONDA_ENV" == "docs" ]]; then
       conda install -c conda-forge sphinx sphinx_rtd_theme numpydoc;
       sphinx-build -n -b html -d doc/_build/doctrees doc doc/_build/html;
+    elif [[ "$CONDA_ENV" == "lint" ]]; then
+      flake8 -j auto aospy;
     else
       py.test aospy --cov=aospy --cov-report term-missing --verbose $EXTRA_FLAGS;
-      flake8 -j auto aospy;
-    fi;
+    fi
 
 after_success:
   - coveralls

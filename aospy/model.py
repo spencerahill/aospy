@@ -227,7 +227,7 @@ class Model(object):
         for path in grid_file_paths:
             try:
                 ds = xr.open_dataset(path, decode_times=False)
-            except TypeError:
+            except (TypeError, AttributeError):
                 ds = xr.open_mfdataset(path, decode_times=False).load()
             except (RuntimeError, OSError) as e:
                 msg = str(e) + ': {}'.format(path)
