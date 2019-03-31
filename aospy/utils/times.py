@@ -55,8 +55,7 @@ def apply_time_offset(time, years=0, months=0, days=0, hours=0):
                   freq=None)
     """
     return (pd.to_datetime(time.values) +
-            pd.tseries.offsets.DateOffset(years=years, months=months,
-                                          days=days, hours=hours))
+            pd.DateOffset(years=years, months=months, days=days, hours=hours))
 
 
 def average_time_bounds(ds):
@@ -512,12 +511,15 @@ def ensure_time_as_index(ds):
     time_indexed_coords = {TIME_WEIGHTS_STR, TIME_BOUNDS_STR}
     time_indexed_vars = set(ds.data_vars).union(time_indexed_coords)
     time_indexed_vars = time_indexed_vars.intersection(ds.variables)
+    variables_to_replace = {}
     for name in time_indexed_vars:
         if TIME_STR not in ds[name].indexes:
-            da = ds[name].expand_dims(TIME_STR)
-            da[TIME_STR] = ds[TIME_STR]
-            ds[name] = da
-    return ds
+            da = ds[name]
+            if TIME_STR not in da.dims:
+                da = ds[name].expand_dims(TIME_STR)
+            da = da.assign_coords(**{TIME_STR: ds[TIME_STR]})
+            variables_to_replace[name] = da
+    return ds.assign(**variables_to_replace)
 
 
 def infer_year(date):

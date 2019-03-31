@@ -49,9 +49,10 @@ def test_apply_time_offset():
     # test lengths 0, 1, and >1 of input time array
     for periods in range(3):
         times = pd.date_range(start=start, freq='M', periods=periods)
+        times = pd.to_datetime(times.values)  # Workaround for pandas bug
         actual = apply_time_offset(xr.DataArray(times), years=years,
                                    months=months, days=days, hours=hours)
-        desired = (times + pd.tseries.offsets.DateOffset(
+        desired = (times + pd.DateOffset(
             years=years, months=months, days=days, hours=hours
         ))
         assert actual.identical(desired)
@@ -455,6 +456,7 @@ def test_ensure_time_as_index_with_change():
         coords={TIME_STR: arr[TIME_STR]}
     )
     ds = ds.isel(**{TIME_STR: 0}).expand_dims(TIME_STR)
+    initial_ds = ds.copy()
     actual = ensure_time_as_index(ds)
     expected = arr.to_dataset(name='a')
     expected.coords[TIME_WEIGHTS_STR] = xr.DataArray(
@@ -465,6 +467,9 @@ def test_ensure_time_as_index_with_change():
         coords={TIME_STR: arr[TIME_STR]}
         )
     xr.testing.assert_identical(actual, expected)
+    # Make sure input Dataset was not mutated by the call
+    # to ensure_time_as_index
+    xr.testing.assert_identical(ds, initial_ds)
 
 
 def test_sel_time():
