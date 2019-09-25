@@ -2,7 +2,6 @@
 import logging
 import os
 import pprint
-import warnings
 
 import numpy as np
 import xarray as xr
@@ -11,7 +10,6 @@ from .internal_names import (
     ETA_STR,
     GRID_ATTRS,
     TIME_STR,
-    TIME_BOUNDS_STR,
 )
 from .utils import times, io
 
@@ -112,6 +110,7 @@ def set_grid_attrs_as_coords(ds):
     -------
     Dataset
         Dataset with grid attributes set as coordinates
+
     """
     grid_attrs_in_ds = set(GRID_ATTRS.keys()).intersection(
         set(ds.coords) | set(ds.data_vars))
@@ -130,6 +129,7 @@ def _maybe_cast_to_float64(da):
     Returns
     -------
     DataArray
+
     """
     if da.dtype == np.float32:
         logging.warning('Datapoints were stored using the np.float32 datatype.'
@@ -162,6 +162,7 @@ def _sel_var(ds, var, upcast_float32=True):
     ------
     KeyError
         If the variable is not in the Dataset
+
     """
     for name in var.names:
         try:
@@ -174,46 +175,6 @@ def _sel_var(ds, var, upcast_float32=True):
             pass
     msg = '{0} not found among names: {1} in\n{2}'.format(var, var.names, ds)
     raise LookupError(msg)
-
-
-def _prep_time_data(ds):
-    """Prepare time coordinate information in Dataset for use in aospy.
-
-    1. If the Dataset contains a time bounds coordinate, add attributes
-       representing the true beginning and end dates of the time interval used
-       to construct the Dataset
-    2. If the Dataset contains a time bounds coordinate, overwrite the time
-       coordinate values with the averages of the time bounds at each timestep
-    3. Decode the times into np.datetime64 objects for time indexing
-
-    Parameters
-    ----------
-    ds : Dataset
-        Pre-processed Dataset with time coordinate renamed to
-        internal_names.TIME_STR
-
-    Returns
-    -------
-    Dataset
-        The processed Dataset
-    """
-    ds = times.ensure_time_as_index(ds)
-    if TIME_BOUNDS_STR in ds:
-        ds = times.ensure_time_avg_has_cf_metadata(ds)
-        ds[TIME_STR] = times.average_time_bounds(ds)
-    else:
-        logging.warning("dt array not found.  Assuming equally spaced "
-                        "values in time, even though this may not be "
-                        "the case")
-        ds = times.add_uniform_time_weights(ds)
-    # Suppress enable_cftimeindex is a no-op warning; we'll keep setting it for
-    # now to maintain backwards compatibility for older xarray versions.
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore')
-        with xr.set_options(enable_cftimeindex=True):
-            ds = xr.decode_cf(ds, decode_times=True, decode_coords=False,
-                              mask_and_scale=True)
-    return ds
 
 
 def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds,
@@ -243,14 +204,21 @@ def _load_data_from_disk(file_set, preprocess_func=lambda ds: ds,
     Returns
     -------
     Dataset
+
     """
     apply_preload_user_commands(file_set)
     func = _preprocess_and_rename_grid_attrs(preprocess_func, grid_attrs,
                                              **kwargs)
-    return xr.open_mfdataset(file_set, preprocess=func, concat_dim=TIME_STR,
-                             decode_times=False, decode_coords=False,
-                             mask_and_scale=True, data_vars=data_vars,
-                             coords=coords)
+    return xr.open_mfdataset(
+        file_set,
+        preprocess=func,
+        combine='by_coords',
+        decode_times=False,
+        decode_coords=False,
+        mask_and_scale=True,
+        data_vars=data_vars,
+        coords=coords,
+    )
 
 
 def apply_preload_user_commands(file_set, cmd=io.dmget):
@@ -259,6 +227,7 @@ def apply_preload_user_commands(file_set, cmd=io.dmget):
     For example, on the NOAA Geophysical Fluid Dynamics Laboratory
     computational cluster, data that is saved on their tape archive
     must be accessed via a `dmget` (or `hsmget`) command before being used.
+
     """
     if cmd is not None:
         cmd(file_set)
@@ -301,16 +270,27 @@ class DataLoader(object):
         -------
         da : DataArray
              DataArray for the specified variable, date range, and interval in
+
         """
-        file_set = self._generate_file_set(var=var, start_date=start_date,
-                                           end_date=end_date, **DataAttrs)
+        file_set = self._generate_file_set(
+            var=var,
+            start_date=start_date,
+            end_date=end_date,
+            **DataAttrs,
+        )
         ds = _load_data_from_disk(
-            file_set, self.preprocess_func, data_vars=self.data_vars,
-            coords=self.coords, start_date=start_date, end_date=end_date,
-            time_offset=time_offset, grid_attrs=grid_attrs, **DataAttrs
+            file_set,
+            self.preprocess_func,
+            data_vars=self.data_vars,
+            coords=self.coords,
+            start_date=start_date,
+            end_date=end_date,
+            time_offset=time_offset,
+            grid_attrs=grid_attrs,
+            **DataAttrs,
         )
         if var.def_time:
-            ds = _prep_time_data(ds)
+            ds = times.prep_time_data(ds)
             start_date = times.maybe_convert_to_index_date_type(
                 ds.indexes[TIME_STR], start_date)
             end_date = times.maybe_convert_to_index_date_type(
@@ -330,6 +310,7 @@ class DataLoader(object):
         Supports both access of grid attributes either through the DataLoader
         or through an optionally-provided Model object.  Defaults to using
         the version found in the DataLoader first.
+
         """
         grid_attrs = None if model is None else model.grid_attrs
 

@@ -228,7 +228,8 @@ class Model(object):
             try:
                 ds = xr.open_dataset(path, decode_times=False)
             except (TypeError, AttributeError):
-                ds = xr.open_mfdataset(path, decode_times=False).load()
+                ds = xr.open_mfdataset(path, decode_times=False,
+                                       combine='by_coords').load()
             except (RuntimeError, OSError) as e:
                 msg = str(e) + ': {}'.format(path)
                 raise RuntimeError(msg)

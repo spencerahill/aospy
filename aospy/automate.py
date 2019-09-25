@@ -78,23 +78,9 @@ def _merge_dicts(*dict_args):
     return result
 
 
-def _input_func_py2_py3():
-    """Find function for reading user input that works on Python 2 and 3.
-
-    See e.g. http://stackoverflow.com/questions/21731043
-    """
-    try:
-        input = raw_input
-    except NameError:
-        import builtins
-        input = builtins.input
-    return input
-
-
-def _user_verify(input_func=_input_func_py2_py3(),
-                 prompt='Perform these computations? [y/n] '):
+def _user_verify(prompt='Perform these computations? [y/n] '):
     """Prompt the user for verification."""
-    if not input_func(prompt).lower()[0] == 'y':
+    if not input(prompt).lower()[0] == 'y':
         raise AospyException('Execution cancelled by user.')
 
 

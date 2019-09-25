@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Test suite for aospy.timedate module."""
 import datetime
-import warnings
 
 import cftime
 import numpy as np
@@ -13,9 +12,15 @@ from itertools import product
 
 from aospy.data_loader import set_grid_attrs_as_coords
 from aospy.internal_names import (
-    TIME_STR, TIME_BOUNDS_STR, BOUNDS_STR, TIME_WEIGHTS_STR,
-    RAW_START_DATE_STR, RAW_END_DATE_STR, SUBSET_START_DATE_STR,
-    SUBSET_END_DATE_STR
+    BOUNDS_STR,
+    RAW_START_DATE_STR,
+    RAW_END_DATE_STR,
+    SUBSET_START_DATE_STR,
+    SUBSET_END_DATE_STR,
+    TIME_BOUNDS_STR,
+    TIME_STR,
+    TIME_WEIGHTS_STR,
+
 )
 from aospy.automate import _merge_dicts
 from aospy.utils.times import (
@@ -36,7 +41,8 @@ from aospy.utils.times import (
     sel_time,
     yearly_average,
     infer_year,
-    maybe_convert_to_index_date_type
+    maybe_convert_to_index_date_type,
+    prep_time_data,
 )
 
 
@@ -203,27 +209,6 @@ def test_extract_months_single_month():
     xr.testing.assert_identical(actual, desired)
 
 
-@pytest.fixture
-def ds_time_encoded_cf():
-    time_bounds = np.array([[0, 31], [31, 59], [59, 90]])
-    nv = np.array([0, 1])
-    time = np.array([15, 46, 74])
-    data = np.zeros((3))
-    ds = xr.DataArray(data,
-                      coords=[time],
-                      dims=[TIME_STR],
-                      name='a').to_dataset()
-    ds[TIME_BOUNDS_STR] = xr.DataArray(time_bounds,
-                                       coords=[time, nv],
-                                       dims=[TIME_STR, BOUNDS_STR],
-                                       name=TIME_BOUNDS_STR)
-    units_str = 'days since 2000-01-01 00:00:00'
-    cal_str = 'noleap'
-    ds[TIME_STR].attrs['units'] = units_str
-    ds[TIME_STR].attrs['calendar'] = cal_str
-    return ds
-
-
 def test_ensure_time_avg_has_cf_metadata(ds_time_encoded_cf):
     ds = ds_time_encoded_cf
     time = ds[TIME_STR].values
@@ -334,7 +319,6 @@ _CFTIME_DATE_TYPES = {
 }
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 @pytest.mark.filterwarnings('ignore:Unable to decode')
 @pytest.mark.parametrize(['calendar', 'date_type'],
                          list(_CFTIME_DATE_TYPES.items()))
@@ -358,9 +342,7 @@ def test_assert_has_data_for_time_cftime_datetimes(calendar, date_type):
     ds = ensure_time_avg_has_cf_metadata(ds)
     ds = set_grid_attrs_as_coords(ds)
 
-    with warnings.catch_warnings(record=True):
-        with xr.set_options(enable_cftimeindex=True):
-            ds = xr.decode_cf(ds)
+    ds = xr.decode_cf(ds)
     da = ds[var_name]
 
     start_date = date_type(2, 1, 2)
@@ -426,6 +408,11 @@ def test_assert_matching_time_coord():
         assert_matching_time_coord(arr1, arr2)
 
 
+def test_ensure_time_as_index_ds_no_times(ds_no_time):
+    with pytest.raises(ValueError):
+        ensure_time_as_index(ds_no_time)
+
+
 def test_ensure_time_as_index_no_change():
     # Already properly indexed, so shouldn't be modified.
     arr = xr.DataArray([-23, 42.4], coords=[[1, 2]], dims=[TIME_STR])
@@ -455,8 +442,7 @@ def test_ensure_time_as_index_with_change():
         [[3.5, 4.5]], dims=[TIME_STR, BOUNDS_STR],
         coords={TIME_STR: arr[TIME_STR]}
     )
-    ds = ds.isel(**{TIME_STR: 0}).expand_dims(TIME_STR)
-    initial_ds = ds.copy()
+    ds = ds.isel(**{TIME_STR: 0})
     actual = ensure_time_as_index(ds)
     expected = arr.to_dataset(name='a')
     expected.coords[TIME_WEIGHTS_STR] = xr.DataArray(
@@ -467,9 +453,6 @@ def test_ensure_time_as_index_with_change():
         coords={TIME_STR: arr[TIME_STR]}
         )
     xr.testing.assert_identical(actual, expected)
-    # Make sure input Dataset was not mutated by the call
-    # to ensure_time_as_index
-    xr.testing.assert_identical(ds, initial_ds)
 
 
 def test_sel_time():
@@ -633,3 +616,17 @@ _CONVERT_DATE_TYPE_TESTS = _merge_dicts(_DATETIME_CONVERT_TESTS,
 def test_maybe_convert_to_index_date_type(index, date, expected):
     result = maybe_convert_to_index_date_type(index, date)
     assert result == expected
+
+
+def test_prep_time_data_with_time_bounds(ds_with_time_bounds):
+    assert (TIME_BOUNDS_STR in ds_with_time_bounds)
+    assert (TIME_WEIGHTS_STR not in ds_with_time_bounds)
+    result = prep_time_data(ds_with_time_bounds)
+    assert (TIME_WEIGHTS_STR in result)
+
+
+def test_prep_time_data_no_time_bounds(ds_inst, caplog):
+    assert (TIME_BOUNDS_STR not in ds_inst)
+    prep_time_data(ds_inst)
+    log_record = caplog.record_tuples[0][-1]
+    assert log_record.startswith("dt array not found.")

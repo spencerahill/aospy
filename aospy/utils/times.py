@@ -115,7 +115,9 @@ def monthly_mean_ts(arr):
     monthly_mean_at_each_ind : Copy monthly means to each submonthly time
 
     """
-    return arr.resample(**{TIME_STR: '1M'}).mean(TIME_STR).dropna(TIME_STR)
+    return arr.resample(
+        **{TIME_STR: '1M'}, restore_coord_dims=True
+    ).mean(TIME_STR).dropna(TIME_STR)
 
 
 def monthly_mean_at_each_ind(monthly_means, sub_monthly_timeseries):
@@ -140,7 +142,7 @@ def monthly_mean_at_each_ind(monthly_means, sub_monthly_timeseries):
     time = monthly_means[TIME_STR]
     start = time.indexes[TIME_STR][0].replace(day=1, hour=0)
     end = time.indexes[TIME_STR][-1]
-    new_indices = pd.DatetimeIndex(start=start, end=end, freq='MS')
+    new_indices = pd.date_range(start=start, end=end, freq='MS')
     arr_new = monthly_means.reindex(time=new_indices, method='backfill')
     return arr_new.reindex_like(sub_monthly_timeseries, method='pad')
 
@@ -171,8 +173,8 @@ def yearly_average(arr, dt):
     yr_str = TIME_STR + '.year'
     # Retain original data's mask.
     dt = dt.where(np.isfinite(arr))
-    return ((arr*dt).groupby(yr_str).sum(TIME_STR) /
-            dt.groupby(yr_str).sum(TIME_STR))
+    return ((arr*dt).groupby(yr_str, restore_coord_dims=True).sum(TIME_STR) /
+            dt.groupby(yr_str, restore_coord_dims=True).sum(TIME_STR))
 
 
 def ensure_datetime(obj):
@@ -486,7 +488,7 @@ def assert_matching_time_coord(arr1, arr2):
         raise ValueError(message.format(arr1[TIME_STR], arr2[TIME_STR]))
 
 
-def ensure_time_as_index(ds):
+def ensure_time_as_index(ds, time_str=TIME_STR):
     """Ensures that time is an indexed coordinate on relevant quantites.
 
     Sometimes when the data we load from disk has only one timestep, the
@@ -503,22 +505,34 @@ def ensure_time_as_index(ds):
     ds : Dataset
         Dataset with a time coordinate
 
+    time_str : str, optional
+        Name of the time dimension.  Default ``aospy.internal_names.TIME_STR``.
+
     Returns
     -------
     Dataset
 
     """
+    if time_str not in ds.coords:
+        raise ValueError("Provided dataset does not have a time dimension "
+                         "with the provided name '{}'".format(time_str) +
+                         "\nDataset:\n{}".format(ds))
+    is_ds_time_scalar = not ds[time_str].shape
+    if is_ds_time_scalar:
+        ds[time_str] = ds[time_str].expand_dims(time_str)
+
     time_indexed_coords = {TIME_WEIGHTS_STR, TIME_BOUNDS_STR}
-    time_indexed_vars = set(ds.data_vars).union(time_indexed_coords)
-    time_indexed_vars = time_indexed_vars.intersection(ds.variables)
+    time_indexed_vars = set(ds.data_vars).union(
+        time_indexed_coords).intersection(ds.variables)
+
     variables_to_replace = {}
     for name in time_indexed_vars:
-        if TIME_STR not in ds[name].indexes:
-            da = ds[name]
-            if TIME_STR not in da.dims:
-                da = ds[name].expand_dims(TIME_STR)
-            da = da.assign_coords(**{TIME_STR: ds[TIME_STR]})
-            variables_to_replace[name] = da
+        arr = ds[name]
+        if time_str not in arr.indexes:
+            if time_str not in arr.dims:
+                arr = ds[name].expand_dims(time_str)
+            arr = arr.assign_coords(**{time_str: ds[time_str]})
+            variables_to_replace[name] = arr
     return ds.assign(**variables_to_replace)
 
 
@@ -612,3 +626,38 @@ def maybe_convert_to_index_date_type(index, date):
 
             return date_type(date.year, date.month, date.day, date.hour,
                              date.minute, date.second, date.microsecond)
+
+
+def prep_time_data(ds):
+    """Prepare time coordinate information in Dataset for use in aospy.
+
+    1. If the Dataset contains a time bounds coordinate, add attributes
+       representing the true beginning and end dates of the time interval used
+       to construct the Dataset
+    2. If the Dataset contains a time bounds coordinate, overwrite the time
+       coordinate values with the averages of the time bounds at each timestep
+    3. Decode the times into np.datetime64 objects for time indexing
+
+    Parameters
+    ----------
+    ds : Dataset
+        Pre-processed Dataset with time coordinate renamed to
+        internal_names.TIME_STR
+
+    Returns
+    -------
+    Dataset
+        The processed Dataset
+
+    """
+    ds = ensure_time_as_index(ds)
+    if TIME_BOUNDS_STR in ds:
+        ds = ensure_time_avg_has_cf_metadata(ds)
+        ds[TIME_STR] = average_time_bounds(ds)
+    else:
+        logging.warning("dt array not found.  Assuming equally spaced "
+                        "values in time, even though this may not be "
+                        "the case")
+        ds = add_uniform_time_weights(ds)
+    return xr.decode_cf(ds, decode_times=True, decode_coords=False,
+                        mask_and_scale=True)

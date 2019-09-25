@@ -9,6 +9,28 @@ What's New
 v0.3.2 (unreleased)
 ===================
 
+Breaking Changes
+----------------
+
+- Minimum xarray version is now v0.13.  Moving forward, we will likely
+  continue bumping this up so as to only support the most recent one
+  or two releases of xarray at any time (:pull:`324`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
+
+Enhancements
+------------
+
+- Calls to ``xarray.open_mfdataset`` now use the
+  ``combine='by_coords'`` option available as of xarray v0.12.2
+  instead of the now-deprecated ``auto_combine`` (:pull:`324`).  By
+  `Spencer Hill <https://github.com/spencerahill>`_.
+
+- Remove obsolete checks for Python 2 vs. 3 and for obsolete warnings
+  relating to bugs and/or warnings in past xarray versions no longer
+  supported (:pull:`324`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
+
+
 .. _whats-new.0.3.1:
 
 v0.3.1 (19 November 2018)

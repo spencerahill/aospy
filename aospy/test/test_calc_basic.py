@@ -21,22 +21,20 @@ from .data.objects.examples import (
 )
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def _test_output_attrs(calc, dtype_out):
-    with xr.set_options(enable_cftimeindex=True):
-        with xr.open_dataset(calc.path_out[dtype_out]) as data:
-            expected_units = calc.var.units
-            if calc.dtype_out_vert == 'vert_int':
-                if expected_units != '':
-                    expected_units = ("(vertical integral of {0}):"
-                                      " {0} m)").format(expected_units)
-                else:
-                    expected_units = ("(vertical integral of quantity"
-                                      " with unspecified units)")
-            expected_description = calc.var.description
-            for name, arr in data.data_vars.items():
-                assert expected_units == arr.attrs['units']
-                assert expected_description == arr.attrs['description']
+    with xr.open_dataset(calc.path_out[dtype_out]) as data:
+        expected_units = calc.var.units
+        if calc.dtype_out_vert == 'vert_int':
+            if expected_units != '':
+                expected_units = ("(vertical integral of {0}):"
+                                  " {0} m)").format(expected_units)
+            else:
+                expected_units = ("(vertical integral of quantity"
+                                  " with unspecified units)")
+        expected_description = calc.var.description
+        for name, arr in data.data_vars.items():
+            assert expected_units == arr.attrs['units']
+            assert expected_description == arr.attrs['description']
 
 
 def _clean_test_direcs():
@@ -107,49 +105,42 @@ def test_params(request):
     _clean_test_direcs()
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_annual_mean(test_params):
     calc = Calc(intvl_out='ann', dtype_out_time='av', **test_params)
     calc.compute()
     _test_files_and_attrs(calc, 'av')
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_annual_ts(test_params):
     calc = Calc(intvl_out='ann', dtype_out_time='ts', **test_params)
     calc.compute()
     _test_files_and_attrs(calc, 'ts')
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_seasonal_mean(test_params):
     calc = Calc(intvl_out='djf', dtype_out_time='av', **test_params)
     calc.compute()
     _test_files_and_attrs(calc, 'av')
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_seasonal_ts(test_params):
     calc = Calc(intvl_out='djf', dtype_out_time='ts', **test_params)
     calc.compute()
     _test_files_and_attrs(calc, 'ts')
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_monthly_mean(test_params):
     calc = Calc(intvl_out=1, dtype_out_time='av', **test_params)
     calc.compute()
     _test_files_and_attrs(calc, 'av')
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_monthly_ts(test_params):
     calc = Calc(intvl_out=1, dtype_out_time='ts', **test_params)
     calc.compute()
     _test_files_and_attrs(calc, 'ts')
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_simple_reg_av(test_params):
     calc = Calc(intvl_out='ann', dtype_out_time='reg.av', region=[globe],
                 **test_params)
@@ -157,7 +148,6 @@ def test_simple_reg_av(test_params):
     _test_files_and_attrs(calc, 'reg.av')
 
 
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_simple_reg_ts(test_params):
     calc = Calc(intvl_out='ann', dtype_out_time='reg.ts', region=[globe],
                 **test_params)
@@ -166,7 +156,6 @@ def test_simple_reg_ts(test_params):
 
 
 @pytest.mark.filterwarnings('ignore:Mean of empty slice')
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_complex_reg_av(test_params):
     calc = Calc(intvl_out='ann', dtype_out_time='reg.av', region=[sahel],
                 **test_params)
@@ -272,24 +261,19 @@ def recursive_test_params():
     _clean_test_direcs()
 
 
-# Remove autoclose argument in xarray version 0.12
-@pytest.mark.filterwarnings('ignore:The autoclose')
-@pytest.mark.filterwarnings('ignore:The enable_cftimeindex')
 def test_recursive_calculation(recursive_test_params):
     basic_params, recursive_params = recursive_test_params
 
     calc = Calc(intvl_out='ann', dtype_out_time='av', **basic_params)
     calc = calc.compute()
-    with xr.set_options(enable_cftimeindex=True):
-        expected = xr.open_dataset(
-            calc.path_out['av'], autoclose=True)['condensation_rain']
+    expected = xr.open_dataset(
+        calc.path_out['av'])['condensation_rain']
     _test_files_and_attrs(calc, 'av')
 
     calc = Calc(intvl_out='ann', dtype_out_time='av', **recursive_params)
     calc = calc.compute()
-    with xr.set_options(enable_cftimeindex=True):
-        result = xr.open_dataset(
-            calc.path_out['av'], autoclose=True)['recursive_condensation_rain']
+    result = xr.open_dataset(
+        calc.path_out['av'])['recursive_condensation_rain']
     _test_files_and_attrs(calc, 'av')
 
     xr.testing.assert_equal(expected, result)

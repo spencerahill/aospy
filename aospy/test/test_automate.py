@@ -1,26 +1,46 @@
 from multiprocessing import cpu_count
 from os.path import isfile
 import shutil
-import sys
 import itertools
+from unittest import mock
 
 import distributed
 import pytest
 
 from aospy import Var, Proj
-from aospy.automate import (_get_attr_by_tag, _permuted_dicts_of_specs,
-                            _get_all_objs_of_type, _merge_dicts,
-                            _input_func_py2_py3, AospyException,
-                            _user_verify, CalcSuite, _MODELS_STR, _RUNS_STR,
-                            _VARIABLES_STR, _REGIONS_STR,
-                            _compute_or_skip_on_error, submit_mult_calcs,
-                            _n_workers_for_local_cluster,
-                            _prune_invalid_time_reductions)
+from aospy.automate import (
+    _user_verify,
+    _MODELS_STR,
+    _RUNS_STR,
+    _VARIABLES_STR,
+    _REGIONS_STR,
+    _compute_or_skip_on_error,
+    _get_all_objs_of_type,
+    _get_attr_by_tag,
+    _merge_dicts,
+    _n_workers_for_local_cluster,
+    _permuted_dicts_of_specs,
+    _prune_invalid_time_reductions,
+    AospyException,
+    CalcSuite,
+    submit_mult_calcs,
+)
 from .data.objects import examples as lib
 from .data.objects.examples import (
-    example_proj, example_model, example_run, var_not_time_defined,
-    condensation_rain, convection_rain, precip, ps, sphum, globe, sahel, bk,
-    p, dp
+    example_proj,
+    example_model,
+    example_run,
+    var_not_time_defined,
+    condensation_rain,
+    convection_rain,
+    precip,
+    ps,
+    sphum,
+    globe,
+    sahel,
+    bk,
+    p,
+    dp,
 )
 
 
@@ -128,19 +148,12 @@ def test_merge_dicts():
     assert expected == _merge_dicts(dict1, dict2, dict3, dict4)
 
 
-def test_input_func_py2_py3():
-    result = _input_func_py2_py3()
-    if sys.version.startswith('3'):
-        import builtins
-        assert result is builtins.input
-    elif sys.version.startswith('2'):
-        assert result is raw_input  # noqa: F821
-
-
 def test_user_verify():
+    with mock.patch('builtins.input', return_value='YES'):
+        _user_verify()
     with pytest.raises(AospyException):
-        _user_verify(lambda x: 'no')
-    _user_verify(lambda x: 'YES')
+        with mock.patch('builtins.input', return_value='no'):
+            _user_verify()
 
 
 @pytest.mark.parametrize(
@@ -235,8 +248,7 @@ def assert_calc_files_exist(calcs, write_to_tar, dtypes_out_time):
                 assert not isfile(calc.path_tar_out)
 
 
-@pytest.mark.skipif(sys.version.startswith('2'),
-                    reason='https://github.com/spencerahill/aospy/issues/259')
+@pytest.mark.filterwarnings('ignore:Using or importing the ABCs from')
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=True, write_to_tar=False),
@@ -251,8 +263,6 @@ def test_submit_mult_calcs_external_client(calcsuite_init_specs_single_calc,
         calcsuite_init_specs_single_calc['output_time_regional_reductions'])
 
 
-@pytest.mark.skipif(sys.version.startswith('2'),
-                    reason='https://github.com/spencerahill/aospy/issues/259')
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=False, write_to_tar=False),
@@ -278,8 +288,6 @@ def test_submit_mult_calcs_no_calcs(calcsuite_init_specs):
         submit_mult_calcs(specs)
 
 
-@pytest.mark.skipif(sys.version.startswith('2'),
-                    reason='https://github.com/spencerahill/aospy/issues/259')
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=True, write_to_tar=False),
@@ -294,8 +302,6 @@ def test_submit_two_calcs_external_client(calcsuite_init_specs_two_calcs,
         calcsuite_init_specs_two_calcs['output_time_regional_reductions'])
 
 
-@pytest.mark.skipif(sys.version.startswith('2'),
-                    reason='https://github.com/spencerahill/aospy/issues/259')
 @pytest.mark.parametrize(
     ('exec_options'),
     [dict(parallelize=False, write_to_tar=False),

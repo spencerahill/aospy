@@ -5,30 +5,45 @@ import os
 import unittest
 import warnings
 
+from cftime import DatetimeNoLeap
 import numpy as np
 import pytest
 import xarray as xr
 
-from cftime import DatetimeNoLeap
-
 from aospy import Var
-from aospy.data_loader import (DataLoader, DictDataLoader, GFDLDataLoader,
-                               NestedDictDataLoader, grid_attrs_to_aospy_names,
-                               set_grid_attrs_as_coords, _sel_var,
-                               _prep_time_data,
-                               _preprocess_and_rename_grid_attrs,
-                               _maybe_cast_to_float64)
-from aospy.internal_names import (LAT_STR, LON_STR, TIME_STR, TIME_BOUNDS_STR,
-                                  BOUNDS_STR, SFC_AREA_STR, ETA_STR, PHALF_STR,
-                                  TIME_WEIGHTS_STR, GRID_ATTRS, ZSURF_STR)
+from aospy.data_loader import (
+    DataLoader,
+    DictDataLoader,
+    GFDLDataLoader,
+    NestedDictDataLoader,
+    grid_attrs_to_aospy_names,
+    set_grid_attrs_as_coords,
+    _sel_var,
+    _preprocess_and_rename_grid_attrs,
+    _maybe_cast_to_float64,
+)
+from aospy.internal_names import (
+    LAT_STR,
+    LON_STR,
+    TIME_STR,
+    TIME_BOUNDS_STR,
+    BOUNDS_STR,
+    SFC_AREA_STR,
+    ETA_STR,
+    PHALF_STR,
+    GRID_ATTRS,
+    ZSURF_STR,
+)
 from aospy.utils import io
-from .data.objects.examples import (condensation_rain, convection_rain, precip,
-                                    file_map, ROOT_PATH, example_model, bk)
-
-
-def _open_ds_catch_warnings(path):
-    with warnings.catch_warnings(record=True):
-        return xr.open_dataset(path)
+from .data.objects.examples import (
+    condensation_rain,
+    convection_rain,
+    precip,
+    file_map,
+    ROOT_PATH,
+    example_model,
+    bk,
+)
 
 
 @pytest.mark.parametrize(
@@ -72,7 +87,7 @@ def var_name():
 
 
 @pytest.fixture()
-def ds(alt_lat_str, var_name):
+def ds_with_time_bounds(alt_lat_str, var_name):
     time_bounds = np.array([[0, 31], [31, 59], [59, 90]])
     bounds = np.array([0, 1])
     time = np.array([15, 46, 74])
@@ -94,14 +109,14 @@ def ds(alt_lat_str, var_name):
 
 
 @pytest.fixture()
-def inst_ds(ds):
+def ds_inst(ds_with_time_bounds):
     inst_time = np.array([3, 6, 9])
     inst_units_str = 'hours since 2000-01-01 00:00:00'
-    inst_ds = ds.copy()
-    inst_ds.drop(TIME_BOUNDS_STR)
-    inst_ds[TIME_STR].values = inst_time
-    inst_ds[TIME_STR].attrs['units'] = inst_units_str
-    return inst_ds
+    ds_inst = ds_with_time_bounds.copy()
+    ds_inst.drop(TIME_BOUNDS_STR)
+    ds_inst[TIME_STR].values = inst_time
+    ds_inst[TIME_STR].attrs['units'] = inst_units_str
+    return ds_inst
 
 
 def _gfdl_data_loader_kwargs(data_start_date, data_end_date):
@@ -152,20 +167,19 @@ def gfdl_data_loader(request):
     return data_loader_type(**kwargs)
 
 
-def test_rename_grid_attrs_ds(ds, alt_lat_str):
-    assert LAT_STR not in ds
-    assert alt_lat_str in ds
-    ds = grid_attrs_to_aospy_names(ds)
+def test_rename_grid_attrs_ds(ds_with_time_bounds, alt_lat_str):
+    assert LAT_STR not in ds_with_time_bounds
+    assert alt_lat_str in ds_with_time_bounds
+    ds = grid_attrs_to_aospy_names(ds_with_time_bounds)
     assert LAT_STR in ds
 
 
-def test_rename_grid_attrs_dim_no_coord(ds, var_name):
+def test_rename_grid_attrs_dim_no_coord(ds_with_time_bounds, var_name):
     bounds_dim = 'nv'
-    assert bounds_dim not in ds
+    assert bounds_dim not in ds_with_time_bounds
     assert bounds_dim in GRID_ATTRS[BOUNDS_STR]
-    # Create DataArray with all dims lacking coords
-    values = ds[var_name].values
-    arr = xr.DataArray(values, name='dummy')
+    # Create DataArray with all dims lacking coords.
+    arr = xr.DataArray(ds_with_time_bounds[var_name].values, name='dummy')
     # Insert name to be replaced (its physical meaning doesn't matter here)
     ds = arr.rename({'dim_0': bounds_dim}).to_dataset()
     assert not ds[bounds_dim].coords
@@ -173,42 +187,42 @@ def test_rename_grid_attrs_dim_no_coord(ds, var_name):
     assert not result[BOUNDS_STR].coords
 
 
-def test_rename_grid_attrs_skip_scalar_dim(ds):
+def test_rename_grid_attrs_skip_scalar_dim(ds_with_time_bounds):
     phalf_dim = 'phalf'
-    assert phalf_dim not in ds
+    assert phalf_dim not in ds_with_time_bounds
     assert phalf_dim in GRID_ATTRS[PHALF_STR]
-    ds_copy = ds.copy()
+    ds_copy = ds_with_time_bounds.copy()
     ds_copy[phalf_dim] = 4
     ds_copy = ds_copy.set_coords(phalf_dim)
     result = grid_attrs_to_aospy_names(ds_copy)
     xr.testing.assert_identical(result[phalf_dim], ds_copy[phalf_dim])
 
 
-def test_rename_grid_attrs_copy_attrs(ds, alt_lat_str):
+def test_rename_grid_attrs_copy_attrs(ds_with_time_bounds, alt_lat_str):
     orig_attrs = {'dummy_key': 'dummy_val'}
-    ds_orig = ds.copy()
+    ds_orig = ds_with_time_bounds.copy()
     ds_orig[alt_lat_str].attrs = orig_attrs
     ds = grid_attrs_to_aospy_names(ds_orig)
     assert ds[LAT_STR].attrs == orig_attrs
 
 
-def test_rename_grid_attrs_custom(ds, alt_lat_str):
-    assert LAT_STR not in ds
-    ds = ds.rename({alt_lat_str: 'custom_lat_name'})
+def test_rename_grid_attrs_custom(ds_with_time_bounds, alt_lat_str):
+    assert LAT_STR not in ds_with_time_bounds
+    ds = ds_with_time_bounds.rename({alt_lat_str: 'custom_lat_name'})
     ds = grid_attrs_to_aospy_names(ds, {LAT_STR: 'custom_lat_name'})
     assert LAT_STR in ds
     assert 'custom_lat_name' not in ds
 
 
-def test_rename_grid_attrs_custom_error(ds, alt_lat_str):
-    assert LAT_STR not in ds
-    ds = ds.rename({alt_lat_str: 'custom_lat_name'})
+def test_rename_grid_attrs_custom_error(ds_with_time_bounds, alt_lat_str):
+    assert LAT_STR not in ds_with_time_bounds
+    ds = ds_with_time_bounds.rename({alt_lat_str: 'custom_lat_name'})
     with pytest.raises(ValueError):
         ds = grid_attrs_to_aospy_names(ds, {alt_lat_str: 'custom_lat_name'})
 
 
-def test_set_grid_attrs_as_coords(ds, var_name):
-    ds = grid_attrs_to_aospy_names(ds)
+def test_set_grid_attrs_as_coords(ds_with_time_bounds, var_name):
+    ds = grid_attrs_to_aospy_names(ds_with_time_bounds)
     sfc_area = ds[var_name].isel(**{TIME_STR: 0}).drop(TIME_STR)
     ds[SFC_AREA_STR] = sfc_area
 
@@ -238,9 +252,9 @@ def test_sel_var():
         _sel_var(ds, precip)
 
 
-def test_maybe_apply_time_shift(data_loader, ds, inst_ds, var_name,
-                                generate_file_set_args):
-    ds = xr.decode_cf(ds)
+def test_maybe_apply_time_shift(data_loader, ds_with_time_bounds, ds_inst,
+                                var_name, generate_file_set_args):
+    ds = xr.decode_cf(ds_with_time_bounds)
     da = ds[var_name]
 
     result = data_loader._maybe_apply_time_shift(
@@ -257,21 +271,21 @@ def test_maybe_apply_time_shift(data_loader, ds, inst_ds, var_name,
     assert result.identical(expected)
 
 
-def test_maybe_apply_time_shift_ts(gfdl_data_loader, ds, var_name,
-                                   generate_file_set_args):
-    ds = xr.decode_cf(ds)
+def test_maybe_apply_time_shift_ts(gfdl_data_loader, ds_with_time_bounds,
+                                   var_name, generate_file_set_args):
+    ds = xr.decode_cf(ds_with_time_bounds)
     da = ds[var_name]
     result = gfdl_data_loader._maybe_apply_time_shift(
         da.copy(), **generate_file_set_args)[TIME_STR]
     assert result.identical(da[TIME_STR])
 
 
-def test_maybe_apply_time_shift_inst(gfdl_data_loader, inst_ds, var_name,
+def test_maybe_apply_time_shift_inst(gfdl_data_loader, ds_inst, var_name,
                                      generate_file_set_args):
-    inst_ds = xr.decode_cf(inst_ds)
+    ds_inst = xr.decode_cf(ds_inst)
     generate_file_set_args['dtype_in_time'] = 'inst'
     generate_file_set_args['intvl_in'] = '3hr'
-    da = inst_ds[var_name]
+    da = ds_inst[var_name]
     result = gfdl_data_loader._maybe_apply_time_shift(
         da.copy(), **generate_file_set_args)[TIME_STR]
 
@@ -280,7 +294,7 @@ def test_maybe_apply_time_shift_inst(gfdl_data_loader, inst_ds, var_name,
     assert result.identical(expected)
 
     generate_file_set_args['intvl_in'] = 'daily'
-    da = inst_ds[var_name]
+    da = ds_inst[var_name]
     result = gfdl_data_loader._maybe_apply_time_shift(
         da.copy(), **generate_file_set_args)[TIME_STR]
 
@@ -289,13 +303,7 @@ def test_maybe_apply_time_shift_inst(gfdl_data_loader, inst_ds, var_name,
     assert result.identical(expected)
 
 
-def test_prep_time_data(inst_ds):
-    assert (TIME_WEIGHTS_STR not in inst_ds)
-    ds = _prep_time_data(inst_ds)
-    assert (TIME_WEIGHTS_STR in ds)
-
-
-def test_preprocess_and_rename_grid_attrs(ds, alt_lat_str):
+def test_preprocess_and_rename_grid_attrs(ds_with_time_bounds, alt_lat_str):
     def preprocess_func(ds, **kwargs):
         # Corrupt a grid attribute name so that we test
         # that grid_attrs_to_aospy_names is still called
@@ -304,14 +312,15 @@ def test_preprocess_and_rename_grid_attrs(ds, alt_lat_str):
         ds.attrs['a'] = 'b'
         return ds
 
-    assert LAT_STR not in ds
-    assert alt_lat_str in ds
-    assert LON_STR in ds
+    assert LAT_STR not in ds_with_time_bounds
+    assert alt_lat_str in ds_with_time_bounds
+    assert LON_STR in ds_with_time_bounds
 
-    expected = ds.rename({alt_lat_str: LAT_STR})
+    expected = ds_with_time_bounds.rename({alt_lat_str: LAT_STR})
     expected = expected.set_coords(TIME_BOUNDS_STR)
     expected.attrs['a'] = 'b'
-    result = _preprocess_and_rename_grid_attrs(preprocess_func)(ds)
+    result = _preprocess_and_rename_grid_attrs(preprocess_func)(
+        ds_with_time_bounds)
     xr.testing.assert_identical(result, expected)
 
 
@@ -347,7 +356,7 @@ def test_generate_file_set(data_loader, generate_file_set_args):
             data_loader._generate_file_set(**generate_file_set_args)
 
 
-def test_overriding_constructor(gfdl_data_loader, ds):
+def test_overriding_constructor(gfdl_data_loader, ds_with_time_bounds):
     new = GFDLDataLoader(gfdl_data_loader,
                          data_direc=os.path.join('.', 'a'))
     assert new.data_direc == os.path.join('.', 'a')
@@ -369,7 +378,8 @@ def test_overriding_constructor(gfdl_data_loader, ds):
     assert new.data_end_date == datetime.datetime(2003, 12, 31)
 
     new = GFDLDataLoader(gfdl_data_loader, preprocess_func=lambda ds: ds)
-    xr.testing.assert_identical(new.preprocess_func(ds), ds)
+    xr.testing.assert_identical(new.preprocess_func(ds_with_time_bounds),
+                                ds_with_time_bounds)
 
     new = GFDLDataLoader(gfdl_data_loader, upcast_float32=True)
     assert new.upcast_float32
@@ -582,7 +592,7 @@ def test_load_variable(load_variable_data_loader, start_date, end_date):
         condensation_rain, start_date, end_date, intvl_in='monthly')
     filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                             '00050101.precip_monthly.nc')
-    expected = _open_ds_catch_warnings(filepath)['condensation_rain']
+    expected = xr.open_dataset(filepath)['condensation_rain']
     np.testing.assert_array_equal(result.values, expected.values)
 
 
@@ -715,7 +725,7 @@ def test_load_variable_non_0001_refdate(load_variable_data_loader, year):
         intvl_in='monthly')
     filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                             '000{}0101.precip_monthly.nc'.format(year))
-    expected = _open_ds_catch_warnings(filepath)['condensation_rain']
+    expected = xr.open_dataset(filepath)['condensation_rain']
     np.testing.assert_allclose(result.values, expected.values)
 
 
@@ -733,7 +743,7 @@ def test_load_variable_preprocess(load_variable_data_loader):
         intvl_in='monthly')
     filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                             '00050101.precip_monthly.nc')
-    expected = 10. * _open_ds_catch_warnings(filepath)['condensation_rain']
+    expected = 10. * xr.open_dataset(filepath)['condensation_rain']
     np.testing.assert_allclose(result.values, expected.values)
 
     result = load_variable_data_loader.load_variable(
@@ -742,7 +752,7 @@ def test_load_variable_preprocess(load_variable_data_loader):
         intvl_in='monthly')
     filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                             '00040101.precip_monthly.nc')
-    expected = _open_ds_catch_warnings(filepath)['condensation_rain']
+    expected = xr.open_dataset(filepath)['condensation_rain']
     np.testing.assert_allclose(result.values, expected.values)
 
 
@@ -771,7 +781,7 @@ def test_recursively_compute_variable_native(load_variable_data_loader):
         intvl_in='monthly')
     filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                             '00050101.precip_monthly.nc')
-    expected = _open_ds_catch_warnings(filepath)['condensation_rain']
+    expected = xr.open_dataset(filepath)['condensation_rain']
     np.testing.assert_array_equal(result.values, expected.values)
 
 
@@ -784,7 +794,7 @@ def test_recursively_compute_variable_one_level(load_variable_data_loader):
         intvl_in='monthly')
     filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                             '00050101.precip_monthly.nc')
-    expected = 2. * _open_ds_catch_warnings(filepath)['condensation_rain']
+    expected = 2. * xr.open_dataset(filepath)['condensation_rain']
     np.testing.assert_array_equal(result.values, expected.values)
 
 
@@ -800,7 +810,7 @@ def test_recursively_compute_variable_multi_level(load_variable_data_loader):
         intvl_in='monthly')
     filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                             '00050101.precip_monthly.nc')
-    expected = 3. * _open_ds_catch_warnings(filepath)['condensation_rain']
+    expected = 3. * xr.open_dataset(filepath)['condensation_rain']
     np.testing.assert_array_equal(result.values, expected.values)
 
 
@@ -811,7 +821,7 @@ def test_recursively_compute_grid_attr(load_variable_data_loader):
         intvl_in='monthly')
     filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                             '00060101.sphum_monthly.nc')
-    expected = _open_ds_catch_warnings(filepath)['bk']
+    expected = xr.open_dataset(filepath)['bk']
     np.testing.assert_array_equal(result.values, expected.values)
 
 
@@ -828,7 +838,7 @@ def test_recursively_compute_grid_attr_multi_level(load_variable_data_loader):
         intvl_in='monthly')
     filepath = os.path.join(os.path.split(ROOT_PATH)[0], 'netcdf',
                             '00060101.sphum_monthly.nc')
-    expected = 3 * _open_ds_catch_warnings(filepath)['bk']
+    expected = 3 * xr.open_dataset(filepath)['bk']
     np.testing.assert_array_equal(result.values, expected.values)
 
 
