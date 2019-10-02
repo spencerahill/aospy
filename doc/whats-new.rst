@@ -1,8 +1,8 @@
 .. _whats-new:
 
-##########
-What's New
-##########
+============
+ What's New
+============
 
 .. _whats-new.0.3.2:
 
@@ -28,6 +28,18 @@ Enhancements
 - Remove obsolete checks for Python 2 vs. 3 and for obsolete warnings
   relating to bugs and/or warnings in past xarray versions no longer
   supported (:pull:`324`).  By `Spencer Hill
+  <https://github.com/spencerahill>`_.
+
+Testing
+-------
+
+- aospy now uses [Azure
+  Pipelines](https://azure.microsoft.com/en-us/services/devops/pipelines/)
+  for our continuous integration (CI) testing on all platforms (Linux,
+  Mac, and Windows) and Codecov.io for reporting test coverage.
+  Previously, Travis CI handled tests on Linux, there were no tests on
+  Mac, AppVeyor (which routinely gave us headaches) handled Windows,
+  and Coveralls handled test coverage (:pull:`328`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
 
 

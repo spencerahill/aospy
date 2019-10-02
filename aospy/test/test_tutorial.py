@@ -7,12 +7,6 @@ import pytest
 import aospy
 
 
-ON_WINDOWS = sys.platform == 'win32' or sys.platform == 'win64'
-
-
-@pytest.mark.skipif(
-    ON_WINDOWS, reason='This method of running Jupyter '
-    'notebooks on AppVeyor no longer seems to work.')
 def test_tutorial_notebook():
     pytest.importorskip('nbformat')
     pytest.importorskip('nbconvert')
