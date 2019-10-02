@@ -21,6 +21,8 @@ import os
 import sys
 
 import aospy
+import sphinx_rtd_theme
+
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -51,8 +53,10 @@ extensions = [
 
 # Allow for the creation of links to issues and pull requests via
 # :issue:`XXX` or :pull:`XXX` respectively.
-extlinks = {'issue': ('https://github.com/spencerahill/aospy/issues/%s', 'GH'),
-            'pull': ('https://github.com/spencerahill/aospy/pull/%s', 'PR')}
+extlinks = {
+    'issue': ('https://github.com/spencerahill/aospy/issues/%s', 'GH'),
+    'pull': ('https://github.com/spencerahill/aospy/pull/%s', 'PR'),
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -142,7 +146,6 @@ todo_include_todos = True
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-import sphinx_rtd_theme
 html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -169,8 +172,8 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 # html_logo = None
 
 # The name of an image file (relative to this directory) to use as a favicon of
-# the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
-# pixels large.
+# the docs.  This file should be a Windows icon file (.ico) being 16x16 or
+# 32x32 pixels large.
 #
 # html_favicon = None
 

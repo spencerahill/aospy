@@ -1,11 +1,10 @@
-name: test_env
+name: aospy-tests
 channels:
   - conda-forge
 dependencies:
-  - python=3.5
+  - python=3.6
   - scipy
   - netCDF4
-  - xarray
   - dask
   - distributed
   - pytest
@@ -16,3 +15,4 @@ dependencies:
   - pip:
     - coveralls
     - pytest-cov
+    - git+https://github.com/pydata/xarray.git

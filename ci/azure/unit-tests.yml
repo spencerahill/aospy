@@ -1,0 +1,26 @@
+steps:
+
+- template: install.yml
+
+- bash: |
+    source activate aospy-tests
+    python -OO -c "import aospy"
+  displayName: Import aospy
+
+- bash: |
+    source activate aospy-tests
+    pytest aospy --junitxml=junit/test-results.xml \
+    --cov=aospy --cov-config=ci/.coveragerc --cov-report=xml $EXTRA_FLAGS
+  displayName: Run tests
+
+- bash: |
+    curl https://codecov.io/bash > codecov.sh
+    bash codecov.sh -t 2fbc3c54-6560-4a96-ab93-c20ad023a76c
+  displayName: Upload coverage to codecov.io
+
+- task: PublishTestResults@2
+  condition: succeededOrFailed()
+  inputs:
+    testResultsFiles: '**/test-*.xml'
+    failTaskOnFailedTests: true
+    testRunTitle: 'Test results for Python $(conda_env) $(pytest_extra_flags)'

@@ -3,16 +3,13 @@ aospy: automated climate data analysis and management
 
 .. image:: https://readthedocs.org/projects/aospy/badge/?version=latest
    :target: http://aospy.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
-.. image:: https://travis-ci.org/spencerahill/aospy.svg?branch=develop
-   :target: https://travis-ci.org/spencerahill/aospy
-   :alt: Travis CI Status
-.. image:: https://ci.appveyor.com/api/projects/status/4o448ga560sudry9?svg=true
-   :target: https://ci.appveyor.com/project/spencerahill/aospy
-   :alt: AppVeyor Status
-.. image:: https://coveralls.io/repos/github/spencerahill/aospy/badge.svg?branch=develop
-   :target: https://coveralls.io/github/spencerahill/aospy?branch=develop
-   :alt: Coveralls Status
+   :alt: Documentation status
+.. image:: https://dev.azure.com/spencerahill/aospy/_apis/build/status/spencerahill.aospy?branchName=master
+   :target: https://dev.azure.com/spencerahill/aospy/_build/latest?definitionId=1&branchName=master
+   :alt: Azure Pipelines status
+.. image:: https://codecov.io/gh/spencerahill/aospy/branch/develop/graph/badge.svg
+   :target: https://codecov.io/gh/spencerahill/aospy
+   :alt: Codecov status
 .. image:: https://zenodo.org/badge/37231620.svg
    :target: https://zenodo.org/badge/latestdoi/37231620
    :alt: Zenodo DOI

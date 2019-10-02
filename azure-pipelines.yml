@@ -1,0 +1,67 @@
+variables:
+  pytest_extra_flags: ''
+
+jobs:
+
+- job: Linux
+  strategy:
+    matrix:
+      py35:
+        conda_env: py35
+      py36-min:
+        conda_env: py36-min
+      py36:
+        conda_env: py36
+      py37:
+        conda_env: py37
+      py36-xarray-dev:
+        conda_env: py36-xarray-dev
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - template: ci/azure/unit-tests.yml
+
+- job: MacOSX
+  strategy:
+    matrix:
+      py36:
+        conda_env: py36
+  pool:
+    vmImage: 'macOS-10.13'
+  steps:
+  - template: ci/azure/unit-tests.yml
+
+- job: Windows
+  strategy:
+    matrix:
+      py37:
+        conda_env: py37
+  pool:
+    vmImage: 'vs2017-win2016'
+  steps:
+  - template: ci/azure/unit-tests.yml
+
+- job: CodeChecks
+  variables:
+    conda_env: py37
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - template: ci/azure/install.yml
+  - bash: |
+      source activate aospy-tests
+      flake8
+    displayName: flake8 lint checks
+
+- job: Docs
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - template: ci/azure/install.yml
+    parameters:
+      env_file: doc/environment.yml
+  - bash: |
+      source activate aospy-tests
+      cd doc
+      sphinx-build -n -j auto -b html -d _build/doctrees . _build/html
+    displayName: Build HTML docs

@@ -1,0 +1,20 @@
+parameters:
+  env_file: ci/requirements/$CONDA_ENV.yml
+
+steps:
+
+- template: add-conda-to-path.yml
+
+- bash: |
+    conda env create -n aospy-tests --file ${{ parameters.env_file }}
+  displayName: Install dependencies
+
+- bash: |
+    source activate aospy-tests
+    pip install --no-deps -e .
+  displayName: Install aospy
+
+- bash: |
+    source activate aospy-tests
+    conda list
+  displayName: Conda list

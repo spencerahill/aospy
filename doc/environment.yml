@@ -4,6 +4,7 @@ channels:
 dependencies:
   - python=3.6
   - sphinx=1.7.6
+  - sphinx_rtd_theme
   - numpy=1.14.5
   - numpydoc=0.8.0
   - scipy=1.1.0
