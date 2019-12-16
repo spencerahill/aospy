@@ -12,10 +12,12 @@ v0.3.2 (unreleased)
 Breaking Changes
 ----------------
 
-- Minimum xarray version is now v0.13.  Moving forward, we will likely
-  continue bumping this up so as to only support the most recent one
-  or two releases of xarray at any time (:pull:`324`).  By `Spencer Hill
+- Minimum python version is now 3.6 (:pull:`334`).  By `Spencer Hill
   <https://github.com/spencerahill>`_.
+- Minimum xarray version is now v0.14.1.  Moving forward, we will
+  likely continue bumping this up so as to only support the most
+  recent one or two releases of xarray at any time (:pull:`324`,
+  :pull:`334`).  By `Spencer Hill <https://github.com/spencerahill>`_.
 
 Enhancements
 ------------

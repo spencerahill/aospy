@@ -90,7 +90,7 @@ def average_time_bounds(ds):
     """
     bounds = ds[TIME_BOUNDS_STR]
     new_times = bounds.mean(dim=BOUNDS_STR, keep_attrs=True)
-    new_times = new_times.drop(TIME_STR).rename(TIME_STR)
+    new_times = new_times.drop_vars(TIME_STR).rename(TIME_STR)
     new_times[TIME_STR] = new_times
     return new_times
 
@@ -341,7 +341,7 @@ def ensure_time_avg_has_cf_metadata(ds):
         time_weights = ds[TIME_BOUNDS_STR].diff(BOUNDS_STR)
         time_weights = time_weights.rename(TIME_WEIGHTS_STR).squeeze()
         if BOUNDS_STR in time_weights.coords:
-            time_weights = time_weights.drop(BOUNDS_STR)
+            time_weights = time_weights.drop_vars(BOUNDS_STR)
         ds[TIME_WEIGHTS_STR] = time_weights
 
     raw_start_date = ds[TIME_BOUNDS_STR].isel(**{TIME_STR: 0, BOUNDS_STR: 0})

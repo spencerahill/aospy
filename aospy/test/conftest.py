@@ -77,7 +77,7 @@ def ds_with_time_bounds(ds_time_encoded_cf, alt_lat_str, var_name):
 def ds_inst(ds_with_time_bounds):
     inst_time = np.array([3, 6, 9])
     inst_units_str = 'hours since 2000-01-01 00:00:00'
-    ds = ds_with_time_bounds.drop(labels=[BOUNDS_STR, TIME_BOUNDS_STR])
+    ds = ds_with_time_bounds.drop_vars([BOUNDS_STR, TIME_BOUNDS_STR])
     ds[TIME_STR].values = inst_time
     ds[TIME_STR].attrs['units'] = inst_units_str
     ds[TIME_STR].attrs['calendar'] = 'noleap'
@@ -86,4 +86,4 @@ def ds_inst(ds_with_time_bounds):
 
 @pytest.fixture()
 def ds_no_time(ds_with_time_bounds):
-    return ds_with_time_bounds.drop(TIME_STR)
+    return ds_with_time_bounds.drop_vars(TIME_STR)

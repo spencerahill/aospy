@@ -35,7 +35,7 @@ setuptools.setup(
                       'toolz >= 0.7.2',
                       'dask >= 0.14',
                       'distributed >= 1.17.1',
-                      'xarray >= 0.13',
+                      'xarray >= 0.14.1',
                       'cloudpickle >= 0.2.1',
                       'cftime >= 1.0.0'],
     tests_require=['pytest >= 3.3'],
@@ -52,7 +52,6 @@ setuptools.setup(
         'Natural Language :: English',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Topic :: Scientific/Engineering :: Atmospheric Science'

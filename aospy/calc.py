@@ -465,7 +465,7 @@ class Calc(object):
             data_out = data
         if isinstance(data_out, xr.DataArray):
             data_out = xr.Dataset({self.name: data_out})
-        data_out.to_netcdf(path, engine='netcdf4', format='NETCDF3_64BIT')
+        data_out.to_netcdf(path, engine='netcdf4')
 
     def _write_to_tar(self, dtype_out_time):
         """Add the data to the tar file in tar_out_direc."""
@@ -540,9 +540,9 @@ class Calc(object):
             if (self.dtype_in_vert == internal_names.ETA_STR
                     and not dtype_out_vert):
                 reg_pfull_str = region.name + '_pressure'
-                arr = arr.drop([r for r in arr.coords.iterkeys()
-                                if r not in (internal_names.PFULL_STR,
-                                             reg_pfull_str)])
+                arr = arr.drop_vars([r for r in arr.coords.iterkeys()
+                                     if r not in (internal_names.PFULL_STR,
+                                                  reg_pfull_str)])
                 # Rename pfull to pfull_ref always.
                 arr = arr.rename({internal_names.PFULL_STR:
                                   internal_names.PFULL_STR + '_ref'})

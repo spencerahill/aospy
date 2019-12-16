@@ -113,7 +113,7 @@ def ds_inst(ds_with_time_bounds):
     inst_time = np.array([3, 6, 9])
     inst_units_str = 'hours since 2000-01-01 00:00:00'
     ds_inst = ds_with_time_bounds.copy()
-    ds_inst.drop(TIME_BOUNDS_STR)
+    ds_inst.drop_vars(TIME_BOUNDS_STR)
     ds_inst[TIME_STR].values = inst_time
     ds_inst[TIME_STR].attrs['units'] = inst_units_str
     return ds_inst
@@ -223,7 +223,7 @@ def test_rename_grid_attrs_custom_error(ds_with_time_bounds, alt_lat_str):
 
 def test_set_grid_attrs_as_coords(ds_with_time_bounds, var_name):
     ds = grid_attrs_to_aospy_names(ds_with_time_bounds)
-    sfc_area = ds[var_name].isel(**{TIME_STR: 0}).drop(TIME_STR)
+    sfc_area = ds[var_name].isel(**{TIME_STR: 0}).drop_vars(TIME_STR)
     ds[SFC_AREA_STR] = sfc_area
 
     assert SFC_AREA_STR not in ds.coords
@@ -665,7 +665,7 @@ def test_load_variable_data_vars_all(load_variable_data_loader,
         # This function drops the time coordinate from condensation_rain
         temp = ds[condensation_rain.name]
         temp = temp.isel(time=0, drop=True)
-        ds = ds.drop(condensation_rain.name)
+        ds = ds.drop_vars(condensation_rain.name)
         ds[condensation_rain.name] = temp
         assert TIME_STR not in ds[condensation_rain.name].coords
         return ds
